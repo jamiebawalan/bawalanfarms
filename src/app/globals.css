@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+ * Designed for a phone held one-handed in a pineapple plot at midday.
+ *
+ * That drives three things: contrast well past the accessibility minimum
+ * (there is no shade out there), tap targets you can hit without looking, and
+ * no thin grey-on-white anywhere — muted text here is #454545, not #9CA3AF.
+ */
+
+@theme {
+  --color-ink: #111111;
+  --color-ink-soft: #454545;
+  --color-paper: #ffffff;
+  --color-paper-sunk: #f2f2ef;
+  --color-line: #c9c9c4;
+  --color-line-strong: #8a8a84;
+
+  --color-brand: #15613a;
+  --color-brand-strong: #0f4a2c;
+  --color-brand-tint: #e3f1e8;
+
+  --color-money-up: #14603c;
+  --color-money-down: #9f1d1d;
+  --color-warn: #8a5300;
+  --color-warn-tint: #fdf3e0;
+  --color-danger: #a01b1b;
+  --color-danger-tint: #fbeaea;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  --text-base: 1.0625rem;
+  --radius-card: 0.875rem;
+}
+
+/* Tailwind v4 emits the tokens above as :root variables, so dark mode is a
+   matter of redefining the same names rather than a second set of utilities. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #f5f5f2;
+    --color-ink-soft: #c2c2bc;
+    --color-paper: #16171a;
+    --color-paper-sunk: #202226;
+    --color-line: #3a3d43;
+    --color-line-strong: #5d626a;
+    --color-brand: #4fb783;
+    --color-brand-strong: #6ecb9a;
+    --color-brand-tint: #163023;
+    --color-money-up: #5cc48d;
+    --color-money-down: #f08a8a;
+    --color-warn: #e6b45c;
+    --color-warn-tint: #33280f;
+    --color-danger: #f08a8a;
+    --color-danger-tint: #341a1a;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Stops iOS zooming the whole page when a number field is focused. */
+  touch-action: manipulation;
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Room for the fixed bottom navigation, plus the home indicator. */
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+}
+
+/* Numbers line up in columns and read unambiguously at a glance. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* A visible focus ring, because hover means nothing on a phone. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
