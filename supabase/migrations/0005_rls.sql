@@ -7,9 +7,24 @@
 -- To add or remove a person, insert or delete a row in app_users. There is no
 -- second list to keep in step, and no redeploy.
 
+/**
+ * The signed-in email, or null.
+ *
+ * Never raises. An unset, empty or malformed claims string has to mean "nobody
+ * is signed in" — if this throws, it throws inside every row level security
+ * policy at once, and an anonymous request gets an error instead of an empty
+ * result. Failing closed and quietly is the only acceptable behaviour here.
+ */
 create or replace function current_email()
-returns text language sql stable as $$
-  select lower(nullif(current_setting('request.jwt.claims', true)::json ->> 'email', ''));
+returns text language plpgsql stable as $$
+declare
+  raw text := current_setting('request.jwt.claims', true);
+begin
+  if raw is null or btrim(raw) = '' then return null; end if;
+  return lower(nullif(raw::json ->> 'email', ''));
+exception when others then
+  return null;
+end;
 $$;
 
 create or replace function is_allowed()

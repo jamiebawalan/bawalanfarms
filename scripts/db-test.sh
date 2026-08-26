@@ -17,7 +17,10 @@ for f in supabase/migrations/*.sql; do
   psql $PG -d "$DB" -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null
 done
 
-out=$(psql $PG -d "$DB" -v ON_ERROR_STOP=1 -q -f supabase/tests/rules.test.sql 2>&1 || true)
+out=""
+for suite in supabase/tests/*.test.sql; do
+  out="$out"$'\n'"$(psql $PG -d "$DB" -v ON_ERROR_STOP=1 -q -f "$suite" 2>&1 || true)"
+done
 echo "$out" | sed -n 's/.*NOTICE:  //p'
 if echo "$out" | grep -q 'ERROR'; then
   echo; echo "$out" | grep -B2 -A6 'ERROR'; exit 1

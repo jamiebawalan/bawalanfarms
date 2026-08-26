@@ -34,6 +34,16 @@ export async function middleware(request: NextRequest) {
   const isPublic = path.startsWith("/login") || path.startsWith("/auth");
 
   if (!user && !isPublic) {
+    // An API call must be told "no" in the language it speaks. Redirecting it
+    // to the login page returns HTML with a 200, and the offline write queue
+    // would read that as success and drop an entry the farm manager believes
+    // he saved. That is the exact failure this app exists to prevent.
+    if (path.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Your session has expired. Open the app and sign in again." },
+        { status: 401 },
+      );
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);

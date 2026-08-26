@@ -106,7 +106,7 @@ sense that matters — derived, never stored — but the arithmetic lives in
 
 Why: this farm books about 700 expense rows a year. The whole history is a few
 hundred kilobytes, so loading it and computing in one place costs nothing. What
-it buys is 118 unit tests over the money maths, including the property that an
+it buys is 133 unit tests over the money maths, including the property that an
 area split always adds back to the exact amount entered — a guarantee that is
 awkward to assert about a SQL view and essential here, because the database
 rejects a split that does not balance.

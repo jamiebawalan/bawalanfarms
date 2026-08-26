@@ -84,15 +84,17 @@ The mirror is **one way**. Nothing is ever read back from Sheets.
 ## Checks
 
 ```bash
-npm test                                        # 118 unit tests
+npm test                                        # 133 unit tests
 npm run typecheck
 npm run build
 
-PGURL="-h /tmp -p 5433 -U postgres" ./scripts/db-test.sh   # 30 database rule checks
+PGURL="-h /tmp -p 5433 -U postgres" ./scripts/db-test.sh   # 38 database checks
 ```
 
 `db-test.sh` builds a throwaway database, applies every migration to it, and
-runs the rule tests against real Postgres. It needs a Postgres you can create
+runs two suites against real Postgres: `rules.test.sql` tries to break each
+invariant, and `rls.test.sql` runs as an ordinary role to prove that an email
+not in `app_users` sees nothing at all. It needs a Postgres you can create
 databases on; pass connection flags in `PGURL`.
 
 ---

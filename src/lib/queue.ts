@@ -72,10 +72,21 @@ export async function send(item: Omit<QueuedWrite, "queuedAt" | "attempts">): Pr
   try {
     const res = await fetch(item.endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(item.body),
     });
-    if (res.ok) return { ok: true };
+    // A 2xx carrying HTML means something answered that was not the API — a
+    // login page, a proxy, a captive portal on the way into town. Treating that
+    // as success would lose the entry silently, so it waits on the phone.
+    if (res.ok && isJson(res)) return { ok: true };
+    if (res.ok) {
+      enqueue(item);
+      return { ok: false, queued: true };
+    }
+
+    if (res.status === 401) {
+      return { ok: false, queued: false, error: "Signed out — sign in and save again." };
+    }
 
     if (res.status >= 500) {
       enqueue(item);
@@ -101,11 +112,21 @@ export async function flush(): Promise<{ sent: number; remaining: number }> {
     try {
       const res = await fetch(item.endpoint, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify(item.body),
       });
-      if (res.ok) {
+      if (res.ok && isJson(res)) {
         sent += 1;
+        continue;
+      }
+      if (res.ok || res.status === 401) {
+        // Answered by something that is not the API, or the session has gone.
+        // Either way the entry is still unsaved, so it keeps waiting.
+        still.push({
+          ...item,
+          attempts: item.attempts + 1,
+          lastError: res.status === 401 ? "Sign in again" : "No connection",
+        });
         continue;
       }
       if (res.status < 500) {
@@ -143,6 +164,10 @@ export function startAutoFlush(): () => void {
     window.removeEventListener("online", run);
     window.clearInterval(timer);
   };
+}
+
+function isJson(res: Response): boolean {
+  return (res.headers.get("content-type") ?? "").includes("application/json");
 }
 
 export function newId(): string {
