@@ -1,0 +1,18 @@
+{
+  "name": "Farm Tracker",
+  "short_name": "Farm",
+  "description": "Costs, harvests and sales, by plot and by crop cycle",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#15613a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Log a cost", "url": "/expenses/new" },
+    { "name": "Log a sale", "url": "/sales/new" }
+  ]
+}

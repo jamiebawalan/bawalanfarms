@@ -133,6 +133,11 @@ export function makeLedger(): Ledger {
       { code: "primera", label: "Primera", sortOrder: 1, isGrade: true },
       { code: "segunda", label: "Segunda", sortOrder: 2, isGrade: true },
     ],
+    crops: [
+      { code: "pineapple", label: "Pineapple" },
+      { code: "peanut", label: "Peanut" },
+      { code: "mango", label: "Mango" },
+    ],
     activities: [
       { code: "deweed", label: "Deweed", activityGroup: "Crop care", defaultCategory: "Labor" },
       { code: "food", label: "Food", activityGroup: "Inputs", defaultCategory: "Farm Inputs" },

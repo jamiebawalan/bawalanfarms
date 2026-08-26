@@ -220,4 +220,106 @@ select assert_accepts($$
   union all select e.id, i.plot3, null::uuid, 80000 from e, ids i $$,
   'a well-formed split expense saves');
 
+-- 14. save_expense: one call, one transaction ---------------------------------
+select assert_accepts($$
+  select save_expense(jsonb_build_object(
+    'id', '44444444-4444-4444-4444-444444444444',
+    'date', current_date::text,
+    'category', 'Labor',
+    'activity', 'deweed',
+    'attribution', 'direct',
+    'labour_mode', 'daily',
+    'unit_price_centavos', 45000,
+    'quantity', 4,
+    'amount_centavos', 180000,
+    'allocations', jsonb_build_array(
+      jsonb_build_object('plot_id', (select plot1 from ids)::text,
+                         'amount_centavos', 180000))
+  )) $$,
+  'save_expense writes an expense and its allocation together');
+
+do $$
+declare got uuid;
+begin
+  -- The cycle was never named, so it has to have been derived from the plot
+  -- and the date. This is what lets him log a cost without thinking about
+  -- cycles at all.
+  select cycle_id into got from expense_allocations
+   where expense_id = '44444444-4444-4444-4444-444444444444';
+  if got is distinct from '11111111-1111-1111-1111-111111111111' then
+    raise exception 'TEST FAILED: cycle was not derived, got %', got;
+  end if;
+  raise notice 'ok  save_expense derives the cycle from the plot and the date';
+end $$;
+
+do $$
+declare n int;
+begin
+  -- Replaying a queued write must not double it up.
+  perform save_expense(jsonb_build_object(
+    'id', '44444444-4444-4444-4444-444444444444',
+    'date', current_date::text, 'category', 'Labor', 'activity', 'deweed',
+    'attribution', 'direct', 'amount_centavos', 180000,
+    'allocations', jsonb_build_array(
+      jsonb_build_object('plot_id', (select plot1 from ids)::text,
+                         'amount_centavos', 180000))));
+  select count(*) into n from expenses where id = '44444444-4444-4444-4444-444444444444';
+  if n <> 1 then raise exception 'TEST FAILED: replay created % rows', n; end if;
+  select count(*) into n from expense_allocations
+   where expense_id = '44444444-4444-4444-4444-444444444444';
+  if n <> 1 then raise exception 'TEST FAILED: replay created % allocations', n; end if;
+  raise notice 'ok  replaying a queued write is a no-op, not a duplicate';
+end $$;
+
+select assert_rejects($$
+  select save_expense(jsonb_build_object(
+    'id', '55555555-5555-5555-5555-555555555555',
+    'date', current_date::text, 'category', 'Labor', 'activity', 'deweed',
+    'attribution', 'split', 'amount_centavos', 100000,
+    'allocations', jsonb_build_array(
+      jsonb_build_object('plot_id', (select plot1 from ids)::text, 'amount_centavos', 40000),
+      jsonb_build_object('plot_id', (select plot3 from ids)::text, 'amount_centavos', 40000))
+  )) $$,
+  'save_expense refuses a split that does not add up');
+
+-- 15. A capital purchase creates its asset in the same call --------------------
+do $$
+declare asset uuid;
+begin
+  perform save_expense(jsonb_build_object(
+    'date', current_date::text, 'category', 'Machines', 'activity', 'other',
+    'activity_other_note', 'Knapsack sprayer purchase',
+    'attribution', 'capital', 'amount_centavos', 600000,
+    'new_capital_asset', jsonb_build_object('name', 'Knapsack sprayer',
+                                            'useful_life_months', 60)));
+  select capital_asset_id into asset from expenses
+   where attribution = 'capital' order by created_at desc limit 1;
+  if asset is null then raise exception 'TEST FAILED: no asset was created'; end if;
+  if not exists (select 1 from capital_assets where id = asset and name = 'Knapsack sprayer') then
+    raise exception 'TEST FAILED: the asset register does not match the ledger';
+  end if;
+  raise notice 'ok  a capital purchase creates its asset in the same call';
+end $$;
+
+-- 16. Closing and reopening ---------------------------------------------------
+do $$
+begin
+  perform close_cycle('11111111-1111-1111-1111-111111111111', current_date);
+  if (select status from crop_cycles where id = '11111111-1111-1111-1111-111111111111')
+     <> 'closed' then
+    raise exception 'TEST FAILED: cycle did not close';
+  end if;
+  raise notice 'ok  closing a cycle stamps its close date';
+end $$;
+
+-- With c1 closed, a fresh cycle starts on the same plot. Reopening the old one
+-- would put two live cycles on one plot, so it has to be refused with a reason
+-- rather than a bare unique-index violation.
+insert into crop_cycles (plot_id, crop, status, date_started)
+select plot1, 'peanut', 'land_prep', current_date from ids;
+
+select assert_rejects($$
+  select reopen_cycle('11111111-1111-1111-1111-111111111111') $$,
+  'a cycle cannot reopen while another is running on the same plot');
+
 rollback;

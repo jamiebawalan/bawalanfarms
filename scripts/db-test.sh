@@ -9,7 +9,8 @@ cd "$(dirname "$0")/.."
 PG="${PGURL:-}"
 DB="${TESTDB:-farm_rules_test}"
 
-psql $PG -d postgres -q -c "set client_min_messages to warning; drop database if exists $DB" -c "create database $DB"
+psql $PG -d postgres -q -c "drop database if exists $DB" -c "create database $DB" 2>/dev/null ||
+  { psql $PG -d postgres -q -c "drop database if exists $DB"; psql $PG -d postgres -q -c "create database $DB"; }
 trap 'psql $PG -d postgres -q -c "drop database if exists $DB" >/dev/null 2>&1 || true' EXIT
 
 for f in supabase/migrations/*.sql; do

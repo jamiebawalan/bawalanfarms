@@ -166,6 +166,7 @@ export type CapitalAsset = {
 };
 
 export type Buyer = { id: string; name: string };
+export type Crop = { code: string; label: string };
 export type Product = { code: string; label: string; sortOrder: number; isGrade: boolean };
 export type Activity = {
   code: string;
@@ -192,11 +193,12 @@ export type Ledger = {
   buyers: Buyer[];
   products: Product[];
   activities: Activity[];
+  crops: Crop[];
 };
 
 export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
   purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
-  activities: [],
+  activities: [], crops: [],
 };
