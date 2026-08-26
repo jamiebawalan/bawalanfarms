@@ -322,4 +322,91 @@ select assert_rejects($$
   select reopen_cycle('11111111-1111-1111-1111-111111111111') $$,
   'a cycle cannot reopen while another is running on the same plot');
 
+-- 17. The import is transactional, idempotent and honest ----------------------
+update app_users set role = 'owner' where email = 'owner@example.com';
+select set_config('request.jwt.claims', '{"email":"owner@example.com"}', true);
+
+do $$
+declare result jsonb; n int;
+begin
+  result := import_expenses(jsonb_build_object('expenses', jsonb_build_array(
+    jsonb_build_object(
+      'import_key', 'sheet:2', 'date', '2024-03-01', 'category', 'Labor',
+      'activity', 'deweed', 'attribution', 'direct', 'amount_centavos', 180000,
+      'allocations', jsonb_build_array(jsonb_build_object(
+        'plot_id', (select plot1 from ids)::text, 'amount_centavos', 180000))),
+    jsonb_build_object(
+      'import_key', 'sheet:3', 'date', '2024-03-02', 'category', 'Machines',
+      'activity', 'barang', 'attribution', 'farm_wide',
+      'farm_wide_reason', 'vehicle', 'amount_centavos', 50000,
+      'allocations', '[]'::jsonb)
+  )));
+  if (result ->> 'written')::int <> 2 then
+    raise exception 'TEST FAILED: wrote % rows', result ->> 'written';
+  end if;
+  raise notice 'ok  the import writes rows and reports how many';
+end $$;
+
+do $$
+declare got uuid;
+begin
+  -- The 1 March cost has to have found the cycle that was running that day.
+  select a.cycle_id into got from expense_allocations a
+    join expenses e on e.id = a.expense_id where e.import_key = 'sheet:2';
+  if got is distinct from '11111111-1111-1111-1111-111111111111' then
+    raise exception 'TEST FAILED: historical cost did not attach, got %', got;
+  end if;
+  raise notice 'ok  a backdated cost attaches to the cycle open on that date';
+end $$;
+
+do $$
+declare result jsonb; n int;
+begin
+  -- Re-importing a corrected file replaces those rows rather than doubling them.
+  result := import_expenses(jsonb_build_object('expenses', jsonb_build_array(
+    jsonb_build_object(
+      'import_key', 'sheet:2', 'date', '2024-03-01', 'category', 'Labor',
+      'activity', 'deweed', 'attribution', 'direct', 'amount_centavos', 999900,
+      'allocations', jsonb_build_array(jsonb_build_object(
+        'plot_id', (select plot1 from ids)::text, 'amount_centavos', 999900))))));
+  if (result ->> 'replaced')::int <> 1 then
+    raise exception 'TEST FAILED: replaced % rows', result ->> 'replaced';
+  end if;
+  select count(*) into n from expenses where import_key = 'sheet:2';
+  if n <> 1 then raise exception 'TEST FAILED: re-import left % rows', n; end if;
+  select count(*) into n from expenses where amount_centavos = 999900;
+  if n <> 1 then raise exception 'TEST FAILED: the correction did not take'; end if;
+  raise notice 'ok  re-importing a corrected file replaces rows, never doubles them';
+end $$;
+
+do $$
+declare before_count int; after_count int;
+begin
+  -- A bad batch must leave nothing behind, not a partial file.
+  select count(*) into before_count from expenses;
+  begin
+    perform import_expenses(jsonb_build_object('expenses', jsonb_build_array(
+      jsonb_build_object(
+        'import_key', 'bad:2', 'date', '2024-03-01', 'category', 'Labor',
+        'activity', 'deweed', 'attribution', 'direct', 'amount_centavos', 100000,
+        'allocations', jsonb_build_array(jsonb_build_object(
+          'plot_id', (select plot1 from ids)::text, 'amount_centavos', 100000))),
+      jsonb_build_object(
+        'import_key', 'bad:3', 'date', '2024-03-02', 'category', 'Labor',
+        'activity', 'deweed', 'attribution', 'split', 'amount_centavos', 100000,
+        'allocations', jsonb_build_array(jsonb_build_object(
+          'plot_id', (select plot1 from ids)::text, 'amount_centavos', 40000)))
+    )));
+    raise exception 'TEST FAILED: a malformed batch was accepted';
+  exception when others then
+    if sqlerrm like 'TEST FAILED%' then raise; end if;
+  end;
+  select count(*) into after_count from expenses;
+  if after_count <> before_count then
+    raise exception 'TEST FAILED: a failed import left % rows behind',
+      after_count - before_count;
+  end if;
+  raise notice 'ok  a batch that fails halfway leaves nothing behind';
+end $$;
+
 rollback;
