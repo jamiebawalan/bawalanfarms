@@ -280,6 +280,9 @@ export default async function CyclePage({
       <CycleActions
         cycleId={cycle.id}
         status={cycle.status}
+        dateStarted={cycle.dateStarted}
+        datePlanted={cycle.datePlanted}
+        dateClosed={cycle.dateClosed}
         latestCount={counts[0] ? { date: counts[0].date, count: counts[0].count } : null}
         countHistory={counts.map((c) => ({ date: c.date, count: c.count }))}
       />

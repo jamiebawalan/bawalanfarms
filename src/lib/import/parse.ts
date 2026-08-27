@@ -47,9 +47,10 @@ export type ParseResult = {
 const COLUMNS: Record<string, string[]> = {
   date: ["date", "day", "petsa"],
   category: ["category", "type", "cost type", "expense category"],
-  activity: ["activity", "particulars", "description", "work", "details", "item"],
+  activity: ["activity", "expense", "particulars", "particular", "description",
+             "work", "details", "item", "expense detail"],
   plots: ["plot", "plots", "plot no", "plot number", "plot ids", "lote"],
-  amount: ["amount", "total", "cost", "peso", "php", "halaga"],
+  amount: ["amount", "total", "cost", "peso", "php", "halaga", "amount php"],
   unitPrice: ["unit price", "rate", "price", "per unit", "unit cost"],
   quantity: ["quantity", "qty", "count", "people", "no of people", "pax", "days"],
   labourMode: ["labour mode", "labor mode", "mode", "pakyaw"],
