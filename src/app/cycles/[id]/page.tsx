@@ -280,6 +280,7 @@ export default async function CyclePage({
       <CycleActions
         cycleId={cycle.id}
         status={cycle.status}
+        crop={cycle.crop}
         dateStarted={cycle.dateStarted}
         datePlanted={cycle.datePlanted}
         dateClosed={cycle.dateClosed}

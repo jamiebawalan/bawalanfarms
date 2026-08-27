@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Field, Input, Note } from "./ui";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import type { CycleStatus } from "@/lib/domain/types";
+import { isCountedPerPlant } from "@/lib/domain/crops";
 
 const NEXT_STATUS: Record<string, CycleStatus | null> = {
   planned: "land_prep",
@@ -22,10 +23,11 @@ const NEXT_STATUS: Record<string, CycleStatus | null> = {
  * something to do by mis-tapping.
  */
 export function CycleActions({
-  cycleId, status, dateStarted, datePlanted, dateClosed, latestCount, countHistory,
+  cycleId, status, crop, dateStarted, datePlanted, dateClosed, latestCount, countHistory,
 }: {
   cycleId: string;
   status: CycleStatus;
+  crop: string;
   dateStarted: string | null;
   datePlanted: string | null;
   dateClosed: string | null;
@@ -130,10 +132,18 @@ export function CycleActions({
             </span>{" "}
             counted on {formatDate(latestCount.date)}
           </p>
-        ) : (
+        ) : isCountedPerPlant(crop) ? (
           <p className="mb-3 text-ink-soft">
             No count yet. Without one there is no cost per plant, and no dose
             suggestion when you draw fertiliser.
+          </p>
+        ) : (
+          // Peanut and banana are not counted plant by plant, so asking for a
+          // count here would be asking for work nobody does. Cost per square
+          // metre is the figure that means something for these.
+          <p className="mb-3 text-ink-soft">
+            {crop} is not counted plant by plant, so this cycle is measured per
+            square metre. You can still record a count if you take one.
           </p>
         )}
 
