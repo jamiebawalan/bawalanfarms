@@ -52,27 +52,43 @@ update plots set shares_overhead = true where code = 'Mango';
 
 ### 3. Kasama (sharecropper) plots — cost, revenue, or neither?
 
-**Decided:** the tenant's share is **a cost line on the cycle**, not a reduction
-of revenue.
+**Answered by the owner: neither, for now.** There is no set share, and any
+split is worked out outside the app. Tenant plots — 3, 5, 16, 18 and 22, all
+"Peanut - Tenant" — track their own direct costs exactly like every other plot,
+because the farm does still incur costs on them.
 
-A cycle carries an optional `kasama_share_pct`. When set, the cycle P&L shows:
+`crop_cycles.kasama_share_pct` stays in the schema and stays null. When it is
+null the cycle P&L carries no share-of-crop line at all, which is the correct
+behaviour here. If a fixed split is ever agreed, setting the percentage on the
+cycle turns the line on with no code change:
 
-- **revenue** — everything the plot produced, at full value
-- **a "Kasama share" cost line** — that percentage of revenue
+```sql
+update crop_cycles set kasama_share_pct = 30
+ where plot_id = (select id from plots where code = '16')
+   and status <> 'closed';
+```
 
-Both numbers stay visible, which is the point. Netting the share out of revenue
-would make a tenant-worked plot look like it simply grew less fruit, and the
-owners would lose the ability to ask whether the arrangement is worth it. As a
-cost line, the question "what did the kasama arrangement cost us this cycle?"
-has a number next to it.
+The original reasoning for treating it as a cost line rather than reduced
+revenue is kept below, because it is the behaviour that switches on:
 
-Plot 16 is flagged in `plots.notes`. No percentage is set on any cycle yet,
-because nobody has told us what the split actually is — until one is entered the
-figure is zero and nothing is assumed.
+> Revenue stays at full value and the tenant's share shows as a cost. Netting
+> it out of revenue would make a tenant-worked plot look like it simply grew
+> less fruit, and the owners would lose the ability to ask whether the
+> arrangement is worth it.
 
-**If the family would rather see it as reduced revenue:** change
-`kasamaShareCentavos` in `src/lib/domain/pnl.ts` from a cost addend to a revenue
-subtrahend. One line, and the tests will tell you what moved.
+---
+
+### 3b. "Daddy" — work paid to the owner's father
+
+**Answered by the owner: farm overhead.** Ten rows totalling ₱25,200 name
+"Daddy" or "Palabor ni Daddy" where a plot would normally go. There is no rent
+arrangement behind them to attribute against, so they are farm-wide with reason
+`general`.
+
+This is not a dead end: the farm-wide pool is shared out by area across the
+cycles that were live on the day each cost was paid, so the money still reaches
+plot-level profit — it simply is not tied to one plot at entry time. The
+original wording is preserved in the activity note.
 
 ---
 
