@@ -22,7 +22,7 @@ describe("plot history", () => {
     // Plot 2's peanut cycle closed, so it is comparable.
     const p2 = histories.find((h) => h.plot.code === "2")!;
     expect(p2.closedCycleCount).toBe(1);
-    expect(p2.marginPerSqmCentavos).toBe(Math.round(-475_000 / 2000));
+    expect(p2.marginPerSqmCentavos).toBe(Math.round(-470_000 / 2000));
   });
 
   it("includes plots that have never run a cycle", () => {

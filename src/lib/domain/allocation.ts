@@ -9,28 +9,30 @@ import type { Cycle, ISODate, Ledger } from "./types";
  * Vehicle repairs, tollgates and animal care genuinely cannot be pinned to a
  * plot at the moment they are paid, and forcing a guess at entry time is how
  * the old book ended up with PHP 609,203 sitting in an unattributed heap. So
- * they are pooled at entry and allocated here, at report time, by area across
- * the cycles that were actually live when the money was spent.
+ * they are pooled at entry and shared out here, at report time, by area.
  *
- * Allocating per expense date rather than over the whole period matters: a
- * cycle that ran January to March should not absorb a share of December's
- * truck repair.
+ * The pool is spread across EVERY plot that carries overhead, planted or not.
+ *
+ * That is a deliberate choice by the owner, and it is the one that creates the
+ * right pressure: an idle plot still costs the farm its share of the truck and
+ * the tollgates, so it shows up carrying cost and earning nothing. Excluding
+ * idle plots would flatter them and quietly load their share onto the plots
+ * that are actually working. The goal is to keep plots planted, and the
+ * numbers should say so.
+ *
+ * Each plot's share then goes to whichever cycle was live there on the day the
+ * money was spent. Where nothing was growing, the share is held against the
+ * plot instead — visible, not discarded.
  */
 
-export type OverheadAllocation = {
-  cycleId: string;
-  amountCentavos: Centavos;
-};
-
 export type OverheadResult = {
-  /** Total farm-wide spend in the window, whether or not it could be allocated. */
+  /** Total farm-wide spend in the window, whether or not it reached a cycle. */
   poolCentavos: Centavos;
+  /** Share that reached a running cycle. */
   byCycle: Map<string, Centavos>;
-  /**
-   * Pool money that landed on no cycle, because nothing was growing anywhere
-   * that day. Reported rather than quietly dropped or spread over cycles that
-   * did not exist yet.
-   */
+  /** Share carried by plots that were idle when the money was spent. */
+  byIdlePlot: Map<string, Centavos>;
+  /** Pool money no plot could take, because no plot had a surveyed area. */
   unallocatedCentavos: Centavos;
 };
 
@@ -46,10 +48,15 @@ export function allocateFarmWide(
   ledger: Ledger,
   opts: { from?: ISODate; to?: ISODate } = {},
 ): OverheadResult {
-  const plotById = new Map(ledger.plots.map((p) => [p.id, p]));
   const byCycle = new Map<string, Centavos>();
+  const byIdlePlot = new Map<string, Centavos>();
   let pool = 0;
   let unallocated = 0;
+
+  // The plots that carry overhead. The Mango plot is excluded by the owner's
+  // choice (plots.shares_overhead), and a plot with no surveyed area cannot
+  // take an area share.
+  const sharing = ledger.plots.filter((p) => p.active && p.sharesOverhead);
 
   const farmWide = ledger.expenses.filter(
     (e) =>
@@ -61,26 +68,12 @@ export function allocateFarmWide(
   for (const expense of farmWide) {
     pool += expense.amountCentavos;
 
-    // Cycles live on the day the money was spent, on plots that carry overhead.
-    // The Mango plot is excluded by the owner's choice (plots.shares_overhead).
-    const live = ledger.cycles.filter((c) => {
-      if (!cycleIsLiveOn(c, expense.date)) return false;
-      return plotById.get(c.plotId)?.sharesOverhead ?? false;
-    });
-
-    if (live.length === 0) {
-      unallocated += expense.amountCentavos;
-      continue;
-    }
-
-    // Two cycles can share a plot's area over time but never on the same day,
-    // so one entry per live cycle is right.
     const split = splitByArea(
       expense.amountCentavos,
-      live.map((c) => ({
-        plotId: c.id, // key the split by cycle: that is what carries the P&L
-        label: c.id,
-        areaSqm: areaOn(ledger.plotAreas, c.plotId, expense.date),
+      sharing.map((p) => ({
+        plotId: p.id,
+        label: p.label,
+        areaSqm: areaOn(ledger.plotAreas, p.id, expense.date),
       })),
     );
 
@@ -90,14 +83,42 @@ export function allocateFarmWide(
     }
 
     for (const line of split.lines) {
-      byCycle.set(line.plotId, (byCycle.get(line.plotId) ?? 0) + line.amountCentavos);
+      // Two cycles can share a plot over time but never on the same day, so
+      // at most one of them can claim this plot's share.
+      const cycle = ledger.cycles.find(
+        (c) => c.plotId === line.plotId && cycleIsLiveOn(c, expense.date),
+      );
+      if (cycle) {
+        byCycle.set(cycle.id, (byCycle.get(cycle.id) ?? 0) + line.amountCentavos);
+      } else {
+        byIdlePlot.set(
+          line.plotId,
+          (byIdlePlot.get(line.plotId) ?? 0) + line.amountCentavos,
+        );
+      }
     }
-    // A live cycle on an unsurveyed plot takes no share; its money stays with
-    // the cycles that could take one, and splitByArea has already ensured the
-    // lines total the expense exactly.
   }
 
-  return { poolCentavos: pool, byCycle, unallocatedCentavos: unallocated };
+  return { poolCentavos: pool, byCycle, byIdlePlot, unallocatedCentavos: unallocated };
+}
+
+/**
+ * What an idle plot cost the farm in overhead while it sat empty. This is the
+ * figure that answers "what is not planting this plot costing us?".
+ */
+export function idlePlotOverhead(
+  ledger: Ledger,
+  opts: { from?: ISODate; to?: ISODate } = {},
+): { plotId: string; plotLabel: string; amountCentavos: Centavos }[] {
+  const { byIdlePlot } = allocateFarmWide(ledger, opts);
+  const label = new Map(ledger.plots.map((p) => [p.id, p.label]));
+  return [...byIdlePlot.entries()]
+    .map(([plotId, amountCentavos]) => ({
+      plotId,
+      plotLabel: label.get(plotId) ?? plotId,
+      amountCentavos,
+    }))
+    .sort((a, b) => b.amountCentavos - a.amountCentavos);
 }
 
 /**
