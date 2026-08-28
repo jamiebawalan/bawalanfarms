@@ -33,6 +33,18 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith("/login") || path.startsWith("/auth");
 
+  // A magic link can arrive at the site root carrying its code, because
+  // Supabase falls back to the project's Site URL whenever the requested
+  // redirect is not on its allow list. Left alone, the login below would bounce
+  // to /login and throw the code away, and the person would just see the sign-in
+  // form again with no explanation. Forward it to the handler instead.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && !path.startsWith("/auth/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isPublic) {
     // An API call must be told "no" in the language it speaks. Redirecting it
     // to the login page returns HTML with a 200, and the offline write queue
