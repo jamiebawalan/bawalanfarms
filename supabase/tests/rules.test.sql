@@ -459,4 +459,54 @@ select assert_rejects($$
   select import_expenses('{"expenses":[]}'::jsonb, null) $$,
   'the import refuses when nobody is named at all');
 
+-- 19. Moving a cycle's dates takes its costs with it ---------------------------
+--
+-- An allocation stores the cycle it belongs to, decided once. Move the cycle's
+-- start date and every cost already on that plot kept pointing at the old
+-- answer. Plot 7 showed PHP 23,700 of a PHP 154,196 spend for exactly this
+-- reason: the costs before its start date belonged to nothing.
+
+do $$
+declare c_id uuid; plot uuid; got uuid;
+begin
+  select plot3 into plot from ids;
+  -- A cost in March, and a cycle that does not start until June.
+  insert into crop_cycles (id, plot_id, crop, status, date_started)
+  values (gen_random_uuid(), plot, 'pineapple', 'growing', date '2024-06-01')
+  returning id into c_id;
+
+  insert into expenses (id, date, category, activity, attribution, amount_centavos)
+  values ('66666666-6666-6666-6666-666666666666', date '2024-03-15', 'Labor',
+          'deweed', 'direct', 500000);
+  insert into expense_allocations (expense_id, plot_id, cycle_id, amount_centavos)
+  values ('66666666-6666-6666-6666-666666666666', plot,
+          cycle_for_plot_on(plot, date '2024-03-15'), 500000);
+
+  select cycle_id into got from expense_allocations
+   where expense_id = '66666666-6666-6666-6666-666666666666';
+  if got is not null then
+    raise exception 'TEST FAILED: a March cost attached to a June cycle';
+  end if;
+  raise notice 'ok  a cost before the cycle start attaches to no cycle';
+
+  -- Now pull the start date back, the way the owner did for plot 7.
+  update crop_cycles set date_started = date '2024-01-01' where id = c_id;
+
+  select cycle_id into got from expense_allocations
+   where expense_id = '66666666-6666-6666-6666-666666666666';
+  if got is distinct from c_id then
+    raise exception 'TEST FAILED: moving the start date left the cost behind (got %)', got;
+  end if;
+  raise notice 'ok  moving a cycle start date pulls its costs in with it';
+
+  -- And pushing it forward again releases them.
+  update crop_cycles set date_started = date '2024-06-01' where id = c_id;
+  select cycle_id into got from expense_allocations
+   where expense_id = '66666666-6666-6666-6666-666666666666';
+  if got is not null then
+    raise exception 'TEST FAILED: pushing the start date forward kept the cost';
+  end if;
+  raise notice 'ok  pushing a start date forward releases the costs again';
+end $$;
+
 rollback;
