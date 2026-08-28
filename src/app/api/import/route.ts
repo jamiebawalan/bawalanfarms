@@ -23,10 +23,11 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
+  const actorEmail = user.email?.toLowerCase() ?? "";
   const { data: me } = await supabase
     .from("app_users")
     .select("role")
-    .eq("email", user.email?.toLowerCase() ?? "")
+    .eq("email", actorEmail)
     .maybeSingle();
   if (me?.role !== "owner") {
     return NextResponse.json(
@@ -119,8 +120,14 @@ export async function POST(request: Request) {
   // The import writes onto cycles that closed years ago, which RLS and the
   // closed-cycle freeze both refuse for an ordinary session. The owner check
   // above is the gate; this is the key.
+  //
+  // The service role carries no user identity, so the function cannot work out
+  // who is calling on its own. The email is passed in — taken from the verified
+  // session above, never from the request body — and the function checks it
+  // against app_users again rather than trusting it.
   const admin = createAdminClient();
   const { data, error } = await admin.rpc("import_expenses", {
+    actor_email: actorEmail,
     payload: {
       expenses: parsed.expenses.map((e) => ({
         import_key: e.importKey,
