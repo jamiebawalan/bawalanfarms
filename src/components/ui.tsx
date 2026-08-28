@@ -158,7 +158,9 @@ export function AmountInput({ className, ...rest }: InputHTMLAttributes<HTMLInpu
  * discouraged.
  */
 export function Chip({
-  selected, children, className, ...rest
+  // Defaulted rather than left undefined so aria-pressed is always present.
+  // A toggle that only announces itself when pressed is not announcing itself.
+  selected = false, children, className, ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
   return (
     <button
@@ -173,7 +175,9 @@ export function Chip({
           : "border-line-strong bg-paper text-ink active:bg-paper-sunk",
         className,
       )}
-    />
+    >
+      {children}
+    </button>
   );
 }
 
