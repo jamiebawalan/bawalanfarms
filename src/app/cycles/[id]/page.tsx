@@ -6,6 +6,7 @@ import {
 import { CycleActions } from "@/components/cycle-actions";
 import { LeafTracker, PlotTasks } from "@/components/plot-actions";
 import { ProfitProjection } from "@/components/profit-projection";
+import { Suggestions } from "@/components/suggestions";
 import { projectForcing } from "@/lib/domain/dashboards";
 import { loadLedger } from "@/lib/db/ledger";
 import { cyclePnL } from "@/lib/domain/pnl";
@@ -138,6 +139,10 @@ export default async function CyclePage({
         target={cycle.targetForcingDate}
         closed={pnl.isClosed}
       />
+
+      {pnl.isClosed ? null : (
+        <Suggestions cycleId={id} plotId={cycle.plotId} />
+      )}
 
       <PlotTasks
         plotId={cycle.plotId}
