@@ -1,4 +1,4 @@
-import type { Ledger } from "./types";
+import { DEFAULT_SETTINGS, type Ledger } from "./types";
 
 /**
  * A small ledger that reproduces the situations the real data actually
@@ -26,17 +26,17 @@ export function makeLedger(): Ledger {
       {
         id: "c1", plotId: "p1", crop: "pineapple", status: "harvesting",
         dateStarted: "2024-01-01", datePlanted: "2024-02-01", dateClosed: null,
-        kasamaSharePct: null,
+        kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
       },
       {
         id: "c2", plotId: "p2", crop: "peanut", status: "closed",
         dateStarted: "2024-01-01", datePlanted: "2024-01-15", dateClosed: "2024-06-30",
-        kasamaSharePct: null,
+        kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
       },
       {
         id: "cm", plotId: "pm", crop: "mango", status: "growing",
         dateStarted: "2024-01-01", datePlanted: "2024-01-01", dateClosed: null,
-        kasamaSharePct: null,
+        kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
       },
     ],
     expenses: [
@@ -138,6 +138,9 @@ export function makeLedger(): Ledger {
       { code: "peanut", label: "Peanut" },
       { code: "mango", label: "Mango" },
     ],
+    leafMeasurements: [],
+    tasks: [],
+    settings: DEFAULT_SETTINGS,
     activities: [
       { code: "deweed", label: "Deweed", activityGroup: "Crop care", defaultCategory: "Labor" },
       { code: "food", label: "Food", activityGroup: "Inputs", defaultCategory: "Farm Inputs" },

@@ -87,6 +87,8 @@ export type Cycle = {
   datePlanted: ISODate | null;
   dateClosed: ISODate | null;
   kasamaSharePct: number | null;
+  targetForcingDate: ISODate | null;
+  targetHarvestDate: ISODate | null;
   plantingMaterialSource?: string | null;
   notes?: string | null;
 };
@@ -166,6 +168,43 @@ export type CapitalAsset = {
 };
 
 export type Buyer = { id: string; name: string };
+
+export type LeafMeasurement = {
+  cycleId: string;
+  date: ISODate;
+  avgLengthCm: number;
+  sampleSize: number | null;
+};
+
+export type Task = {
+  id: string;
+  plotId: string | null;
+  cycleId: string | null;
+  title: string;
+  activity: string | null;
+  dueDate: ISODate;
+  isCritical: boolean;
+  doneAt: string | null;
+};
+
+/** Assumptions the reports rest on, kept as data so they can be corrected. */
+export type FarmSettings = {
+  maxPlantsPerSqm: number;
+  pineappleMonthsToHarvest: number;
+  /** D-leaf length at which the plants are big enough to force. */
+  dleafForcingCm: number;
+  /** Months from forcing to harvest. */
+  monthsForcingToHarvest: number;
+  dleafSampleSize: number;
+};
+
+export const DEFAULT_SETTINGS: FarmSettings = {
+  maxPlantsPerSqm: 3.3,
+  pineappleMonthsToHarvest: 18,
+  dleafForcingCm: 100,
+  monthsForcingToHarvest: 5,
+  dleafSampleSize: 10,
+};
 export type Crop = { code: string; label: string };
 export type Product = { code: string; label: string; sortOrder: number; isGrade: boolean };
 export type Activity = {
@@ -194,11 +233,15 @@ export type Ledger = {
   products: Product[];
   activities: Activity[];
   crops: Crop[];
+  leafMeasurements: LeafMeasurement[];
+  tasks: Task[];
+  settings: FarmSettings;
 };
 
 export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
   purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
-  activities: [], crops: [],
+  activities: [], crops: [], leafMeasurements: [], tasks: [],
+  settings: DEFAULT_SETTINGS,
 };

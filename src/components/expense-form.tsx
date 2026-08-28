@@ -8,7 +8,7 @@ import {
 import { newId, send } from "@/lib/queue";
 import { formatPeso, lineTotal, parsePeso } from "@/lib/domain/money";
 import { formatDate, todayISO } from "@/lib/domain/dates";
-import { splitByArea } from "@/lib/domain/split";
+import { areaPercentages, splitByPercent } from "@/lib/domain/split";
 import {
   EXPENSE_CATEGORIES, FARM_WIDE_REASONS, LABOUR_MODES,
   type Activity, type ExpenseCategory, type FarmWideReason, type LabourMode,
@@ -73,7 +73,8 @@ export function ExpenseForm({
 
   const [paidTo, setPaidTo] = useState("");
   const [note, setNote] = useState(prefill?.note ?? "");
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  // Shares he has set himself, as percentages. Empty means "use the area".
+  const [shares, setShares] = useState<Record<string, string>>({});
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,34 +103,53 @@ export function ExpenseForm({
   const selected = plots.filter((p) => plotIds.includes(p.id));
   const isSplit = scope === "plots" && selected.length > 1;
 
-  const split = useMemo(() => {
-    if (!isSplit || amountCentavos === null) return null;
-    return splitByArea(
-      amountCentavos,
-      selected.map((p) => ({ plotId: p.id, label: p.label, areaSqm: p.areaSqm })),
-    );
-  }, [isSplit, amountCentavos, selected.map((p) => p.id).join(",")]);
+  // The area split is where the form opens, not where it insists on ending.
+  // He was standing in the plot and the areas were not: if the crew spent the
+  // morning on 24 and an hour on 2, only he knows that.
+  const suggested = useMemo(
+    () =>
+      new Map(
+        areaPercentages(
+          selected.map((p) => ({ plotId: p.id, label: p.label, areaSqm: p.areaSqm })),
+        ).map((r) => [r.plotId, r.percent]),
+      ),
+    [selected.map((p) => `${p.id}:${p.areaSqm}`).join(",")],
+  );
 
-  // He is allowed to overrule the area maths — he was standing in the plot and
-  // we were not — but the lines still have to add to the total.
+  const percentFor = (plotId: string) => {
+    const typed = shares[plotId];
+    if (typed === undefined || typed.trim() === "") return suggested.get(plotId) ?? 0;
+    const n = Number(typed);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+
+  const edited = Object.values(shares).some((v) => v.trim() !== "");
+
   const lines = useMemo(() => {
     if (scope !== "plots" || amountCentavos === null) return [];
     if (!isSplit) {
       const only = selected[0];
-      return only ? [{ plotId: only.id, label: only.label, amountCentavos }] : [];
+      return only
+        ? [{ plotId: only.id, label: only.label, amountCentavos, percent: 100 }]
+        : [];
     }
-    return (split?.lines ?? []).map((l) => {
-      const override = overrides[l.plotId];
-      const parsed = override === undefined ? null : parsePeso(override);
-      return {
-        plotId: l.plotId,
-        label: l.label,
-        amountCentavos: parsed ?? l.amountCentavos,
-        fraction: l.fraction,
-        suggested: l.amountCentavos,
-      };
-    });
-  }, [scope, isSplit, split, overrides, amountCentavos, selected]);
+    const result = splitByPercent(
+      amountCentavos,
+      selected.map((p) => ({
+        plotId: p.id,
+        label: p.label,
+        percent: percentFor(p.id),
+      })),
+    );
+    return result.lines.map((l) => ({
+      plotId: l.plotId,
+      label: l.label,
+      amountCentavos: l.amountCentavos,
+      percent: Math.round(l.fraction * 1000) / 10,
+    }));
+  }, [scope, isSplit, amountCentavos, selected, shares, suggested]);
+
+  const unsurveyed = selected.filter((p) => p.areaSqm === null);
 
   const allocated = lines.reduce((a, l) => a + l.amountCentavos, 0);
   const outBy = amountCentavos === null ? 0 : amountCentavos - allocated;
@@ -264,7 +284,7 @@ export function ExpenseForm({
     setLump("");
     setPaidTo("");
     setNote("");
-    setOverrides({});
+    setShares({});
     setReason(null);
     setAssetName("");
   }
@@ -501,58 +521,68 @@ export function ExpenseForm({
         )}
       </Card>
 
-      {/* The split, shown in pesos before saving so he can see it and fix it. */}
+      {/* The split, in his shares and in pesos, before anything is saved. */}
       {isSplit && amountCentavos !== null ? (
-        <Card title="Split by area">
-          {split && split.excluded.length > 0 ? (
+        <Card title={edited ? "Split — your shares" : "Split — suggested by area"}>
+          {unsurveyed.length > 0 ? (
             <Note tone="warn">
-              {split.excluded.map((e) => e.label).join(", ")} has no surveyed area
-              yet, so it cannot take a share. Ask the owners to set it.
+              {unsurveyed.map((p) => p.label).join(", ")} has no surveyed area, so
+              it starts at 0%. Type a share if it should carry part of this.
             </Note>
           ) : null}
-          <ul className="space-y-2">
-            {lines.map((l) => (
-              <li key={l.plotId} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-semibold">{l.label}</div>
-                  <div className="text-sm text-ink-soft">
-                    {"fraction" in l && typeof l.fraction === "number"
-                      ? `${(l.fraction * 100).toFixed(0)}% of the area`
-                      : null}
+
+          <ul className="space-y-3">
+            {selected.map((p) => {
+              const line = lines.find((l) => l.plotId === p.id);
+              const pct = percentFor(p.id);
+              return (
+                <li key={p.id} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold">{p.label}</div>
+                    <div className="text-sm text-ink-soft">
+                      {line ? formatPeso(line.amountCentavos) : "—"}
+                      {shares[p.id]?.trim()
+                        ? "  ·  your share"
+                        : `  ·  ${suggested.get(p.id) ?? 0}% by area`}
+                    </div>
                   </div>
-                </div>
-                <input
-                  inputMode="decimal"
-                  aria-label={`Amount for ${l.label}`}
-                  value={
-                    overrides[l.plotId] ?? String((l.amountCentavos / 100).toFixed(2))
-                  }
-                  onChange={(e) =>
-                    setOverrides((o) => ({ ...o, [l.plotId]: e.target.value }))
-                  }
-                  className={cx(
-                    "tabular min-h-12 w-32 rounded-xl border-2 px-3 text-right text-lg font-semibold",
-                    overrides[l.plotId] !== undefined
-                      ? "border-brand bg-brand-tint"
-                      : "border-line-strong bg-paper",
-                  )}
-                />
-              </li>
-            ))}
+                  <div className="flex items-center gap-1">
+                    <input
+                      inputMode="decimal"
+                      aria-label={`Share of the cost for ${p.label}, in percent`}
+                      value={shares[p.id] ?? String(suggested.get(p.id) ?? 0)}
+                      onChange={(e) =>
+                        setShares((prev) => ({ ...prev, [p.id]: e.target.value }))
+                      }
+                      className={cx(
+                        "tabular min-h-12 w-20 rounded-xl border-2 px-3 text-right text-lg font-semibold",
+                        shares[p.id]?.trim()
+                          ? "border-brand bg-brand-tint"
+                          : "border-line-strong bg-paper",
+                      )}
+                    />
+                    <span className="text-lg font-semibold text-ink-soft">%</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
+
+          <p className="mt-3 text-sm text-ink-soft">
+            Shares add to {selected.reduce((a, p) => a + percentFor(p.id), 0)}% and
+            come to <Money centavos={allocated} />. They do not have to total 100 —
+            2 and 1 means twice as much on the first.
+          </p>
+
           {outBy !== 0 ? (
             <Note tone="danger">
-              The lines are {outBy > 0 ? "short by" : "over by"}{" "}
-              {formatPeso(Math.abs(outBy))}. They have to add up to{" "}
-              {formatPeso(amountCentavos)}.
+              The lines come to {formatPeso(allocated)}, not{" "}
+              {formatPeso(amountCentavos)}. Give at least one plot a share.
             </Note>
-          ) : (
-            <p className="mt-3 text-sm text-ink-soft">
-              Adds up to <Money centavos={allocated} />. Tap a figure to change it.
-            </p>
-          )}
-          {Object.keys(overrides).length > 0 ? (
-            <Button variant="quiet" size="md" className="px-0" onClick={() => setOverrides({})}>
+          ) : null}
+
+          {edited ? (
+            <Button variant="quiet" size="md" className="px-0" onClick={() => setShares({})}>
               Back to the area split
             </Button>
           ) : null}

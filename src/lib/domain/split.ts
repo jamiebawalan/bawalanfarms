@@ -114,3 +114,89 @@ export function checkManualSplit(
   const difference = totalCentavos - allocated;
   return difference === 0 ? { ok: true } : { ok: false, differenceCentavos: difference };
 }
+
+
+/**
+ * Apportioning by a set of percentages the farm manager chose himself.
+ *
+ * Area is a fair default for a cost nobody watched being spent, and it is what
+ * the historical figures were built on. But he was standing in the plot: if the
+ * crew spent the morning on 24 and an hour on 2, he knows that and the areas do
+ * not. So the percentages are his to set, and the area split is only where the
+ * form starts.
+ *
+ * The parts still have to add back to the whole — the database refuses a split
+ * that does not — so the same largest-remainder handling applies to whatever
+ * percentages he lands on.
+ */
+export function splitByPercent(
+  totalCentavos: Centavos,
+  parts: readonly { plotId: string; label: string; percent: number }[],
+): SplitResult {
+  const usable = parts.filter((p) => Number.isFinite(p.percent) && p.percent > 0);
+  const totalPercent = usable.reduce((a, p) => a + p.percent, 0);
+
+  if (usable.length === 0 || totalPercent <= 0) {
+    return {
+      lines: [],
+      excluded: parts.map((p) => ({
+        plotId: p.plotId,
+        label: p.label,
+        reason: "no share given",
+      })),
+      totalCentavos,
+    };
+  }
+
+  const provisional = usable.map((p) => {
+    const exact = (totalCentavos * p.percent) / totalPercent;
+    const floored = Math.floor(exact);
+    return { part: p, floored, remainder: exact - floored };
+  });
+
+  let leftover = totalCentavos - provisional.reduce((a, r) => a + r.floored, 0);
+  const order = [...provisional].sort(
+    (a, b) =>
+      b.remainder - a.remainder ||
+      b.part.percent - a.part.percent ||
+      a.part.plotId.localeCompare(b.part.plotId),
+  );
+  const bonus = new Map<string, number>();
+  for (let i = 0; leftover > 0 && i < order.length; i++, leftover--) {
+    const row = order[i]!;
+    bonus.set(row.part.plotId, (bonus.get(row.part.plotId) ?? 0) + 1);
+  }
+
+  return {
+    lines: provisional.map(({ part, floored }) => ({
+      plotId: part.plotId,
+      label: part.label,
+      areaSqm: 0,
+      amountCentavos: floored + (bonus.get(part.plotId) ?? 0),
+      fraction: part.percent / totalPercent,
+    })),
+    excluded: parts
+      .filter((p) => !usable.includes(p))
+      .map((p) => ({ plotId: p.plotId, label: p.label, reason: "no share given" })),
+    totalCentavos,
+  };
+}
+
+/** The area-based percentages the form opens with. */
+export function areaPercentages(
+  plots: readonly PlotAreaInput[],
+): { plotId: string; percent: number }[] {
+  const withArea = plots.filter(
+    (p): p is PlotAreaInput & { areaSqm: number } =>
+      p.areaSqm !== null && p.areaSqm > 0,
+  );
+  const total = withArea.reduce((a, p) => a + p.areaSqm, 0);
+  if (total <= 0) return plots.map((p) => ({ plotId: p.plotId, percent: 0 }));
+  return plots.map((p) => ({
+    plotId: p.plotId,
+    percent:
+      p.areaSqm !== null && p.areaSqm > 0
+        ? Math.round((p.areaSqm / total) * 1000) / 10
+        : 0,
+  }));
+}
