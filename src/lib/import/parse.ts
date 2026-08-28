@@ -47,9 +47,10 @@ export type ParseResult = {
 const COLUMNS: Record<string, string[]> = {
   date: ["date", "day", "petsa"],
   category: ["category", "type", "cost type", "expense category"],
-  activity: ["activity", "particulars", "description", "work", "details", "item"],
+  activity: ["activity", "expense", "particulars", "particular", "description",
+             "work", "details", "item", "expense detail"],
   plots: ["plot", "plots", "plot no", "plot number", "plot ids", "lote"],
-  amount: ["amount", "total", "cost", "peso", "php", "halaga"],
+  amount: ["amount", "total", "cost", "peso", "php", "halaga", "amount php"],
   unitPrice: ["unit price", "rate", "price", "per unit", "unit cost"],
   quantity: ["quantity", "qty", "count", "people", "no of people", "pax", "days"],
   labourMode: ["labour mode", "labor mode", "mode", "pakyaw"],
@@ -304,6 +305,12 @@ export function parseDate(raw: string): ISODate | null {
     }
     return null;
   }
+
+  // Date.parse invents a year when the text does not carry one: "Sept 29"
+  // comes back as 2001-09-29, which looks like a real date and is not. A cost
+  // filed under a guessed year is worse than a rejected row, so a date with no
+  // four-digit year in it is refused and reported.
+  if (!/\d{4}/.test(text)) return null;
 
   const parsed = Date.parse(`${text} UTC`);
   if (!Number.isNaN(parsed)) return new Date(parsed).toISOString().slice(0, 10);

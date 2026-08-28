@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { makeLedger } from "./fixture";
 import { allCyclePnL, cyclePnL, unattachedCosts } from "./pnl";
-import { allocateFarmWide, cycleIsLiveOn, overheadShare } from "./allocation";
+import {
+  allocateFarmWide, cycleIsLiveOn, idlePlotOverhead, overheadShare,
+} from "./allocation";
 import type { Ledger } from "./types";
 
 const L = makeLedger();
@@ -35,10 +37,22 @@ describe("cycle costs", () => {
   });
 
   it("adds the cycle's area share of the farm-wide pool", () => {
-    // ₱1,000 truck repair. Live that day: c1 (6000 sqm) and c2 (2000 sqm).
-    // The Mango cycle is live too, but the owner excluded Mango from overhead.
-    expect(c1().farmWideShareCentavos).toBe(75_000);
-    expect(c2().farmWideShareCentavos).toBe(25_000);
+    // ₱1,000 truck repair, spread across every plot that carries overhead —
+    // p1 (6000), p2 (2000) and p3 (2000), so 10,000 sqm in all. Mango is
+    // excluded by the owner's choice, and the coffee plot has no area.
+    //
+    // p3 is empty that day, so its share does not reach a cycle. It is held
+    // against the plot instead: an idle plot still costs the farm its share of
+    // the truck, and the numbers should say so.
+    expect(c1().farmWideShareCentavos).toBe(60_000);
+    expect(c2().farmWideShareCentavos).toBe(20_000);
+  });
+
+  it("charges an idle plot its share rather than loading it onto working plots", () => {
+    const idle = idlePlotOverhead(L);
+    expect(idle).toHaveLength(1);
+    expect(idle[0]!.plotLabel).toBe("Plot 3");
+    expect(idle[0]!.amountCentavos).toBe(20_000);
   });
 
   it("totals cost as direct plus draws plus overhead", () => {
@@ -46,7 +60,7 @@ describe("cycle costs", () => {
     expect(c.totalCostCentavos).toBe(
       c.directCostCentavos + c.inputDrawCostCentavos + c.farmWideShareCentavos,
     );
-    expect(c.totalCostCentavos).toBe(1_385_000);
+    expect(c.totalCostCentavos).toBe(1_370_000);
   });
 
   it("breaks cost down by category and by activity", () => {
@@ -76,8 +90,8 @@ describe("cycle revenue and margin", () => {
 
   it("computes gross margin and the margin ratio", () => {
     const c = c1();
-    expect(c.grossMarginCentavos).toBe(5_000_000 - 1_385_000);
-    expect(c.marginRatio).toBeCloseTo(0.723, 3);
+    expect(c.grossMarginCentavos).toBe(5_000_000 - 1_370_000);
+    expect(c.marginRatio).toBeCloseTo(0.726, 3);
   });
 
   it("leaves the margin ratio undefined before anything is sold", () => {
@@ -91,7 +105,7 @@ describe("per-plant and per-fruit figures", () => {
     const c = c1();
     expect(c.plantCount).toBe(11_500); // the latest observation
     expect(c.plantCountDate).toBe("2024-08-01");
-    expect(c.costPerPlantCentavos).toBe(Math.round(1_385_000 / 11_500));
+    expect(c.costPerPlantCentavos).toBe(Math.round(1_370_000 / 11_500));
   });
 
   it("uses the count as it stood at an as-of date", () => {
@@ -108,8 +122,8 @@ describe("per-plant and per-fruit figures", () => {
 
   it("gives cost per fruit harvested and margin per fruit sold", () => {
     const c = c1();
-    expect(c.costPerUnitHarvestedCentavos).toBe(Math.round(1_385_000 / 1000));
-    expect(c.marginPerUnitSoldCentavos).toBe(Math.round(3_615_000 / 850));
+    expect(c.costPerUnitHarvestedCentavos).toBe(Math.round(1_370_000 / 1000));
+    expect(c.marginPerUnitSoldCentavos).toBe(Math.round(3_630_000 / 850));
   });
 });
 
@@ -126,18 +140,21 @@ describe("farm-wide allocation", () => {
   it("skips plots the owner excluded from overhead", () => {
     const r = allocateFarmWide(L);
     expect(r.byCycle.get("cm")).toBeUndefined(); // Mango
+    expect(r.byIdlePlot.get("pm")).toBeUndefined();
     expect(r.poolCentavos).toBe(100_000);
     expect(r.unallocatedCentavos).toBe(0);
   });
 
   it("allocates the pool in full, to the centavo", () => {
     const r = allocateFarmWide(L);
-    const allocated = [...r.byCycle.values()].reduce((a, b) => a + b, 0);
-    expect(allocated + r.unallocatedCentavos).toBe(r.poolCentavos);
+    const toCycles = [...r.byCycle.values()].reduce((a, b) => a + b, 0);
+    const toIdle = [...r.byIdlePlot.values()].reduce((a, b) => a + b, 0);
+    expect(toCycles + toIdle + r.unallocatedCentavos).toBe(r.poolCentavos);
   });
 
-  it("reports pool money that landed on no cycle rather than dropping it", () => {
-    // A repair paid before anything was planted belongs to no cycle.
+  it("still charges the plots when nothing at all is planted", () => {
+    // A repair paid before any planting is not a free repair. It is shared
+    // across the plots that were sitting there costing money.
     const early: Ledger = {
       ...L,
       expenses: [
@@ -150,8 +167,29 @@ describe("farm-wide allocation", () => {
       ],
     };
     const r = allocateFarmWide(early);
-    expect(r.unallocatedCentavos).toBe(50_000);
     expect(r.byCycle.size).toBe(0);
+    expect(r.unallocatedCentavos).toBe(0);
+    // 6000 : 2000 : 2000 of ₱500.
+    expect(r.byIdlePlot.get("p1")).toBe(30_000);
+    expect(r.byIdlePlot.get("p2")).toBe(10_000);
+    expect(r.byIdlePlot.get("p3")).toBe(10_000);
+  });
+
+  it("drops nothing when no plot has a surveyed area to share by", () => {
+    const noAreas: Ledger = {
+      ...L,
+      plotAreas: [],
+      expenses: [
+        {
+          id: "x", date: "2024-03-03", category: "Machines", activity: "barang",
+          attribution: "farm_wide", farmWideReason: "vehicle", capitalAssetId: null,
+          labourMode: null, unitPriceCentavos: null, quantity: null,
+          amountCentavos: 50_000,
+        },
+      ],
+    };
+    const r = allocateFarmWide(noAreas);
+    expect(r.unallocatedCentavos).toBe(50_000);
   });
 
   it("does not charge a cycle for money spent before it started", () => {
@@ -166,9 +204,13 @@ describe("farm-wide allocation", () => {
         },
       ],
     };
-    // c2 closed on 30 June, so December's repair is not its problem.
-    expect(allocateFarmWide(late).byCycle.get("c2")).toBeUndefined();
-    expect(allocateFarmWide(late).byCycle.get("c1")).toBe(50_000);
+    // c2 closed on 30 June, so December's repair is not its problem — plot 2
+    // carries that share itself, as an idle plot.
+    const r = allocateFarmWide(late);
+    expect(r.byCycle.get("c2")).toBeUndefined();
+    expect(r.byIdlePlot.get("p2")).toBe(10_000);
+    // p1 is 6000 of the 10,000 overhead-sharing sqm.
+    expect(r.byCycle.get("c1")).toBe(30_000);
   });
 
   it("treats a planned cycle as not yet spending", () => {
@@ -208,6 +250,6 @@ describe("kasama plots", () => {
     // Revenue is still what the plot produced; the arrangement shows as cost.
     expect(c.revenueCentavos).toBe(5_000_000);
     expect(c.kasamaShareCentavos).toBe(1_250_000);
-    expect(c.totalCostCentavos).toBe(1_385_000 + 1_250_000);
+    expect(c.totalCostCentavos).toBe(1_370_000 + 1_250_000);
   });
 });

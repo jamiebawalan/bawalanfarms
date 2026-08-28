@@ -51,12 +51,17 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: data.id });
 }
 
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 const Patch = z.object({
   id: z.string().uuid(),
   action: z.enum(["close", "reopen", "update"]),
-  date_closed: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_closed: z.string().regex(ISO).optional(),
   status: z.enum(["planned", "land_prep", "planted", "growing", "harvesting"]).optional(),
-  date_planted: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  // The cycle start is when land prep began, and it is frequently corrected
+  // after the fact — the date is remembered later than it is entered.
+  date_started: z.string().regex(ISO).nullable().optional(),
+  date_planted: z.string().regex(ISO).nullable().optional(),
   kasama_share_pct: z.number().min(0).max(100).nullable().optional(),
   notes: z.string().optional(),
 });
@@ -84,7 +89,21 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const { error } = await supabase.from("crop_cycles").update(rest).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  // Moving a start date changes which cycle a past cost belongs to, so only
+  // the fields actually supplied are written — an absent field is left alone
+  // rather than blanked.
+  const patch = Object.fromEntries(
+    Object.entries(rest).filter(([, v]) => v !== undefined),
+  );
+  const { error } = await supabase.from("crop_cycles").update(patch).eq("id", id);
+  if (error) {
+    if (/planted_after_started|closed_after_planted/.test(error.message)) {
+      return NextResponse.json(
+        { error: "Those dates are out of order — land prep, then planting, then close." },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
   return NextResponse.json({ ok: true });
 }

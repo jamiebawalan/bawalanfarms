@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Field, Input, Note } from "./ui";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import type { CycleStatus } from "@/lib/domain/types";
+import { isCountedPerPlant } from "@/lib/domain/crops";
 
 const NEXT_STATUS: Record<string, CycleStatus | null> = {
   planned: "land_prep",
@@ -22,10 +23,14 @@ const NEXT_STATUS: Record<string, CycleStatus | null> = {
  * something to do by mis-tapping.
  */
 export function CycleActions({
-  cycleId, status, latestCount, countHistory,
+  cycleId, status, crop, dateStarted, datePlanted, dateClosed, latestCount, countHistory,
 }: {
   cycleId: string;
   status: CycleStatus;
+  crop: string;
+  dateStarted: string | null;
+  datePlanted: string | null;
+  dateClosed: string | null;
   latestCount: { date: string; count: number } | null;
   countHistory: { date: string; count: number }[];
 }) {
@@ -37,6 +42,14 @@ export function CycleActions({
   const [confirmClose, setConfirmClose] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Dates are corrected far more often than they are first entered: the day
+  // land prep actually began is usually remembered a week later.
+  const [started, setStarted] = useState(dateStarted ?? "");
+  const [planted, setPlanted] = useState(datePlanted ?? "");
+  const [closeOn, setCloseOn] = useState(dateClosed ?? today);
+  const datesChanged =
+    started !== (dateStarted ?? "") || planted !== (datePlanted ?? "");
 
   const next = NEXT_STATUS[status] ?? null;
 
@@ -60,6 +73,57 @@ export function CycleActions({
 
   return (
     <>
+      <Card title="Cycle dates">
+        <Field
+          label="Cycle started (land prep)"
+          htmlFor="date-started"
+          hint="The day work on this crop began, not the day it was planted."
+        >
+          <Input
+            id="date-started"
+            type="date"
+            value={started}
+            onChange={(e) => setStarted(e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Date planted"
+          htmlFor="date-planted"
+          hint="Leave empty until it goes in the ground."
+        >
+          <Input
+            id="date-planted"
+            type="date"
+            value={planted}
+            onChange={(e) => setPlanted(e.target.value)}
+          />
+        </Field>
+        {dateClosed ? (
+          <p className="mb-4 text-sm text-ink-soft">
+            Closed on <strong className="text-ink">{formatDate(dateClosed)}</strong>.
+          </p>
+        ) : null}
+        <Button
+          variant="secondary"
+          disabled={busy || !datesChanged}
+          onClick={() =>
+            call({
+              id: cycleId,
+              action: "update",
+              date_started: started === "" ? null : started,
+              date_planted: planted === "" ? null : planted,
+            })
+          }
+        >
+          {datesChanged ? "Save these dates" : "Dates are up to date"}
+        </Button>
+        {datesChanged ? (
+          <p className="mt-2 text-sm text-ink-soft">
+            Moving the start date changes which costs fall inside this cycle.
+          </p>
+        ) : null}
+      </Card>
+
       <Card title="Plant count">
         {latestCount ? (
           <p className="mb-3 text-ink-soft">
@@ -68,10 +132,18 @@ export function CycleActions({
             </span>{" "}
             counted on {formatDate(latestCount.date)}
           </p>
-        ) : (
+        ) : isCountedPerPlant(crop) ? (
           <p className="mb-3 text-ink-soft">
             No count yet. Without one there is no cost per plant, and no dose
             suggestion when you draw fertiliser.
+          </p>
+        ) : (
+          // Peanut and banana are not counted plant by plant, so asking for a
+          // count here would be asking for work nobody does. Cost per square
+          // metre is the figure that means something for these.
+          <p className="mb-3 text-ink-soft">
+            {crop} is not counted plant by plant, so this cycle is measured per
+            square metre. You can still record a count if you take one.
           </p>
         )}
 
@@ -103,8 +175,11 @@ export function CycleActions({
             variant="secondary"
             disabled={busy || Number(count) <= 0}
             onClick={async () => {
+              // Counts are sometimes estimated from area and arrive fractional
+              // (11,162.5). Half a plant is not a thing, so it is rounded here
+              // rather than rejected at the database.
               const ok = await call(
-                { cycle_id: cycleId, date: countDate, count: Number(count) },
+                { cycle_id: cycleId, date: countDate, count: Math.round(Number(count)) },
                 "/api/plant-counts",
                 "POST",
               );
@@ -156,14 +231,26 @@ export function CycleActions({
                   Closing freezes this cycle's profit. No new costs or sales can be
                   added to it, and the plot is free for the next crop.
                 </p>
+                <Field
+                  label="Cycle ended on"
+                  htmlFor="close-on"
+                  hint="The last harvest day, which is often not today."
+                >
+                  <Input
+                    id="close-on"
+                    type="date"
+                    value={closeOn}
+                    onChange={(e) => setCloseOn(e.target.value)}
+                  />
+                </Field>
                 <div className="flex gap-2">
                   <Button
                     variant="danger"
                     size="md"
                     disabled={busy}
-                    onClick={() => call({ id: cycleId, action: "close" })}
+                    onClick={() => call({ id: cycleId, action: "close", date_closed: closeOn })}
                   >
-                    Yes, close it
+                    Close on {formatDate(closeOn)}
                   </Button>
                   <Button size="md" variant="secondary" onClick={() => setConfirmClose(false)}>
                     Cancel

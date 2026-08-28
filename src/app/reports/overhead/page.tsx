@@ -1,6 +1,6 @@
 import { Bar, Card, Empty, Money, Note, Page, Stat, StatGrid } from "@/components/ui";
 import { loadLedger } from "@/lib/db/ledger";
-import { allocateFarmWide } from "@/lib/domain/allocation";
+import { allocateFarmWide, idlePlotOverhead } from "@/lib/domain/allocation";
 import { overheadWatch } from "@/lib/domain/reports";
 import { formatMonth } from "@/lib/domain/dates";
 import { formatPeso } from "@/lib/domain/money";
@@ -16,6 +16,8 @@ export default async function OverheadPage() {
   const ledger = await loadLedger();
   const watch = overheadWatch(ledger);
   const pool = allocateFarmWide(ledger);
+  const idle = idlePlotOverhead(ledger);
+  const idleTotal = idle.reduce((a, r) => a + r.amountCentavos, 0);
 
   const byReason = new Map<FarmWideReason, number>();
   for (const e of ledger.expenses) {
@@ -41,9 +43,9 @@ export default async function OverheadPage() {
         />
         <Stat label="Pool" value={formatPeso(pool.poolCentavos)} />
         <Stat
-          label="Reaching no cycle"
-          value={formatPeso(pool.unallocatedCentavos)}
-          hint="spent when nothing was growing"
+          label="Carried by idle plots"
+          value={formatPeso(idleTotal)}
+          hint="cost of not planting"
         />
       </StatGrid>
 
@@ -70,6 +72,27 @@ export default async function OverheadPage() {
         )}
       </Card>
 
+      <Card title="What the idle plots cost">
+        {idle.length === 0 ? (
+          <Empty>Every plot was planted whenever money was spent.</Empty>
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-ink-soft">
+              Overhead is shared across every plot, planted or not. This is what
+              the empty ones absorbed — the price of leaving them idle.
+            </p>
+            <ul className="divide-y-2 divide-line">
+              {idle.map((r) => (
+                <li key={r.plotId} className="flex justify-between gap-3 py-2.5">
+                  <span className="font-semibold">{r.plotLabel}</span>
+                  <Money centavos={r.amountCentavos} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Card>
+
       <Card title="What is in the pool">
         {byReason.size === 0 ? (
           <Empty>Nothing has been logged as whole-farm.</Empty>
@@ -93,9 +116,11 @@ export default async function OverheadPage() {
       </Card>
 
       <Note tone="info">
-        The pool is shared out by plot area across the cycles that were running on
-        the day each cost was paid — never at the moment it was entered. The Mango
-        plot is excluded by choice.
+        The pool is shared out by plot area across every plot that carries
+        overhead, planted or not — never at the moment it was entered. An idle
+        plot still costs the farm its share of the truck and the tollgates, so it
+        shows up carrying cost and earning nothing. The Mango plot is excluded by
+        choice.
       </Note>
     </Page>
   );

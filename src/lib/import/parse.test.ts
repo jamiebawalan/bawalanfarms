@@ -232,3 +232,30 @@ describe("the shape of the result", () => {
     expect(r.warningCounts[key]).toBe(2);
   });
 });
+
+describe("dates written without a year", () => {
+  it("refuses them instead of inventing one", () => {
+    // The real workbook contains "Sept 29", "sept 29", "Sept 30" and
+    // "Sep 15 - 20". JavaScript's Date.parse turns each into the year 2001,
+    // which is a plausible-looking date and completely wrong. A cost filed
+    // under a guessed year is worse than a row the owner has to look at.
+    for (const written of ["Sept 29", "sept 29", "Sept 30", "Sep 15 - 20", "29 Sep"]) {
+      expect(parseDate(written), written).toBeNull();
+    }
+  });
+
+  it("still reads the same dates once a year is present", () => {
+    expect(parseDate("29 Sep 2025")).toBe("2025-09-29");
+    expect(parseDate("Sept 29 2025")).toBe("2025-09-29");
+  });
+
+  it("reports the row rather than dropping it", () => {
+    const r = parseExpenseSheet(
+      [["Date", "Category", "Expense", "Plot", "Amount"],
+       ["Sept 29", "Labor", "Deweed", "12", "2100"]],
+      PLOTS, ACTIVITIES, OPTS,
+    );
+    expect(r.expenses).toEqual([]);
+    expect(r.rejections[0]!.reason).toMatch(/Could not read the date/);
+  });
+});
