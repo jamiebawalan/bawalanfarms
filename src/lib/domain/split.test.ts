@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { splitByArea, checkManualSplit, type PlotAreaInput } from "./split";
+import {
+  areaPercentages, checkManualSplit, splitByArea, splitByPercent,
+  type PlotAreaInput,
+} from "./split";
 
 const plot = (plotId: string, areaSqm: number | null): PlotAreaInput => ({
   plotId,
@@ -99,5 +102,66 @@ describe("checkManualSplit", () => {
   it("reports over-allocation as a negative difference", () => {
     const r = checkManualSplit(500_00, [{ amountCentavos: 400_00 }, { amountCentavos: 200_00 }]);
     expect(r).toEqual({ ok: false, differenceCentavos: -100_00 });
+  });
+});
+
+describe("splitByPercent", () => {
+  it("apportions by the shares the farm manager chose", () => {
+    // He was in the plot; the areas were not. 70/30 on a ₱1,000 cost.
+    const r = splitByPercent(100_000, [
+      { plotId: "a", label: "Plot 24", percent: 70 },
+      { plotId: "b", label: "Plot 2", percent: 30 },
+    ]);
+    expect(r.lines.map((l) => l.amountCentavos)).toEqual([70_000, 30_000]);
+  });
+
+  it("still adds back to the exact amount, whatever the percentages", () => {
+    for (const total of [1, 7, 99, 12_345, 100_001]) {
+      const r = splitByPercent(total, [
+        { plotId: "a", label: "a", percent: 33 },
+        { plotId: "b", label: "b", percent: 33 },
+        { plotId: "c", label: "c", percent: 34 },
+      ]);
+      expect(r.lines.reduce((a, l) => a + l.amountCentavos, 0), `total ${total}`)
+        .toBe(total);
+    }
+  });
+
+  it("normalises shares that do not happen to add to 100", () => {
+    // He types 2 and 1 meaning "twice as much there". That is a two-thirds split.
+    const r = splitByPercent(90_000, [
+      { plotId: "a", label: "a", percent: 2 },
+      { plotId: "b", label: "b", percent: 1 },
+    ]);
+    expect(r.lines.map((l) => l.amountCentavos)).toEqual([60_000, 30_000]);
+  });
+
+  it("leaves out a plot given no share, and says so", () => {
+    const r = splitByPercent(100_000, [
+      { plotId: "a", label: "Plot 1", percent: 100 },
+      { plotId: "b", label: "Plot 2", percent: 0 },
+    ]);
+    expect(r.lines).toHaveLength(1);
+    expect(r.excluded[0]!.label).toBe("Plot 2");
+  });
+
+  it("allocates nothing when no share was given at all", () => {
+    const r = splitByPercent(100_000, [{ plotId: "a", label: "a", percent: 0 }]);
+    expect(r.lines).toEqual([]);
+  });
+});
+
+describe("areaPercentages", () => {
+  it("opens the form on the area split, as a starting point", () => {
+    const p = areaPercentages([plot("a", 7500), plot("b", 2500)]);
+    expect(p).toEqual([
+      { plotId: "a", percent: 75 },
+      { plotId: "b", percent: 25 },
+    ]);
+  });
+
+  it("gives an unsurveyed plot no share to start from", () => {
+    const p = areaPercentages([plot("a", 6000), plot("27", null)]);
+    expect(p[1]).toEqual({ plotId: "27", percent: 0 });
   });
 });

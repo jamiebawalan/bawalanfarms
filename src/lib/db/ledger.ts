@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Ledger } from "@/lib/domain/types";
+import { DEFAULT_SETTINGS, type FarmSettings, type Ledger } from "@/lib/domain/types";
 
 /**
  * Loads the whole ledger.
@@ -18,7 +18,7 @@ export async function loadLedger(): Promise<Ledger> {
   const [
     plots, plotAreas, cycles, expenses, allocations, purchases, draws,
     harvests, harvestLines, sales, saleLines, plantCounts, capitalAssets,
-    buyers, products, activities, crops,
+    buyers, products, activities, crops, leaves, tasks, settings,
   ] = await Promise.all([
     supabase.from("plots").select("*").order("sort_order"),
     supabase.from("plot_areas").select("*"),
@@ -37,6 +37,9 @@ export async function loadLedger(): Promise<Ledger> {
     supabase.from("products").select("*").order("sort_order"),
     supabase.from("activities").select("*").order("sort_order"),
     supabase.from("crops").select("*").order("label"),
+    supabase.from("leaf_measurements").select("*"),
+    supabase.from("tasks").select("*"),
+    supabase.from("farm_settings").select("*"),
   ]);
 
   const rows = <T,>(r: { data: T[] | null; error: unknown }, what: string): T[] => {
@@ -56,6 +59,7 @@ export async function loadLedger(): Promise<Ledger> {
       id: c.id, plotId: c.plot_id, crop: c.crop, status: c.status,
       dateStarted: c.date_started, datePlanted: c.date_planted, dateClosed: c.date_closed,
       kasamaSharePct: c.kasama_share_pct === null ? null : Number(c.kasama_share_pct),
+      targetHarvestDate: c.target_harvest_date ?? null,
       plantingMaterialSource: c.planting_material_source, notes: c.notes,
     })),
     expenses: rows<any>(expenses, "expenses").map((e) => ({
@@ -112,5 +116,35 @@ export async function loadLedger(): Promise<Ledger> {
       defaultCategory: a.default_category,
     })),
     crops: rows<any>(crops, "crops").map((c) => ({ code: c.code, label: c.label })),
+    leafMeasurements: rows<any>(leaves, "leaf measurements").map((l) => ({
+      cycleId: l.cycle_id, date: l.date,
+      avgLengthCm: Number(l.avg_length_cm),
+      sampleSize: l.sample_size === null ? null : Number(l.sample_size),
+    })),
+    tasks: rows<any>(tasks, "tasks").map((t) => ({
+      id: t.id, plotId: t.plot_id, cycleId: t.cycle_id, title: t.title,
+      activity: t.activity, dueDate: t.due_date, isCritical: t.is_critical,
+      doneAt: t.done_at,
+    })),
+    settings: readSettings(rows<any>(settings, "farm settings")),
+  };
+}
+
+/**
+ * Settings are rows so the owners can correct them without a deploy. A missing
+ * one falls back to the documented default rather than to zero, which would
+ * quietly turn a ratio into a divide-by-zero or a 0% utilisation figure.
+ */
+function readSettings(rows: { key: string; value: number | string }[]): FarmSettings {
+  const get = (key: string, fallback: number) => {
+    const row = rows.find((r) => r.key === key);
+    const value = row === undefined ? NaN : Number(row.value);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  };
+  return {
+    maxPlantsPerSqm: get("max_plants_per_sqm", DEFAULT_SETTINGS.maxPlantsPerSqm),
+    pineappleMonthsToHarvest: get(
+      "pineapple_months_to_harvest", DEFAULT_SETTINGS.pineappleMonthsToHarvest),
+    dleafReadyCm: get("dleaf_ready_cm", DEFAULT_SETTINGS.dleafReadyCm),
   };
 }
