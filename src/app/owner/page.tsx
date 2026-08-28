@@ -5,7 +5,9 @@ import {
 } from "@/components/charts";
 import { loadLedger } from "@/lib/db/ledger";
 import { ownerDashboard } from "@/lib/domain/dashboards";
-import { formatPeso, formatPesoCompact, percent } from "@/lib/domain/money";
+import {
+  formatPeso, formatPesoCompact, formatPesoPrecise, percent,
+} from "@/lib/domain/money";
 import { todayISO } from "@/lib/domain/dates";
 
 export const dynamic = "force-dynamic";
@@ -56,13 +58,13 @@ export default async function OwnerPage() {
           recent={
             d.quarter.avgRevenuePerFruitCentavos === null
               ? "—"
-              : formatPeso(d.quarter.avgRevenuePerFruitCentavos)
+              : formatPesoPrecise(d.quarter.avgRevenuePerFruitCentavos)
           }
           recentLabel="last 3 months"
           prior={
             d.year.avgRevenuePerFruitCentavos === null
               ? "—"
-              : formatPeso(d.year.avgRevenuePerFruitCentavos)
+              : formatPesoPrecise(d.year.avgRevenuePerFruitCentavos)
           }
           priorLabel="last 12 months"
           hint={
@@ -76,13 +78,13 @@ export default async function OwnerPage() {
           recent={
             d.quarter.avgCostPerFruitSoldCentavos === null
               ? "—"
-              : formatPeso(d.quarter.avgCostPerFruitSoldCentavos)
+              : formatPesoPrecise(d.quarter.avgCostPerFruitSoldCentavos)
           }
           recentLabel="last 3 months"
           prior={
             d.year.avgCostPerFruitSoldCentavos === null
               ? "—"
-              : formatPeso(d.year.avgCostPerFruitSoldCentavos)
+              : formatPesoPrecise(d.year.avgCostPerFruitSoldCentavos)
           }
           priorLabel="last 12 months"
           tone={

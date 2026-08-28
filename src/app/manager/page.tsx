@@ -3,7 +3,7 @@ import { Bar, Card, Empty, Note, Page, Stat, StatGrid, cx } from "@/components/u
 import { ChartStyles, Legend, SERIES, StackedBar } from "@/components/charts";
 import { loadLedger } from "@/lib/db/ledger";
 import { landUse, plotCostRanking, tasksForWeek } from "@/lib/domain/dashboards";
-import { formatPeso } from "@/lib/domain/money";
+import { formatPeso, formatPesoPrecise } from "@/lib/domain/money";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
 
 export const dynamic = "force-dynamic";
@@ -118,7 +118,7 @@ export default async function ManagerPage() {
                       <span className="tabular font-bold">
                         {r.costPerPlantCentavos === null
                           ? "—"
-                          : `${formatPeso(r.costPerPlantCentavos)} / plant`}
+                          : `${formatPesoPrecise(r.costPerPlantCentavos)} / plant`}
                       </span>
                     </div>
                     <div className="mb-1.5 text-sm text-ink-soft">

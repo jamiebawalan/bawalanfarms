@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatPeso, formatPesoCompact, formatPesoExact, lineTotal, parsePeso, percent, toCentavos,
+  formatPeso, formatPesoCompact, formatPesoExact, formatPesoPrecise,
+  lineTotal, parsePeso, percent, toCentavos,
 } from "./money";
 import { describeSpan, formatDate, isFuture, presetPeriods, addDays } from "./dates";
 
@@ -11,8 +12,19 @@ describe("formatting pesos", () => {
     expect(formatPeso(-45_000)).toBe("-₱450");
   });
 
-  it("shows centavos only when there actually are any", () => {
-    expect(formatPeso(123_450)).toBe("₱1,234.50");
+  it("rounds away the centavos on an absolute amount", () => {
+    // Centavos on a ₱154,196 figure tell nobody anything. Rounded, not
+    // truncated, so a total never drifts below the parts it is made of.
+    expect(formatPeso(123_450)).toBe("₱1,235");
+    expect(formatPeso(123_449)).toBe("₱1,234");
+    expect(formatPeso(15_419_612)).toBe("₱154,196");
+  });
+
+  it("keeps the centavos where they change a decision", () => {
+    // Cost per plant, price per fruit. At ₱4.63 a plant the second decimal is
+    // the difference between one plot and the next.
+    expect(formatPesoPrecise(463)).toBe("₱4.63");
+    expect(formatPesoPrecise(6_667)).toBe("₱66.67");
     expect(formatPesoExact(123_400)).toBe("₱1,234.00");
   });
 

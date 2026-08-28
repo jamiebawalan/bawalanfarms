@@ -3,7 +3,7 @@ import { Card, Empty, Money, Note, Page } from "@/components/ui";
 import { loadLedger } from "@/lib/db/ledger";
 import { plotHistories } from "@/lib/domain/reports";
 import { formatDate } from "@/lib/domain/dates";
-import { formatPeso } from "@/lib/domain/money";
+import { formatPeso, formatPesoPrecise } from "@/lib/domain/money";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function PlotsPage() {
           action={
             h.marginPerSqmCentavos !== null ? (
               <span className="tabular text-sm font-semibold">
-                {formatPeso(h.marginPerSqmCentavos)}/sqm
+                {formatPesoPrecise(h.marginPerSqmCentavos)}/sqm
               </span>
             ) : null
           }

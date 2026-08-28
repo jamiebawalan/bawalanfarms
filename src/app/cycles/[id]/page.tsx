@@ -4,9 +4,13 @@ import {
   Bar, Card, Empty, Money, Note, Page, Stat, StatGrid,
 } from "@/components/ui";
 import { CycleActions } from "@/components/cycle-actions";
+import { LeafTracker, PlotTasks } from "@/components/plot-actions";
+import { ProfitProjection } from "@/components/profit-projection";
+import { Suggestions } from "@/components/suggestions";
+import { projectForcing } from "@/lib/domain/dashboards";
 import { loadLedger } from "@/lib/db/ledger";
 import { cyclePnL } from "@/lib/domain/pnl";
-import { formatPeso, percent } from "@/lib/domain/money";
+import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
 import { describeSpan, formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +50,18 @@ export default async function CyclePage({
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const maxCost = Math.max(1, ...pnl.costByCategory.map((c) => c.amountCentavos));
+  const maxActivity = Math.max(1, ...pnl.costByActivity.map((c) => c.amountCentavos));
+
+  const readings = ledger.leafMeasurements.filter((l) => l.cycleId === id);
+  const plotTasks = ledger.tasks.filter(
+    (t) => t.cycleId === id || (t.plotId !== null && t.plotId === cycle.plotId),
+  );
+  const forcing = projectForcing(ledger, id);
+
+  // Seed the projection with what the farm has actually realised per fruit.
+  const soldQty = pnl.revenueByProduct.reduce((a, r) => a + r.quantity, 0);
+  const realisedPerFruit =
+    soldQty > 0 ? Math.round(pnl.revenueCentavos / soldQty) : null;
 
   return (
     <Page
@@ -77,7 +93,7 @@ export default async function CyclePage({
         <Stat label="Cost" value={formatPeso(pnl.totalCostCentavos)} />
         <Stat
           label="Cost / plant"
-          value={pnl.costPerPlantCentavos === null ? "—" : formatPeso(pnl.costPerPlantCentavos)}
+          value={pnl.costPerPlantCentavos === null ? "—" : formatPesoPrecise(pnl.costPerPlantCentavos)}
           hint={
             pnl.plantCount === null
               ? "no plant count yet"
@@ -89,7 +105,7 @@ export default async function CyclePage({
           value={
             pnl.costPerUnitHarvestedCentavos === null
               ? "—"
-              : formatPeso(pnl.costPerUnitHarvestedCentavos)
+              : formatPesoPrecise(pnl.costPerUnitHarvestedCentavos)
           }
           hint={`${pnl.quantityHarvested.toLocaleString("en-PH")} harvested`}
         />
@@ -98,7 +114,7 @@ export default async function CyclePage({
           value={
             pnl.marginPerUnitSoldCentavos === null
               ? "—"
-              : formatPeso(pnl.marginPerUnitSoldCentavos)
+              : formatPesoPrecise(pnl.marginPerUnitSoldCentavos)
           }
           tone={(pnl.marginPerUnitSoldCentavos ?? 0) >= 0 ? "up" : "down"}
           hint={`${pnl.quantitySold.toLocaleString("en-PH")} sold`}
@@ -112,34 +128,31 @@ export default async function CyclePage({
         </Note>
       ) : null}
 
-      <Card title="Where the cost came from">
-        <ul className="space-y-3">
-          <CostRow
-            label="Logged against this cycle"
-            centavos={pnl.directCostCentavos}
-            total={pnl.totalCostCentavos}
-          />
-          <CostRow
-            label="Fertiliser and chemicals drawn from stock"
-            centavos={pnl.inputDrawCostCentavos}
-            total={pnl.totalCostCentavos}
-          />
-          <CostRow
-            label="Share of whole-farm costs"
-            centavos={pnl.farmWideShareCentavos}
-            total={pnl.totalCostCentavos}
-            note="by area, across the cycles running when each cost was paid"
-          />
-          {pnl.kasamaShareCentavos > 0 ? (
-            <CostRow
-              label={`Kasama share (${cycle.kasamaSharePct}%)`}
-              centavos={pnl.kasamaShareCentavos}
-              total={pnl.totalCostCentavos}
-              note="the tenant's share of the crop"
-            />
-          ) : null}
-        </ul>
-      </Card>
+      <LeafTracker
+        cycleId={id}
+        readings={readings.map((r) => ({
+          date: r.date, avgLengthCm: r.avgLengthCm, sampleSize: r.sampleSize,
+        }))}
+        sampleSize={ledger.settings.dleafSampleSize}
+        forcingCm={ledger.settings.dleafForcingCm}
+        projected={forcing === null ? null : { date: forcing.date, cmPerDay: forcing.cmPerDay }}
+        target={cycle.targetForcingDate}
+        closed={pnl.isClosed}
+      />
+
+      {pnl.isClosed ? null : (
+        <Suggestions cycleId={id} plotId={cycle.plotId} />
+      )}
+
+      <PlotTasks
+        plotId={cycle.plotId}
+        cycleId={id}
+        tasks={plotTasks.map((t) => ({
+          id: t.id, title: t.title, dueDate: t.dueDate,
+          isCritical: t.isCritical, doneAt: t.doneAt,
+        }))}
+        closed={pnl.isClosed}
+      />
 
       <Card title="Cost by category">
         {pnl.costByCategory.length === 0 ? (
@@ -163,11 +176,16 @@ export default async function CyclePage({
         {pnl.costByActivity.length === 0 ? (
           <Empty>No costs yet.</Empty>
         ) : (
-          <ul className="divide-y-2 divide-line">
-            {pnl.costByActivity.slice(0, 12).map((row) => (
-              <li key={row.activity} className="flex justify-between gap-3 py-2">
-                <span>{activityLabel.get(row.activity) ?? row.activity}</span>
-                <Money centavos={row.amountCentavos} />
+          <ul className="space-y-2.5">
+            {pnl.costByActivity.map((row) => (
+              <li key={row.activity}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold">
+                    {activityLabel.get(row.activity) ?? row.activity}
+                  </span>
+                  <Money centavos={row.amountCentavos} />
+                </div>
+                <Bar fraction={row.amountCentavos / maxActivity} />
               </li>
             ))}
           </ul>
@@ -202,7 +220,7 @@ export default async function CyclePage({
                       {row.quantity.toLocaleString("en-PH")} at{" "}
                       {row.averagePriceCentavos === null
                         ? "—"
-                        : `${formatPeso(row.averagePriceCentavos)} realised`}
+                        : `${formatPesoPrecise(row.averagePriceCentavos)} realised`}
                     </div>
                   </div>
                   <Money centavos={row.revenueCentavos} />
@@ -276,6 +294,13 @@ export default async function CyclePage({
           </ul>
         </Card>
       ) : null}
+
+      <ProfitProjection
+        plants={pnl.plantCount}
+        costToDateCentavos={pnl.totalCostCentavos}
+        revenueSoFarCentavos={pnl.revenueCentavos}
+        defaultPerPlantCentavos={realisedPerFruit}
+      />
 
       <CycleActions
         cycleId={cycle.id}

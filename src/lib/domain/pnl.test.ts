@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeLedger } from "./fixture";
-import { allCyclePnL, cyclePnL, unattachedCosts } from "./pnl";
+import { allCyclePnL, cyclePnL, projectProfit, unattachedCosts } from "./pnl";
 import {
   allocateFarmWide, cycleIsLiveOn, idlePlotOverhead, overheadShare,
 } from "./allocation";
@@ -251,5 +251,40 @@ describe("kasama plots", () => {
     expect(c.revenueCentavos).toBe(5_000_000);
     expect(c.kasamaShareCentavos).toBe(1_250_000);
     expect(c.totalCostCentavos).toBe(1_370_000 + 1_250_000);
+  });
+});
+
+describe("projected profit", () => {
+  it("values the plants standing at a price the owner names", () => {
+    // 11,500 plants at ₱45 each, plus ₱50,000 already sold, less ₱13,700 cost.
+    const p = projectProfit(c1(), 4_500)!;
+    expect(p.plants).toBe(11_500);
+    expect(p.projectedRevenueCentavos).toBe(51_750_000);
+    expect(p.projectedProfitCentavos).toBe(51_750_000 + 5_000_000 - 1_370_000);
+  });
+
+  it("does not count money already banked twice", () => {
+    const p = projectProfit(c1(), 0)!;
+    // With nothing more expected, the projection is just what has happened.
+    expect(p.projectedProfitCentavos).toBe(5_000_000 - 1_370_000);
+  });
+
+  it("gives profit per plant, which is what compares across plots", () => {
+    const p = projectProfit(c1(), 4_500)!;
+    expect(p.projectedPerPlantCentavos).toBe(
+      Math.round(p.projectedProfitCentavos / 11_500),
+    );
+  });
+
+  it("refuses to project without a plant count", () => {
+    // No count means no basis. A confident peso figure off nothing is worse
+    // than a blank.
+    const uncounted: Ledger = { ...L, plantCounts: [] };
+    expect(projectProfit(cyclePnL(uncounted, "c1")!, 4_500)).toBeNull();
+  });
+
+  it("refuses a nonsense price rather than inventing a loss", () => {
+    expect(projectProfit(c1(), Number.NaN)).toBeNull();
+    expect(projectProfit(c1(), -100)).toBeNull();
   });
 });

@@ -261,3 +261,47 @@ export function unattachedCosts(ledger: Ledger): {
     }))
     .sort((a, b) => b.amountCentavos - a.amountCentavos);
 }
+
+
+/**
+ * What this cycle looks like it will make, if the plants standing sell at a
+ * price the owner names.
+ *
+ * Deliberately crude and deliberately explicit. It takes one assumption — the
+ * revenue expected per plant — and shows the arithmetic, because a projection
+ * whose workings are hidden gets believed more than it deserves. Costs to date
+ * are real; everything to the right of them is the owner's estimate.
+ */
+export type ProjectedProfit = {
+  plants: number;
+  revenuePerPlantCentavos: Centavos;
+  projectedRevenueCentavos: Centavos;
+  costToDateCentavos: Centavos;
+  revenueSoFarCentavos: Centavos;
+  projectedProfitCentavos: Centavos;
+  /** Profit per plant, which is the number that compares across plots. */
+  projectedPerPlantCentavos: Centavos;
+};
+
+export function projectProfit(
+  pnl: CyclePnL,
+  revenuePerPlantCentavos: Centavos,
+): ProjectedProfit | null {
+  if (pnl.plantCount === null || pnl.plantCount <= 0) return null;
+  if (!Number.isFinite(revenuePerPlantCentavos) || revenuePerPlantCentavos < 0) return null;
+
+  const projectedRevenue = Math.round(revenuePerPlantCentavos * pnl.plantCount);
+  // Anything already sold is money in, so it is not projected twice.
+  const total = projectedRevenue + pnl.revenueCentavos;
+  const profit = total - pnl.totalCostCentavos;
+
+  return {
+    plants: pnl.plantCount,
+    revenuePerPlantCentavos,
+    projectedRevenueCentavos: projectedRevenue,
+    costToDateCentavos: pnl.totalCostCentavos,
+    revenueSoFarCentavos: pnl.revenueCentavos,
+    projectedProfitCentavos: profit,
+    projectedPerPlantCentavos: Math.round(profit / pnl.plantCount),
+  };
+}

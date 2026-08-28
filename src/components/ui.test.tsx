@@ -38,9 +38,8 @@ describe("Button", () => {
 });
 
 describe("Money", () => {
-  it("renders pesos, and whole ones when there are no centavos", () => {
+  it("renders whole pesos by default", () => {
     expect(renderToStaticMarkup(<Money centavos={180_000} />)).toContain("₱1,800");
-    expect(renderToStaticMarkup(<Money centavos={123_450} />)).toContain("₱1,234.50");
   });
 
   it("colours a loss differently from a profit when asked", () => {
@@ -56,5 +55,15 @@ describe("Note and Stat", () => {
     expect(stat).toContain("Margin");
     expect(stat).toContain("₱3,630");
     expect(stat).toContain("72% of revenue");
+  });
+});
+
+describe("Money precision", () => {
+  it("rounds absolute amounts to whole pesos", () => {
+    expect(renderToStaticMarkup(<Money centavos={123_450} />)).toContain("₱1,235");
+  });
+
+  it("keeps centavos only when asked, for per-unit figures", () => {
+    expect(renderToStaticMarkup(<Money centavos={463} precise />)).toContain("₱4.63");
   });
 });
