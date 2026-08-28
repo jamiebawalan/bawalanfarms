@@ -26,17 +26,17 @@ export function makeLedger(): Ledger {
       {
         id: "c1", plotId: "p1", crop: "pineapple", status: "harvesting",
         dateStarted: "2024-01-01", datePlanted: "2024-02-01", dateClosed: null,
-        kasamaSharePct: null, targetHarvestDate: null,
+        kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
       },
       {
         id: "c2", plotId: "p2", crop: "peanut", status: "closed",
         dateStarted: "2024-01-01", datePlanted: "2024-01-15", dateClosed: "2024-06-30",
-        kasamaSharePct: null, targetHarvestDate: null,
+        kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
       },
       {
         id: "cm", plotId: "pm", crop: "mango", status: "growing",
         dateStarted: "2024-01-01", datePlanted: "2024-01-01", dateClosed: null,
-        kasamaSharePct: null, targetHarvestDate: null,
+        kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
       },
     ],
     expenses: [

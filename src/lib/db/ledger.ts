@@ -59,6 +59,7 @@ export async function loadLedger(): Promise<Ledger> {
       id: c.id, plotId: c.plot_id, crop: c.crop, status: c.status,
       dateStarted: c.date_started, datePlanted: c.date_planted, dateClosed: c.date_closed,
       kasamaSharePct: c.kasama_share_pct === null ? null : Number(c.kasama_share_pct),
+      targetForcingDate: c.target_forcing_date ?? null,
       targetHarvestDate: c.target_harvest_date ?? null,
       plantingMaterialSource: c.planting_material_source, notes: c.notes,
     })),
@@ -145,6 +146,9 @@ function readSettings(rows: { key: string; value: number | string }[]): FarmSett
     maxPlantsPerSqm: get("max_plants_per_sqm", DEFAULT_SETTINGS.maxPlantsPerSqm),
     pineappleMonthsToHarvest: get(
       "pineapple_months_to_harvest", DEFAULT_SETTINGS.pineappleMonthsToHarvest),
-    dleafReadyCm: get("dleaf_ready_cm", DEFAULT_SETTINGS.dleafReadyCm),
+    dleafForcingCm: get("dleaf_forcing_cm", DEFAULT_SETTINGS.dleafForcingCm),
+    monthsForcingToHarvest: get(
+      "months_forcing_to_harvest", DEFAULT_SETTINGS.monthsForcingToHarvest),
+    dleafSampleSize: get("dleaf_sample_size", DEFAULT_SETTINGS.dleafSampleSize),
   };
 }

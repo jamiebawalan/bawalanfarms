@@ -87,6 +87,7 @@ export type Cycle = {
   datePlanted: ISODate | null;
   dateClosed: ISODate | null;
   kasamaSharePct: number | null;
+  targetForcingDate: ISODate | null;
   targetHarvestDate: ISODate | null;
   plantingMaterialSource?: string | null;
   notes?: string | null;
@@ -190,13 +191,19 @@ export type Task = {
 export type FarmSettings = {
   maxPlantsPerSqm: number;
   pineappleMonthsToHarvest: number;
-  dleafReadyCm: number;
+  /** D-leaf length at which the plants are big enough to force. */
+  dleafForcingCm: number;
+  /** Months from forcing to harvest. */
+  monthsForcingToHarvest: number;
+  dleafSampleSize: number;
 };
 
 export const DEFAULT_SETTINGS: FarmSettings = {
   maxPlantsPerSqm: 3.3,
   pineappleMonthsToHarvest: 18,
-  dleafReadyCm: 100,
+  dleafForcingCm: 100,
+  monthsForcingToHarvest: 5,
+  dleafSampleSize: 10,
 };
 export type Crop = { code: string; label: string };
 export type Product = { code: string; label: string; sortOrder: number; isGrade: boolean };

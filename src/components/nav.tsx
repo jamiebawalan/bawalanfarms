@@ -12,10 +12,10 @@ import { cx } from "./ui";
  */
 const TABS = [
   { href: "/", label: "Today", icon: HomeIcon },
-  { href: "/cycles", label: "Cycles", icon: CycleIcon },
+  { href: "/manager", label: "Plan", icon: StockIcon },
   { href: "/expenses/new", label: "Log", icon: PlusIcon, primary: true },
-  { href: "/inputs", label: "Stock", icon: StockIcon },
-  { href: "/reports", label: "Reports", icon: ReportIcon },
+  { href: "/cycles", label: "Plots", icon: CycleIcon },
+  { href: "/owner", label: "Farm", icon: ReportIcon },
 ] as const;
 
 export function Nav() {

@@ -43,28 +43,49 @@ insert into farm_settings (key, value, unit, description) values
   ('pineapple_months_to_harvest', 18, 'months',
    'Typical months from planting to first harvest, used to project a harvest date '
    'when no D-leaf reading is available.'),
-  ('dleaf_ready_cm', 100, 'cm',
-   'D-leaf length at which a pineapple plant is considered ready for forcing. '
-   'Projections use the measured growth rate to estimate when this is reached.')
+  ('dleaf_forcing_cm', 100, 'cm',
+   'D-leaf length at which a plant is big enough to force. Anthony measures ten '
+   'plants at random every few weeks; the growth rate between readings is what '
+   'says when this length will be reached.'),
+  ('months_forcing_to_harvest', 5, 'months',
+   'Months from applying liquid to force fruiting through to harvest. Change it '
+   'here if the farm''s experience says otherwise.'),
+  ('dleaf_sample_size', 10, 'plants',
+   'How many plants to measure at random for a D-leaf reading.')
 on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 3. When the harvest was meant to happen
 -- ---------------------------------------------------------------------------
+-- Forcing is the decision the D-leaf readings exist to time: liquid goes on
+-- when the plants are big enough, and the harvest follows a set number of
+-- months later. So the target that matters day to day is the forcing date, and
+-- the harvest target is downstream of it.
 alter table crop_cycles
+  add column if not exists target_forcing_date date,
   add column if not exists target_harvest_date date;
 
+comment on column crop_cycles.target_forcing_date is
+  'When the farm intends to force this cycle. The D-leaf readings project the '
+  'date the plants will actually be ready, and the gap between the two is the '
+  'thing worth watching.';
 comment on column crop_cycles.target_harvest_date is
-  'What was planned when the cycle started. Kept alongside the projection so '
-  'slippage is visible rather than quietly absorbed.';
+  'When the harvest was planned for. Usually the forcing target plus the farm''s '
+  'forcing-to-harvest interval, but recorded separately so a deliberate change '
+  'is visible rather than inferred.';
 
 -- ---------------------------------------------------------------------------
 -- 4. D-leaf measurements
 -- ---------------------------------------------------------------------------
--- The D-leaf is the tallest mature leaf, and its length is how pineapple growers
--- judge whether a plant is ready to force. Like plant counts, these are periodic
--- observations and are never overwritten: the growth rate between them is what
--- makes a harvest date projectable at all.
+-- The D-leaf is the tallest mature leaf. Anthony picks ten plants at random
+-- every few weeks and measures theirs, because the length is how you tell
+-- whether a plant is big enough to force — that is, to apply liquid and induce
+-- fruiting. The harvest then follows a set number of months later.
+--
+-- So a reading is not a harvest prediction on its own. Two readings give a
+-- growth rate, the rate says when the forcing length will be reached, and the
+-- harvest falls out of that. Like plant counts these are never overwritten:
+-- the rate between them is the whole point.
 
 create table if not exists leaf_measurements (
   id           uuid primary key default gen_random_uuid(),
