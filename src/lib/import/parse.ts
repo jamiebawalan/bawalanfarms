@@ -306,6 +306,12 @@ export function parseDate(raw: string): ISODate | null {
     return null;
   }
 
+  // Date.parse invents a year when the text does not carry one: "Sept 29"
+  // comes back as 2001-09-29, which looks like a real date and is not. A cost
+  // filed under a guessed year is worse than a rejected row, so a date with no
+  // four-digit year in it is refused and reported.
+  if (!/\d{4}/.test(text)) return null;
+
   const parsed = Date.parse(`${text} UTC`);
   if (!Number.isNaN(parsed)) return new Date(parsed).toISOString().slice(0, 10);
   return null;
