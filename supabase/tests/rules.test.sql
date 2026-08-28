@@ -409,4 +409,54 @@ begin
   raise notice 'ok  a batch that fails halfway leaves nothing behind';
 end $$;
 
+-- 18. The import knows who is running it -------------------------------------
+--
+-- The import runs with the service role, which carries no user identity at all.
+-- Without the actor argument, current_email() is null inside the function and
+-- every import is refused — including a genuine owner's, which is exactly what
+-- happened in production.
+
+insert into app_users (email, role, display_name)
+values ('manager@example.com', 'manager', 'Manager')
+on conflict (email) do nothing;
+
+do $$
+declare result jsonb;
+begin
+  -- No JWT at all, the way the service role arrives.
+  perform set_config('request.jwt.claims', '', true);
+  result := import_expenses(jsonb_build_object('expenses', jsonb_build_array(
+    jsonb_build_object(
+      'import_key', 'actor:1', 'date', '2024-03-01', 'category', 'Labor',
+      'activity', 'deweed', 'attribution', 'direct', 'amount_centavos', 180000,
+      'allocations', jsonb_build_array(jsonb_build_object(
+        'plot_id', (select plot1 from ids)::text, 'amount_centavos', 180000)))
+  )), 'owner@example.com');
+  if (result ->> 'written')::int <> 1 then
+    raise exception 'TEST FAILED: an owner named as actor could not import';
+  end if;
+  raise notice 'ok  the import accepts an owner named as the actor, with no JWT';
+end $$;
+
+do $$
+begin
+  if (select created_by from expenses where import_key = 'actor:1')
+     <> 'owner@example.com' then
+    raise exception 'TEST FAILED: the import did not record who ran it';
+  end if;
+  raise notice 'ok  the import records which owner ran it';
+end $$;
+
+select assert_rejects($$
+  select import_expenses('{"expenses":[]}'::jsonb, 'manager@example.com') $$,
+  'a manager cannot run the import, even named as the actor');
+
+select assert_rejects($$
+  select import_expenses('{"expenses":[]}'::jsonb, 'stranger@example.com') $$,
+  'naming yourself as actor does not make you an owner');
+
+select assert_rejects($$
+  select import_expenses('{"expenses":[]}'::jsonb, null) $$,
+  'the import refuses when nobody is named at all');
+
 rollback;

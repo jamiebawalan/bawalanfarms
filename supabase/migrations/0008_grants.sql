@@ -51,11 +51,18 @@ begin
     end if;
   end loop;
 
-  -- The import runs with the service role and checks is_owner() itself.
-  execute 'revoke all on function import_expenses(jsonb) from public';
-  execute 'revoke all on function import_cycles(jsonb) from public';
-  if exists (select 1 from pg_roles where rolname = 'anon') then
-    execute 'revoke all on function import_expenses(jsonb) from anon';
-    execute 'revoke all on function import_cycles(jsonb) from anon';
-  end if;
+  -- The import runs with the service role and checks the caller itself.
+  -- Matched by name rather than by signature: a later migration changes the
+  -- argument list, and this must keep working whichever version is installed.
+  for f in
+    select p.oid::regprocedure::text
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and p.proname in ('import_expenses', 'import_cycles')
+  loop
+    execute format('revoke all on function %s from public', f);
+    if exists (select 1 from pg_roles where rolname = 'anon') then
+      execute format('revoke all on function %s from anon', f);
+    end if;
+  end loop;
 end $$;
