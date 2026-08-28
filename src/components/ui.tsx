@@ -206,27 +206,28 @@ export function Note({ tone = "info", children }: {
   );
 }
 
-export function Money({ centavos, className, signed }: {
+export function Money({ centavos, className, signed, precise }: {
   centavos: number;
   className?: string;
   signed?: boolean;
+  /** Keep the centavos. Only for per-plant and per-fruit figures. */
+  precise?: boolean;
 }) {
   const tone = !signed ? "" : centavos < 0 ? "text-money-down" : "text-money-up";
   return (
     <span className={cx("tabular font-semibold", tone, className)}>
-      {formatPesoInline(centavos)}
+      {formatPesoInline(centavos, precise === true)}
     </span>
   );
 }
 
-function formatPesoInline(centavos: number): string {
+function formatPesoInline(centavos: number, precise: boolean): string {
   if (!Number.isFinite(centavos)) return "—";
-  const pesos = centavos / 100;
-  const opts = centavos % 100 === 0 ? 0 : 2;
+  const dp = precise ? 2 : 0;
   return new Intl.NumberFormat("en-PH", {
     style: "currency", currency: "PHP",
-    minimumFractionDigits: opts, maximumFractionDigits: opts,
-  }).format(pesos);
+    minimumFractionDigits: dp, maximumFractionDigits: dp,
+  }).format(precise ? centavos / 100 : Math.round(centavos / 100));
 }
 
 /** A labelled figure. The unit of every report screen. */

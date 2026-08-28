@@ -2,7 +2,7 @@ import { Card, Empty, Money, Note, Page } from "@/components/ui";
 import { loadLedger } from "@/lib/db/ledger";
 import { buyerMargins } from "@/lib/domain/reports";
 import { formatDate } from "@/lib/domain/dates";
-import { formatPeso } from "@/lib/domain/money";
+import { formatPesoPrecise } from "@/lib/domain/money";
 
 export const dynamic = "force-dynamic";
 
@@ -47,12 +47,12 @@ export default async function BuyersPage() {
                         {p.quantity.toLocaleString("en-PH")}
                       </td>
                       <td className="py-2.5 pr-3 text-right font-semibold">
-                        {formatPeso(p.averagePriceCentavos)}
+                        {formatPesoPrecise(p.averagePriceCentavos)}
                       </td>
                       <td className="py-2.5 pr-3 text-right text-ink-soft">
                         {p.minPriceCentavos === p.maxPriceCentavos
                           ? "—"
-                          : `${formatPeso(p.minPriceCentavos)}–${formatPeso(p.maxPriceCentavos)}`}
+                          : `${formatPesoPrecise(p.minPriceCentavos)}–${formatPesoPrecise(p.maxPriceCentavos)}`}
                       </td>
                       <td className="py-2.5 text-right">
                         <Money centavos={p.revenueCentavos} />

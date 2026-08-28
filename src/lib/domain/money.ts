@@ -21,15 +21,26 @@ const PESO_EXACT = new Intl.NumberFormat("en-PH", {
 });
 
 /**
- * Formats for the field: whole pesos, because the farm deals in whole pesos and
- * a screen full of ".00" is harder to read at arm's length in the sun.
- * Falls back to showing centavos when they are actually present.
+ * Money, in whole pesos.
+ *
+ * The farm deals in whole pesos and a column of ".00" is harder to read at
+ * arm's length in the sun. Centavos on a ₱154,196 figure tell nobody anything;
+ * they are noise dressed as precision. Rounded, never truncated, so a total
+ * never drifts below its parts.
  */
 export function formatPeso(centavos: Centavos): string {
   if (!Number.isFinite(centavos)) return "—";
-  return centavos % 100 === 0
-    ? PESO.format(centavos / 100)
-    : PESO_EXACT.format(centavos / 100);
+  return PESO.format(Math.round(centavos / 100));
+}
+
+/**
+ * Money where the centavos carry real meaning: cost per plant, price per
+ * fruit, margin per fruit. At ₱4.63 a plant the second decimal is the
+ * difference between plots, so here it stays.
+ */
+export function formatPesoPrecise(centavos: Centavos): string {
+  if (!Number.isFinite(centavos)) return "—";
+  return PESO_EXACT.format(centavos / 100);
 }
 
 /** Always two decimals. For exports and anywhere a column has to line up. */
