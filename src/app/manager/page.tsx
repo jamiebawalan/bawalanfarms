@@ -59,8 +59,10 @@ export default async function ManagerPage() {
         <Bar fraction={land.utilisation} />
         <p className="mt-1 text-sm text-ink-soft">
           Planted area against the area that could carry a crop. Plants standing
-          are measured against {ledger.settings.maxPlantsPerSqm} per sqm — the
-          densest planting the farm has achieved.
+          are measured against {ledger.settings.targetPlantsPerSqm} per sqm — the
+          density the farm plants for, about{" "}
+          {(ledger.settings.targetPlantsPerSqm * 10_000).toLocaleString("en-PH")}{" "}
+          a hectare.
         </p>
 
         {land.idlePlots.length > 0 ? (

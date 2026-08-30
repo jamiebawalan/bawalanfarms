@@ -86,8 +86,8 @@ describe("land use", () => {
 
   it("measures plants standing against what the land could hold", () => {
     expect(u.plantsStanding).toBe(11_500);
-    expect(u.plantsPotential).toBe(Math.round(10_000 * DEFAULT_SETTINGS.maxPlantsPerSqm));
-    expect(u.plantUtilisation).toBeCloseTo(11_500 / 33_000, 4);
+    expect(u.plantsPotential).toBe(Math.round(10_000 * DEFAULT_SETTINGS.targetPlantsPerSqm));
+    expect(u.plantUtilisation).toBeCloseTo(11_500 / 25_000, 4);
   });
 
   it("shows where utilisation lands once the planned cycle goes in", () => {

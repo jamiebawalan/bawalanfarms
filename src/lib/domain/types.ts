@@ -189,7 +189,7 @@ export type Task = {
 
 /** Assumptions the reports rest on, kept as data so they can be corrected. */
 export type FarmSettings = {
-  maxPlantsPerSqm: number;
+  targetPlantsPerSqm: number;
   pineappleMonthsToHarvest: number;
   /** D-leaf length at which the plants are big enough to force. */
   dleafForcingCm: number;
@@ -199,7 +199,7 @@ export type FarmSettings = {
 };
 
 export const DEFAULT_SETTINGS: FarmSettings = {
-  maxPlantsPerSqm: 3.3,
+  targetPlantsPerSqm: 2.5,
   pineappleMonthsToHarvest: 18,
   dleafForcingCm: 100,
   monthsForcingToHarvest: 5,

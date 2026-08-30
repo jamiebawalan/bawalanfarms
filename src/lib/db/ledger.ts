@@ -143,7 +143,8 @@ function readSettings(rows: { key: string; value: number | string }[]): FarmSett
     return Number.isFinite(value) && value > 0 ? value : fallback;
   };
   return {
-    maxPlantsPerSqm: get("max_plants_per_sqm", DEFAULT_SETTINGS.maxPlantsPerSqm),
+    targetPlantsPerSqm: get(
+      "target_plants_per_sqm", DEFAULT_SETTINGS.targetPlantsPerSqm),
     pineappleMonthsToHarvest: get(
       "pineapple_months_to_harvest", DEFAULT_SETTINGS.pineappleMonthsToHarvest),
     dleafForcingCm: get("dleaf_forcing_cm", DEFAULT_SETTINGS.dleafForcingCm),
