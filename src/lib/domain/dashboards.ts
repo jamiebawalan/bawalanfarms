@@ -205,7 +205,7 @@ export function landUse(ledger: Ledger, today = todayISO()): LandUse {
     : null;
   const plannedArea = planned ? areaOn(ledger.plotAreas, planned.plotId, today) : null;
 
-  const potential = Math.round(totalSqm * ledger.settings.maxPlantsPerSqm);
+  const potential = Math.round(totalSqm * ledger.settings.targetPlantsPerSqm);
 
   return {
     totalSqm,

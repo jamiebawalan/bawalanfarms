@@ -26,7 +26,7 @@ Local terms, which the owners and the crew use in preference to English:
 /** What the farm has learned about growing the crop. From MEMORY.md. */
 export const AGRONOMY = `D-leaf and forcing:
 - D-leaf length is the key maturity and forcing indicator.
-- Working targets discussed range from about 75-85 cm for cautious forcing readiness, while some local farm practice aims for 95-100 cm to get larger plants and larger fruit. The farm has not settled which it prefers; the tradeoff is fruit size against a later harvest.
+- Working targets range from about 75-85 cm for cautious forcing readiness to 95-100 cm for larger plants and larger fruit. Both are legitimate and the owners choose per plot (D011). The default lean is toward the larger threshold, because a harvest tending to primera pays better (D010) — but seasonal pricing can reverse that. Christmas prices rise enough that forcing earlier for smaller fruit can be the better trade on a plot that would otherwise land in a flat market.
 - Smooth Cayenne needs a higher D-leaf at forcing than Queen.
 - In April 2026 plants at about 60 cm and 73 cm were judged nearly but not fully ready.
 - A plot planted September 2025 averaged around 75 cm D-leaf by June 2026.

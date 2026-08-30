@@ -73,5 +73,21 @@
     "decision": "Develop water-security options around storage, pumping, deep-well and/or ram-pump concepts.",
     "status": "planning",
     "confidence": "medium"
+  },
+  {
+    "id": "D010",
+    "topic": "fruit_size_strategy",
+    "decision": "Aim for larger fruit in general, because the economics work better as the harvest tends toward primera.",
+    "status": "active",
+    "rationale": "A higher primera share lifts revenue per fruit more than the extra time in the ground costs.",
+    "confidence": "high"
+  },
+  {
+    "id": "D011",
+    "topic": "forcing_threshold",
+    "decision": "Treat the D-leaf forcing threshold as a per-plot judgment by the owners, not a farm-wide constant. The cautious 75-85 cm and the larger-fruit 95-100 cm are both legitimate; which to use on a given plot depends on what the fruit will be worth when it lands.",
+    "status": "active",
+    "rationale": "Seasonal pricing can outweigh size. Christmas prices rise enough that forcing earlier for smaller fruit can pay better than waiting for primera.",
+    "confidence": "high"
   }
 ]
