@@ -140,7 +140,7 @@ describe("projecting when to force", () => {
   const measured = (readings: [string, number][]): Ledger => ({
     ...L,
     leafMeasurements: readings.map(([date, avgLengthCm]) => ({
-      cycleId: "c1", date, avgLengthCm, sampleSize: 10,
+      id: `lm-c1-${date}`, cycleId: "c1", date, avgLengthCm, sampleSize: 20,
     })),
   });
 
@@ -187,8 +187,8 @@ describe("projecting the harvest", () => {
     const l: Ledger = {
       ...L,
       leafMeasurements: [
-        { cycleId: "c1", date: "2024-04-01", avgLengthCm: 60, sampleSize: 10 },
-        { cycleId: "c1", date: "2024-05-11", avgLengthCm: 80, sampleSize: 10 },
+        { id: "lm-c1-2024-04-01", cycleId: "c1", date: "2024-04-01", avgLengthCm: 60, sampleSize: 10 },
+        { id: "lm-c1-2024-05-11", cycleId: "c1", date: "2024-05-11", avgLengthCm: 80, sampleSize: 10 },
       ],
     };
     // Forcing 20 June, plus five months.

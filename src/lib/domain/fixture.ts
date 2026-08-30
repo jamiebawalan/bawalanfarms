@@ -139,6 +139,7 @@ export function makeLedger(): Ledger {
       { code: "mango", label: "Mango" },
     ],
     leafMeasurements: [],
+    leafPlants: [],
     tasks: [],
     settings: DEFAULT_SETTINGS,
     activities: [

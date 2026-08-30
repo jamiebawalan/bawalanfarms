@@ -8,6 +8,7 @@ import { LeafTracker, PlotTasks } from "@/components/plot-actions";
 import { ProfitProjection } from "@/components/profit-projection";
 import { Suggestions } from "@/components/suggestions";
 import { projectForcing } from "@/lib/domain/dashboards";
+import { evenness, readingsFor } from "@/lib/domain/leaf";
 import { loadLedger } from "@/lib/db/ledger";
 import { cyclePnL } from "@/lib/domain/pnl";
 import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
@@ -52,7 +53,7 @@ export default async function CyclePage({
   const maxCost = Math.max(1, ...pnl.costByCategory.map((c) => c.amountCentavos));
   const maxActivity = Math.max(1, ...pnl.costByActivity.map((c) => c.amountCentavos));
 
-  const readings = ledger.leafMeasurements.filter((l) => l.cycleId === id);
+  const readings = readingsFor(ledger, id);
   const plotTasks = ledger.tasks.filter(
     (t) => t.cycleId === id || (t.plotId !== null && t.plotId === cycle.plotId),
   );
@@ -131,7 +132,14 @@ export default async function CyclePage({
       <LeafTracker
         cycleId={id}
         readings={readings.map((r) => ({
-          date: r.date, avgLengthCm: r.avgLengthCm, sampleSize: r.sampleSize,
+          date: r.date,
+          avgLengthCm: r.avgLengthCm,
+          sampleSize: r.sampleSize,
+          plants: r.plants,
+          shortestCm: r.shortestCm,
+          tallestCm: r.tallestCm,
+          spreadCm: r.spreadCm,
+          evenness: evenness(r.spreadCm),
         }))}
         sampleSize={ledger.settings.dleafSampleSize}
         forcingCm={ledger.settings.dleafForcingCm}

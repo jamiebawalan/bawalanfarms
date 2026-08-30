@@ -170,10 +170,22 @@ export type CapitalAsset = {
 export type Buyer = { id: string; name: string };
 
 export type LeafMeasurement = {
+  id: string;
   cycleId: string;
   date: ISODate;
   avgLengthCm: number;
   sampleSize: number | null;
+};
+
+/**
+ * One plant, measured. The average is derived from these, never typed, so it
+ * cannot drift from the numbers it came from — and the spread survives, which
+ * a lone average throws away.
+ */
+export type LeafPlantReading = {
+  measurementId: string;
+  plantNo: number;
+  lengthCm: number;
 };
 
 export type Task = {
@@ -234,6 +246,7 @@ export type Ledger = {
   activities: Activity[];
   crops: Crop[];
   leafMeasurements: LeafMeasurement[];
+  leafPlants: LeafPlantReading[];
   tasks: Task[];
   settings: FarmSettings;
 };
@@ -242,6 +255,6 @@ export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
   purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
-  activities: [], crops: [], leafMeasurements: [], tasks: [],
+  activities: [], crops: [], leafMeasurements: [], leafPlants: [], tasks: [],
   settings: DEFAULT_SETTINGS,
 };
