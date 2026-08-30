@@ -213,8 +213,8 @@ describe("what a cycle's history file says", () => {
     const withLeaf: Ledger = {
       ...L,
       leafMeasurements: [
-        { cycleId: "c1", date: "2024-04-01", avgLengthCm: 60, sampleSize: 10 },
-        { cycleId: "c1", date: "2024-05-01", avgLengthCm: 75, sampleSize: 10 },
+        { id: "lm-c1-2024-04-01", cycleId: "c1", date: "2024-04-01", avgLengthCm: 60, sampleSize: 10 },
+        { id: "lm-c1-2024-05-01", cycleId: "c1", date: "2024-05-01", avgLengthCm: 75, sampleSize: 10 },
       ],
     };
     const md = cycleDossier(withLeaf, "c1", TODAY)!.markdown;

@@ -7,7 +7,16 @@ import { Sparkline } from "./charts";
 import { newId } from "@/lib/queue";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
 
-export type Reading = { date: string; avgLengthCm: number; sampleSize: number | null };
+export type Reading = {
+  date: string;
+  avgLengthCm: number;
+  sampleSize: number | null;
+  plants: number[];
+  shortestCm: number | null;
+  tallestCm: number | null;
+  spreadCm: number | null;
+  evenness: { label: string; tone: "good" | "warn" | "danger" } | null;
+};
 export type PlotTask = {
   id: string;
   title: string;
@@ -17,12 +26,16 @@ export type PlotTask = {
 };
 
 /**
- * D-leaf readings and the growth they show.
+ * D-leaf readings, plant by plant.
  *
- * Anthony picks ten plants at random every few weeks and measures the tallest
- * mature leaf on each. On its own a reading says how big the plants are; it is
- * the second one that matters, because the rate between them is what says when
- * the crop will be big enough to force.
+ * Anthony picks plants at random and measures each one. He used to have to work
+ * out the average in the field and type that; now he types what he measured and
+ * the app does the arithmetic — which removes a step, removes a place to make a
+ * mistake, and keeps the individual numbers.
+ *
+ * Keeping them matters. Twenty plants averaging 57 cm can be a tidy row between
+ * 54 and 60 or a mess between 27 and 79, and only one of those is a block that
+ * will force together. The average alone cannot tell you which you have.
  */
 export function LeafTracker({
   cycleId, readings, sampleSize, forcingCm, projected, target, closed,
@@ -37,33 +50,36 @@ export function LeafTracker({
 }) {
   const router = useRouter();
   const today = todayISO();
-  const [length, setLength] = useState("");
-  const [count, setCount] = useState(String(sampleSize));
+  const [plants, setPlants] = useState<string[]>(() => Array(sampleSize).fill(""));
   const [date, setDate] = useState(today);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sorted = [...readings].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1] ?? null;
 
+  const entered = plants
+    .map((value, i) => ({ no: i + 1, cm: Number(value) }))
+    .filter((p) => p.cm > 0 && Number.isFinite(p.cm));
+  const runningAverage =
+    entered.length === 0
+      ? null
+      : Math.round((entered.reduce((a, p) => a + p.cm, 0) / entered.length) * 10) / 10;
+
   async function save() {
-    const cm = Number(length);
-    if (!Number.isFinite(cm) || cm <= 0) return;
+    if (entered.length === 0) return;
     setBusy(true);
     setError(null);
     const res = await fetch("/api/leaf", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        cycle_id: cycleId,
-        date,
-        avg_length_cm: cm,
-        sample_size: Number(count) || sampleSize,
-      }),
+      body: JSON.stringify({ cycle_id: cycleId, date, plants: entered }),
     });
     setBusy(false);
     if (res.ok) {
-      setLength("");
+      setPlants(Array(sampleSize).fill(""));
+      setOpen(false);
       router.refresh();
     } else {
       const body = await res.json().catch(() => ({}));
@@ -75,18 +91,36 @@ export function LeafTracker({
     <Card title="D-leaf">
       {latest === null ? (
         <p className="mb-3 text-ink-soft">
-          No reading yet. Measure {sampleSize} plants picked at random and record
-          the average — that is what starts the clock on forcing.
+          No reading yet. Measure {sampleSize} plants picked at random — that is
+          what starts the clock on forcing.
         </p>
       ) : (
         <>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="tabular text-3xl font-bold">{latest.avgLengthCm} cm</span>
             <span className="text-ink-soft">
               on {formatDate(latest.date)}
               {latest.sampleSize ? `, ${latest.sampleSize} plants` : ""}
             </span>
           </div>
+
+          {latest.shortestCm !== null && latest.evenness !== null ? (
+            <p className="mt-0.5 text-sm text-ink-soft">
+              Shortest {latest.shortestCm} cm, tallest {latest.tallestCm} cm —{" "}
+              <span
+                className={cx(
+                  "font-semibold",
+                  latest.evenness.tone === "good" && "text-brand",
+                  latest.evenness.tone === "warn" && "text-warn",
+                  latest.evenness.tone === "danger" && "text-danger",
+                )}
+              >
+                {latest.evenness.label}
+              </span>{" "}
+              (spread {latest.spreadCm} cm)
+            </p>
+          ) : null}
+
           {sorted.length >= 2 ? (
             <>
               <Sparkline
@@ -122,43 +156,40 @@ export function LeafTracker({
         </Note>
       ) : null}
 
-      {sorted.length > 1 ? (
+      {sorted.length > 0 ? (
         <details className="mb-3">
           <summary className="cursor-pointer text-sm font-semibold text-brand">
-            All {sorted.length} readings
+            Every reading{sorted.length > 1 ? ` (${sorted.length})` : ""}
           </summary>
-          <ul className="mt-2 space-y-1 text-sm text-ink-soft">
-            {[...sorted].reverse().map((r) => (
-              <li key={r.date} className="tabular">
-                {formatDateShort(r.date)} — {r.avgLengthCm} cm
-                {r.sampleSize ? ` (${r.sampleSize} plants)` : ""}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm tabular">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-ink-soft">
+                  <th className="py-1 pr-3 font-bold">Date</th>
+                  <th className="py-1 pr-3 font-bold">Average</th>
+                  <th className="py-1 pr-3 font-bold">Range</th>
+                  <th className="py-1 font-bold">Plants</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...sorted].reverse().map((r) => (
+                  <tr key={r.date} className="border-t border-line">
+                    <td className="py-1 pr-3">{formatDateShort(r.date)}</td>
+                    <td className="py-1 pr-3 font-semibold">{r.avgLengthCm} cm</td>
+                    <td className="py-1 pr-3 text-ink-soft">
+                      {r.shortestCm === null ? "—" : `${r.shortestCm}–${r.tallestCm}`}
+                    </td>
+                    <td className="py-1 text-ink-soft">{r.sampleSize ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </details>
       ) : null}
 
-      {closed ? null : (
+      {closed ? null : open ? (
         <>
-          <div className="flex gap-3">
-            <Field label="Average D-leaf (cm)" htmlFor="dleaf">
-              <Input
-                id="dleaf"
-                inputMode="decimal"
-                value={length}
-                onChange={(e) => setLength(e.target.value)}
-                placeholder="e.g. 78"
-              />
-            </Field>
-            <Field label="Plants measured" htmlFor="dleaf-n">
-              <Input
-                id="dleaf-n"
-                inputMode="numeric"
-                value={count}
-                onChange={(e) => setCount(e.target.value)}
-              />
-            </Field>
-          </div>
           <Field label="Measured on" htmlFor="dleaf-date">
             <Input
               id="dleaf-date"
@@ -168,11 +199,59 @@ export function LeafTracker({
               onChange={(e) => setDate(e.target.value)}
             />
           </Field>
+
+          <p className="mb-2 text-sm text-ink-soft">
+            One row per plant, in the order you measured them. Leave a row blank
+            if you measured fewer than {sampleSize}.
+          </p>
+          <ul className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {plants.map((value, i) => (
+              <li key={i} className="flex items-center gap-1.5">
+                <span className="w-5 shrink-0 text-right text-sm tabular text-ink-soft">
+                  {i + 1}
+                </span>
+                <Input
+                  aria-label={`Plant ${i + 1}, centimetres`}
+                  inputMode="decimal"
+                  value={value}
+                  onChange={(e) => {
+                    const next = [...plants];
+                    next[i] = e.target.value;
+                    setPlants(next);
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+
+          <p className="mb-3 text-sm">
+            {runningAverage === null ? (
+              <span className="text-ink-soft">Nothing entered yet.</span>
+            ) : (
+              <>
+                <strong className="tabular">{runningAverage} cm</strong>{" "}
+                <span className="text-ink-soft">
+                  average across {entered.length}{" "}
+                  {entered.length === 1 ? "plant" : "plants"}
+                </span>
+              </>
+            )}
+          </p>
+
           {error ? <Note tone="danger">{error}</Note> : null}
-          <Button variant="secondary" disabled={busy || Number(length) <= 0} onClick={save}>
-            {busy ? "Saving…" : "Record this reading"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" disabled={busy || entered.length === 0} onClick={save}>
+              {busy ? "Saving…" : "Save this reading"}
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          </div>
         </>
+      ) : (
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          Record a reading
+        </Button>
       )}
     </Card>
   );

@@ -10,7 +10,7 @@ const L = makeLedger();
 const withLeaf = (readings: { date: string; avgLengthCm: number }[]): Ledger => ({
   ...L,
   leafMeasurements: readings.map((r) => ({
-    cycleId: "c1", date: r.date, avgLengthCm: r.avgLengthCm, sampleSize: 10,
+    id: `lm-c1-${r.date}`, cycleId: "c1", date: r.date, avgLengthCm: r.avgLengthCm, sampleSize: 10,
   })),
 });
 
