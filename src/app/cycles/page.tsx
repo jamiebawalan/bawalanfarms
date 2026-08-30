@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Button, Card, Empty, Money, Page } from "@/components/ui";
 import { loadLedger } from "@/lib/db/ledger";
 import { allCyclePnL } from "@/lib/domain/pnl";
-import { describeSpan, formatDate, todayISO } from "@/lib/domain/dates";
+import { formatDate, todayISO } from "@/lib/domain/dates";
+import { cycleAgeMonths, groupByBand } from "@/lib/domain/age";
 import { formatPeso } from "@/lib/domain/money";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export default async function CyclesPage() {
   const today = todayISO();
 
   const running = all.filter((c) => !c.isClosed && c.cycle.status !== "planned");
+  // Banded by age so the plots on screen together are ones worth comparing:
+  // nineteen months against eighteen, never against ten.
+  const banded = groupByBand(running, (c) => c, today);
   const planned = all.filter((c) => c.cycle.status === "planned");
   const closed = all
     .filter((c) => c.isClosed)
@@ -32,8 +36,19 @@ export default async function CyclesPage() {
         {running.length === 0 ? (
           <Empty>Nothing is running.</Empty>
         ) : (
+          <>
+          {banded.map(({ band, items }) => (
+          <section key={band?.key ?? "rest"}>
+            <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-soft first:mt-0">
+              {band === null ? "Everything else" : band.label}
+              {band !== null ? (
+                <span className="ml-2 font-medium normal-case tracking-normal">
+                  {band.hint}
+                </span>
+              ) : null}
+            </h3>
           <ul className="divide-y-2 divide-line">
-            {running.map((c) => (
+            {items.map((c) => (
               <li key={c.cycle.id}>
                 <Link
                   href={`/cycles/${c.cycle.id}`}
@@ -44,10 +59,12 @@ export default async function CyclesPage() {
                       {c.plot?.label} · {c.cycle.crop}
                     </div>
                     <div className="text-sm text-ink-soft">
+                      {(() => {
+                        const months = cycleAgeMonths(c.cycle, today);
+                        return months === null ? "not started" : `${months} months in`;
+                      })()}
+                      {" · "}
                       {c.cycle.status.replace("_", " ")}
-                      {c.cycle.dateStarted
-                        ? ` · ${describeSpan(c.cycle.dateStarted, today)} in`
-                        : ""}
                     </div>
                   </div>
                   <div className="text-right">
@@ -60,6 +77,9 @@ export default async function CyclesPage() {
               </li>
             ))}
           </ul>
+          </section>
+          ))}
+          </>
         )}
       </Card>
 

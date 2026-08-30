@@ -2,6 +2,7 @@ import { allCyclePnL, type CyclePnL } from "./pnl";
 import { allocateFarmWide, cycleIsLiveOn, plotIsOccupiedOn } from "./allocation";
 import { areaOn } from "./plots";
 import { addDays, todayISO } from "./dates";
+import { byAgeOldestFirst, cycleAgeMonths } from "./age";
 import type { Centavos } from "./money";
 import type { ExpenseCategory, ISODate, Ledger } from "./types";
 
@@ -295,6 +296,30 @@ export function plotCostRanking(ledger: Ledger, today = todayISO()): PlotCostRow
       };
     })
     .sort((a, b) => (b.costPerPlantCentavos ?? -1) - (a.costPerPlantCentavos ?? -1));
+}
+
+/**
+ * The same rows, oldest cycle first.
+ *
+ * Worst-cost-first sounds like the useful order and is not: the most expensive
+ * plot per plant is usually just the oldest one, so the ranking told you which
+ * plot had been in the ground longest and dressed it up as a problem. Age is
+ * the honest axis, and cost is compared within a band of similar age.
+ */
+export function plotCostByAge(ledger: Ledger, today = todayISO()): PlotCostRow[] {
+  const rows = plotCostRanking(ledger, today);
+  const cycleById = new Map(ledger.cycles.map((c) => [c.id, c]));
+  return byAgeOldestFirst(
+    rows.filter((r) => cycleById.has(r.cycleId)),
+    (r) => ({ cycle: cycleById.get(r.cycleId)! }),
+    today,
+  );
+}
+
+/** Months since the cycle started, for a row that already knows its cycle. */
+export function ageOf(ledger: Ledger, cycleId: string, today = todayISO()): number | null {
+  const cycle = ledger.cycles.find((c) => c.id === cycleId);
+  return cycle === undefined ? null : cycleAgeMonths(cycle, today);
 }
 
 function amountFor(pnl: CyclePnL, category: ExpenseCategory): Centavos {

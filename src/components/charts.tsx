@@ -68,18 +68,28 @@ export function Legend({ items }: { items: { color: string; label: string }[] })
  * reader as much as the hues do.
  */
 export function StackedBar({
-  segments, title,
+  segments, title, of,
 }: {
   segments: { value: number; color: string; label: string }[];
   title?: string;
+  /**
+   * The value that fills the full width. Without it every bar stretches to
+   * 100% and only the split inside it can be read — which is fine for one row
+   * and useless down a list, because two bars of equal length can be ten times
+   * apart. Pass the largest value in the list and length becomes comparable.
+   */
+  of?: number;
 }) {
   const total = segments.reduce((a, s) => a + s.value, 0);
   if (total <= 0) {
     return <div className="h-3 w-full rounded-full bg-paper-sunk" role="presentation" />;
   }
+  const share = of === undefined || of <= 0 ? 1 : Math.min(1, total / of);
   return (
+    <div className="w-full rounded-full bg-paper-sunk">
     <div
-      className="flex h-3 w-full gap-[2px] overflow-hidden rounded-full"
+      className="flex h-3 gap-[2px] overflow-hidden rounded-full"
+      style={{ width: `${share * 100}%` }}
       role="img"
       aria-label={
         title ??
@@ -97,6 +107,7 @@ export function StackedBar({
             style={{ width: `${(s.value / total) * 100}%`, background: s.color }}
           />
         ))}
+    </div>
     </div>
   );
 }
