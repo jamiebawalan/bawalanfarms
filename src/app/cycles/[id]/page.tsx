@@ -7,6 +7,8 @@ import { CycleActions } from "@/components/cycle-actions";
 import { LeafTracker, PlotTasks } from "@/components/plot-actions";
 import { ProfitProjection } from "@/components/profit-projection";
 import { Suggestions } from "@/components/suggestions";
+import { PlotPhotos } from "@/components/plot-photos";
+import { createAdminClient } from "@/lib/supabase/server";
 import { projectForcing } from "@/lib/domain/dashboards";
 import { evenness, readingsFor } from "@/lib/domain/leaf";
 import { loadLedger } from "@/lib/db/ledger";
@@ -58,6 +60,7 @@ export default async function CyclePage({
     (t) => t.cycleId === id || (t.plotId !== null && t.plotId === cycle.plotId),
   );
   const forcing = projectForcing(ledger, id);
+  const { photos, driveConnected } = await readPhotos(id);
 
   // Seed the projection with what the farm has actually realised per fruit.
   const soldQty = pnl.revenueByProduct.reduce((a, r) => a + r.quantity, 0);
@@ -146,6 +149,13 @@ export default async function CyclePage({
         projected={forcing === null ? null : { date: forcing.date, cmPerDay: forcing.cmPerDay }}
         target={cycle.targetForcingDate}
         closed={pnl.isClosed}
+      />
+
+      <PlotPhotos
+        cycleId={id}
+        photos={photos}
+        closed={pnl.isClosed}
+        driveConnected={driveConnected}
       />
 
       {pnl.isClosed ? null : (
@@ -342,4 +352,33 @@ function CostRow({
       <Bar fraction={total === 0 ? 0 : centavos / total} />
     </li>
   );
+}
+
+/**
+ * The plot's photos, and whether there is anywhere to put a new one.
+ *
+ * Read with the service key because google_auth holds a credential and no
+ * policy grants anyone read access to it. Nothing sensitive leaves here — only
+ * whether a connection exists.
+ */
+async function readPhotos(cycleId: string) {
+  try {
+    const admin = createAdminClient();
+    const [{ data: rows }, { data: auth }] = await Promise.all([
+      admin
+        .from("plot_photos")
+        .select("id, taken_on, caption")
+        .eq("cycle_id", cycleId)
+        .order("taken_on", { ascending: false }),
+      admin.from("google_auth").select("root_folder_id").maybeSingle(),
+    ]);
+    return {
+      photos: (rows ?? []).map((r: { id: string; taken_on: string; caption: string | null }) => ({
+        id: r.id, takenOn: r.taken_on, caption: r.caption,
+      })),
+      driveConnected: Boolean(auth?.root_folder_id),
+    };
+  } catch {
+    return { photos: [], driveConnected: false };
+  }
 }
