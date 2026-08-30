@@ -138,18 +138,71 @@ export class Drive {
     return (await res.json()) as Record<string, unknown>;
   }
 
-  /** Google's errors are verbose; the owner needs the one sentence that helps. */
+  /**
+   * Google's errors are verbose; the owner needs the one sentence that helps.
+   *
+   * The sentence has to name the actual cause, though. An earlier version
+   * answered every 403 with "connect it again", which sent someone round the
+   * whole authorisation dance to fix a project setting that reconnecting cannot
+   * touch. Where the cause is not one we recognise, Google's own words go
+   * through unedited — better a clumsy message that is true than a tidy one
+   * that misdirects.
+   */
   private async explain(res: Response): Promise<string> {
     const text = await res.text().catch(() => "");
+    const reason = reasonIn(text);
+
     if (res.status === 401 || res.status === 403) {
-      if (text.includes("storageQuotaExceeded")) {
-        return "Google Drive is full. Free some space and mirror again.";
+      if (reason === "storageQuotaExceeded") {
+        return "Google Drive is full. Free some space and write again.";
       }
-      return "Google refused the farm's Drive access. Connect it again from Settings.";
+      if (reason === "accessNotConfigured" || text.includes("has not been used in project")) {
+        return (
+          "The Google Drive API is not switched on for this project. In Google " +
+          "Cloud Console open APIs & Services, Library, search for Google Drive " +
+          "API and press Enable, then wait a minute and try again."
+        );
+      }
+      if (reason === "insufficientPermissions" || text.includes("insufficient")) {
+        return (
+          "The Drive permission granted does not cover this. Reconnect from " +
+          "Settings and make sure the consent screen mentions creating files."
+        );
+      }
+      if (reason === "authError" || res.status === 401) {
+        return "Google refused the farm's Drive access. Connect it again from Settings.";
+      }
+      return `Google refused the write: ${messageIn(text) ?? reason ?? "no reason given"}.`;
     }
     if (res.status === 429 || res.status >= 500) {
-      return "Google Drive is busy. Try mirroring again in a minute.";
+      return "Google Drive is busy. Try writing again in a minute.";
     }
-    return `Google Drive returned ${res.status}.`;
+    return `Google Drive returned ${res.status}: ${messageIn(text) ?? "no detail given"}.`;
+  }
+}
+
+
+/** The machine-readable reason Google buries in its error body, if there is one. */
+export function reasonIn(body: string): string | null {
+  try {
+    const json = JSON.parse(body) as {
+      error?: { errors?: { reason?: string }[]; status?: string };
+    };
+    return json.error?.errors?.[0]?.reason ?? json.error?.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Google's own sentence, which is usually the most useful thing it says. */
+export function messageIn(body: string): string | null {
+  try {
+    const json = JSON.parse(body) as { error?: { message?: string } };
+    const message = json.error?.message;
+    return typeof message === "string" && message.length > 0
+      ? message.slice(0, 300)
+      : null;
+  } catch {
+    return null;
   }
 }
