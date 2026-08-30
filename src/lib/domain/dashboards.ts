@@ -1,5 +1,5 @@
 import { allCyclePnL, type CyclePnL } from "./pnl";
-import { allocateFarmWide, cycleIsLiveOn } from "./allocation";
+import { allocateFarmWide, cycleIsLiveOn, plotIsOccupiedOn } from "./allocation";
 import { areaOn } from "./plots";
 import { addDays, todayISO } from "./dates";
 import type { Centavos } from "./money";
@@ -184,7 +184,7 @@ export function landUse(ledger: Ledger, today = todayISO()): LandUse {
     if (area === null) continue;
     totalSqm += area;
     const live = ledger.cycles.some(
-      (c) => c.plotId === plot.id && cycleIsLiveOn(c, today),
+      (c) => c.plotId === plot.id && plotIsOccupiedOn(c, today),
     );
     if (live) plantedSqm += area;
     else idle.push({ plotId: plot.id, label: plot.label, areaSqm: area });
@@ -192,7 +192,7 @@ export function landUse(ledger: Ledger, today = todayISO()): LandUse {
 
   let plantsStanding = 0;
   for (const cycle of ledger.cycles) {
-    if (!cycleIsLiveOn(cycle, today)) continue;
+    if (!plotIsOccupiedOn(cycle, today)) continue;
     const counts = ledger.plantCounts
       .filter((p) => p.cycleId === cycle.id)
       .sort((a, b) => b.date.localeCompare(a.date));

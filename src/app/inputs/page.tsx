@@ -4,7 +4,7 @@ import { loadLedger } from "@/lib/db/ledger";
 import { remainingStock } from "@/lib/domain/dosing";
 import { formatDate } from "@/lib/domain/dates";
 import { formatPeso } from "@/lib/domain/money";
-import { cycleIsLiveOn } from "@/lib/domain/allocation";
+import { plotIsOccupiedOn } from "@/lib/domain/allocation";
 import { todayISO } from "@/lib/domain/dates";
 import { createClient } from "@/lib/supabase/server";
 
@@ -45,7 +45,7 @@ export default async function InputsPage() {
   const stockValue = open.reduce((a, l) => a + l.remainingValueCentavos, 0);
 
   const openCycles = ledger.cycles
-    .filter((c) => cycleIsLiveOn(c, today))
+    .filter((c) => plotIsOccupiedOn(c, today))
     .map((c) => ({
       id: c.id,
       label: `${ledger.plots.find((p) => p.id === c.plotId)?.label ?? "Plot"} · ${c.crop}`,

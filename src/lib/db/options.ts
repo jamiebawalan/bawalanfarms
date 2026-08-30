@@ -1,12 +1,12 @@
 import type { Ledger } from "@/lib/domain/types";
-import { cycleIsLiveOn } from "@/lib/domain/allocation";
+import { plotIsOccupiedOn } from "@/lib/domain/allocation";
 import { lastPriceFor } from "@/lib/domain/reports";
 import { todayISO } from "@/lib/domain/dates";
 
 /** The cycles a harvest or sale can be attached to: the ones actually running. */
 export function openCycleOptions(ledger: Ledger, today = todayISO()) {
   return ledger.cycles
-    .filter((c) => cycleIsLiveOn(c, today) && c.status !== "closed")
+    .filter((c) => plotIsOccupiedOn(c, today))
     .map((c) => ({
       id: c.id,
       crop: c.crop,
