@@ -90,7 +90,8 @@ export async function mirrorToDrive(
  * Where a photo of a plot belongs: in that plot's current cycle folder.
  *
  * Made on demand rather than during the mirror, because a photo is taken in
- * the field and should not have to wait for a nightly job to find its home.
+ * the field and should not have to wait for the fortnightly mirror to find
+ * its home.
  */
 export async function cycleFolderFor(
   drive: Drive,

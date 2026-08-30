@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/drive/mirror",
-      "schedule": "40 22 * * *"
+      "schedule": "40 22 1,15 * *"
     }
   ]
 }
