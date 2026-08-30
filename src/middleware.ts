@@ -33,13 +33,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = path.startsWith("/login") || path.startsWith("/auth");
 
-  // A magic link can arrive at the site root carrying its code, because
-  // Supabase falls back to the project's Site URL whenever the requested
-  // redirect is not on its allow list. Left alone, the login below would bounce
-  // to /login and throw the code away, and the person would just see the sign-in
-  // form again with no explanation. Forward it to the handler instead.
-  const code = request.nextUrl.searchParams.get("code");
-  if (code && !path.startsWith("/auth/")) {
+  if (forwardsMagicLink(path, request.nextUrl.searchParams.has("code"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/callback";
     return NextResponse.redirect(url);
@@ -69,6 +63,29 @@ export async function middleware(request: NextRequest) {
   }
 
   return response;
+}
+
+/**
+ * Whether a request carrying ?code= is a stray magic link that needs rescuing.
+ *
+ * A magic link can arrive at the site root carrying its code, because Supabase
+ * falls back to the project's Site URL whenever the requested redirect is not
+ * on its allow list. Left alone, the login check below would bounce to /login
+ * and throw the code away, and the person would see the sign-in form again with
+ * no explanation.
+ *
+ * But "?code=" is not a Supabase invention. Google's OAuth returns one too, to
+ * /api/drive/callback, and that route knows exactly what to do with it. Sending
+ * it to Supabase's handler instead hands Google's authorization code to the
+ * wrong exchange, which throws — and the person who just granted Drive access
+ * lands on a server error with no idea what happened. An API route is always
+ * answering its own round trip; only pages need this rescue.
+ */
+export function forwardsMagicLink(path: string, hasCode: boolean): boolean {
+  if (!hasCode) return false;
+  if (path.startsWith("/auth/")) return false;
+  if (path.startsWith("/api/")) return false;
+  return true;
 }
 
 export const config = {
