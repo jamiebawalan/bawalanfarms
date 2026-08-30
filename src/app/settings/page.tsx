@@ -47,6 +47,7 @@ export default async function SettingsPage({
           A folder for each plot, a folder inside it for each cycle, and the whole
           history of that cycle as a file you can read on your phone without this
           app. The files are yours — if this app ever stops, the record does not.
+          Written on the 1st and 15th, and whenever you press the button.
         </p>
         <DrivePanel
           connected={drive !== null}
