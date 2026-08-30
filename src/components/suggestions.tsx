@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, Empty, Note } from "./ui";
 import { newId } from "@/lib/queue";
@@ -11,6 +12,8 @@ export type Suggestion = {
   dueDate: string;
   isCritical: boolean;
   reason: string;
+  restsOn: { id: string; text: string } | null;
+  isTrial: boolean;
 };
 
 /**
@@ -75,7 +78,7 @@ export function Suggestions({
         title: s.title,
         due_date: s.dueDate,
         is_critical: s.isCritical,
-        note: s.reason,
+        note: s.restsOn === null ? s.reason : `${s.reason} [${s.restsOn.id}]`,
       }),
     });
     if (res.ok) {
@@ -107,8 +110,12 @@ export function Suggestions({
 
       {!busy && !asked && error === null ? (
         <Empty>
-          Claude reads the D-leaf readings, costs and recent work on this plot and
-          suggests what to do next. Nothing is saved unless you add it.
+          Claude reads the D-leaf readings, costs and recent work on this plot
+          against{" "}
+          <Link href="/knowledge" className="font-semibold text-brand">
+            what the farm knows
+          </Link>
+          , and suggests what to do next. Nothing is saved unless you add it.
         </Empty>
       ) : null}
 
@@ -170,9 +177,20 @@ export function SuggestionRow({
                 Critical
               </span>
             ) : null}
+            {suggestion.isTrial ? (
+              <span className="mr-1.5 rounded bg-warn-tint px-1.5 py-0.5 text-xs font-bold uppercase text-warn">
+                Trial
+              </span>
+            ) : null}
             {suggestion.title}
           </div>
           <p className="mt-1 text-sm text-ink-soft">{suggestion.reason}</p>
+          {suggestion.restsOn ? (
+            <p className="mt-1 text-xs text-ink-soft">
+              <span className="font-semibold">{suggestion.restsOn.id}</span>{" "}
+              {suggestion.restsOn.text}
+            </p>
+          ) : null}
         </div>
         <span className="shrink-0 text-sm text-ink-soft">
           {formatDateShort(suggestion.dueDate)}

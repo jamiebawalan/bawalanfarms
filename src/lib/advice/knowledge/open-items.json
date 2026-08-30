@@ -1,0 +1,56 @@
+[
+  {
+    "id": "O001",
+    "topic": "potassium_rate",
+    "question": "What 0-0-60 rate per plant gives the best fruit-size response without salt injury or unnecessary cost?",
+    "next_step": "Run replicated or matched-block trials such as current rate vs 15 g/plant, holding other inputs constant."
+  },
+  {
+    "id": "O002",
+    "topic": "post_ethrel_nitrogen",
+    "question": "Does an additional 21-0-0 dose after ethrel improve fruit size/yield enough to justify possible vegetative or quality tradeoffs?",
+    "next_step": "Compare treated and untreated matched blocks and record fruit weight, harvest timing, slips, and suckers."
+  },
+  {
+    "id": "O003",
+    "topic": "d_leaf_target",
+    "question": "What D-leaf threshold best predicts target commercial fruit size under the farm's Smooth Cayenne system?",
+    "next_step": "Link D-leaf at forcing to final fruit weight and grade by plot."
+  },
+  {
+    "id": "O004",
+    "topic": "peanut_weeds",
+    "question": "Finalize a label-compliant peanut weed program for mixed broadleaf and grass weeds under Philippine conditions.",
+    "next_step": "Identify dominant weed species and verify locally registered products, rates, crop stage, and pre-harvest intervals."
+  },
+  {
+    "id": "O005",
+    "topic": "peanut_harvest",
+    "question": "Determine the most practical harvest method that removes pods while preserving as many roots/nodules as possible.",
+    "next_step": "Trial lifting method, pod removal labor, root retention, and residue incorporation on a small area."
+  },
+  {
+    "id": "O006",
+    "topic": "pineapple_residue",
+    "question": "Choose an economical way to shred or accelerate decomposition of post-harvest pineapple biomass.",
+    "next_step": "Compare low-cost shredder/chipper options with mowing, chopping, windrowing, and in-field decomposition."
+  },
+  {
+    "id": "O007",
+    "topic": "irrigation",
+    "question": "Finalize the preferred irrigation architecture and economics.",
+    "next_step": "Reconcile source yield, tank refill rate, daily crop demand, pump head, pipe losses, power source, and irrigated hectares."
+  },
+  {
+    "id": "O008",
+    "topic": "planting_material",
+    "question": "Quantify actual slips and suckers per harvested mother plant by treatment and forcing regime.",
+    "next_step": "Count suwe and salo on tagged mother plants after harvest."
+  },
+  {
+    "id": "O009",
+    "topic": "harvest_database",
+    "question": "Create a plot-level dataset that links treatment history to fruit weight, grade, Brix, D-leaf, and propagule output.",
+    "next_step": "Standardize one harvest sheet and use it every harvest."
+  }
+]

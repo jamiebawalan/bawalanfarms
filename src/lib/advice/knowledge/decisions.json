@@ -1,0 +1,77 @@
+[
+  {
+    "id": "D001",
+    "topic": "primary_crop",
+    "decision": "Use Smooth Cayenne as the primary pineapple production variety.",
+    "status": "active",
+    "confidence": "high"
+  },
+  {
+    "id": "D002",
+    "topic": "plant_density",
+    "decision": "Use approximately 25,000 pineapple plants per hectare as the working density.",
+    "status": "active",
+    "confidence": "high"
+  },
+  {
+    "id": "D003",
+    "topic": "crop_rotation",
+    "decision": "Use peanuts as a principal rotation crop before replanting pineapple.",
+    "status": "active",
+    "rationale": "Biological nitrogen fixation, residue return, crop-cycle break, possible weed/soil benefits.",
+    "confidence": "high"
+  },
+  {
+    "id": "D004",
+    "topic": "peanut_residue",
+    "decision": "Prefer peanut harvest practices that leave roots/nodules in the soil and return vegetative biomass rather than burning it.",
+    "status": "active",
+    "confidence": "medium"
+  },
+  {
+    "id": "D005",
+    "topic": "planting_material",
+    "decision": "Sort pineapple planting materials by type and size before planting.",
+    "status": "active",
+    "rationale": "Improves uniformity, fertilizer response, forcing timing, and harvest synchronization.",
+    "confidence": "high"
+  },
+  {
+    "id": "D006",
+    "topic": "harvest_feedback",
+    "decision": "Use harvest data and plant measurements to close the agronomic feedback loop.",
+    "status": "active",
+    "metrics": [
+      "fruit_weight",
+      "grade",
+      "Brix",
+      "D_leaf",
+      "slips",
+      "suckers",
+      "treatment",
+      "rainfall_or_moisture"
+    ],
+    "confidence": "high"
+  },
+  {
+    "id": "D007",
+    "topic": "potassium_trial",
+    "decision": "Continue evaluating potassium chloride (0-0-60) because a June 2026 harvest appeared larger than older harvests.",
+    "status": "trial",
+    "confidence": "medium"
+  },
+  {
+    "id": "D008",
+    "topic": "calamansi",
+    "decision": "Calamansi is agronomically possible on the farm's clay loam if drainage is managed; ~5x5 m spacing was the rainfed working recommendation.",
+    "status": "considering",
+    "confidence": "medium"
+  },
+  {
+    "id": "D009",
+    "topic": "irrigation",
+    "decision": "Develop water-security options around storage, pumping, deep-well and/or ram-pump concepts.",
+    "status": "planning",
+    "confidence": "medium"
+  }
+]
