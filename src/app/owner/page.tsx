@@ -223,6 +223,15 @@ export default async function OwnerPage() {
         <p className="mt-1 text-sm text-ink-soft">
           Plot history, spend by period, overhead watch, buyer margin, capital.
         </p>
+        <Link
+          href="/knowledge"
+          className="mt-3 block font-semibold text-brand underline underline-offset-4"
+        >
+          What the farm knows →
+        </Link>
+        <p className="mt-1 text-sm text-ink-soft">
+          The decisions, trials and open questions behind every suggestion.
+        </p>
       </Card>
     </Page>
   );

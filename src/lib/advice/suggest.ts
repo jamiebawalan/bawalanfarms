@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { CITABLE_IDS, describeCitation, farmBrief } from "./knowledge";
 
 /**
  * Asking Claude what to do next on a plot.
@@ -19,6 +20,10 @@ export type Suggestion = {
   isCritical: boolean;
   /** Why, in the manager's terms. Shown next to the suggestion, not stored. */
   reason: string;
+  /** The decision or open question this rests on, if it rests on one. */
+  restsOn: { id: string; text: string } | null;
+  /** True when this is a trial to learn from, not settled practice. */
+  isTrial: boolean;
 };
 
 export type SuggestResult =
@@ -27,22 +32,41 @@ export type SuggestResult =
 
 const MODEL = "claude-opus-5";
 
-const SYSTEM = `You advise the manager of a small family pineapple farm in the Philippines. He works in the field on a phone, and he is the one who will carry out whatever you suggest.
+const ROLE = `You advise the owners and the manager of a family pineapple farm in Silang, Cavite. The manager works in the field on a phone, and he is the one who will carry out whatever you suggest.
 
-You will be given everything the farm has recorded about one plot: its D-leaf measurements, its costs, the work logged on it, and the tasks already planned. Suggest the small number of things worth doing on this plot in the coming weeks.
+Everything below the line is the farm's own record: eighteen months of the owners' agronomy thinking, the decisions they have settled, the trials still running, and the questions they have not answered. Advise from it. It is what makes you useful to this farm rather than to pineapple in general.
+
+---
+
+`;
+
+const TASK = `
+
+---
+
+You will now be given everything the farm has recorded about one plot: its D-leaf measurements, its costs, the work logged on it, and the tasks already planned. Suggest the small number of things worth doing on this plot in the coming weeks.
 
 How to think about it:
 - D-leaf readings exist to time one decision: when to apply liquid to induce fruiting. If the plants are close to forcing length, or the readings have gone stale, that is usually the most important thing on the plot.
 - Two readings are the minimum for a growth rate. If there is only one, or none, say so and suggest measuring rather than inventing a date.
-- Costs are shown so you can notice something out of line — a plot spending far more on labour than others, an input drawn twice — not so you can tell him to spend less in general.
+- The farm is trying to close a feedback loop (D006, O009). A suggestion that captures a measurement the farm will later need — D-leaf at forcing, fruit weight, grade, Brix, suwe and salo counts — is often worth more than one that spends money.
+- Costs are shown so you can notice something out of line, not so you can tell them to spend less in general.
 - Compare against what is already on the task list. Never suggest something that is already there.
 
 Rules:
 - Between one and five suggestions. Fewer is better. If the plot genuinely needs nothing, return none.
 - Each one must be a physical thing a person can do on a specific day: measure, apply, weed, count, inspect, buy. Not "monitor closely", not "consider optimising".
 - Mark a suggestion critical only if letting it slip costs the crop or the season — a missed forcing window, not a tidy-up.
+- Cite the decision or open question it rests on where there is one, by id. Never cite an id that is not in the record above. Leave it null rather than guess.
+- Mark it a trial when it is one. The owners' own principle is to treat a recommendation as a hypothesis tested in a controlled block, one variable at a time — so say when something is being tested rather than done.
+- Never name a herbicide or pesticide product, rate or mixture as a prescription. That is open question O004 and it turns on Philippine registration and the label. Suggest identifying the weeds, or checking the label and registration, and leave the choice to the owners.
+- Historical fertiliser rates in the record were exploratory, not settled. You may suggest a trial that tests one, in a block, with a stated way to measure the result. Do not restate one as the farm's standard practice.
 - Never invent a figure. If something is unknown, the suggestion is to go and find it out.
-- Base every suggestion on what is in the briefing. Do not assume practices the farm has not recorded.`;
+- Use the farm's own words: suwe for suckers, salo for slips, and the Cavite grades.`;
+
+function system(): string {
+  return ROLE + farmBrief() + TASK;
+}
 
 const TOOL = {
   name: "suggest_actions",
@@ -74,8 +98,18 @@ const TOOL = {
               description:
                 "One sentence saying what in the data led to this, in plain words the manager would use.",
             },
+            rests_on: {
+              type: ["string", "null"],
+              description:
+                "The id of the decision (Dnnn) or open question (Onnn) this rests on, exactly as written in the record. Null if none applies. Never invent one.",
+            },
+            is_trial: {
+              type: "boolean",
+              description:
+                "True when this is something being tested to learn from, rather than settled practice.",
+            },
           },
-          required: ["title", "due_date", "is_critical", "reason"],
+          required: ["title", "due_date", "is_critical", "reason", "rests_on", "is_trial"],
         },
       },
       note: {
@@ -126,7 +160,12 @@ export async function suggestActions(
       model: MODEL,
       max_tokens: 4000,
       thinking: { type: "adaptive" },
-      system: SYSTEM,
+      // The brain is identical on every call and sits ahead of the plot
+      // briefing, so it is a cacheable prefix. He will walk the farm pressing
+      // this button plot after plot; from the second press it is nearly free.
+      system: [
+        { type: "text", text: system(), cache_control: { type: "ephemeral" } },
+      ],
       tools: [TOOL],
       messages: [{ role: "user", content }],
     });
@@ -179,6 +218,8 @@ export function readSuggestions(input: unknown, today: string): SuggestResult {
       dueDate: due < today ? today : due,
       isCritical: row.is_critical === true,
       reason: reason.slice(0, 300),
+      restsOn: citation(row.rests_on),
+      isTrial: row.is_trial === true,
     });
     if (suggestions.length === 5) break;
   }
@@ -186,6 +227,20 @@ export function readSuggestions(input: unknown, today: string): SuggestResult {
   const noteRaw = (input as { note?: unknown }).note;
   const note = typeof noteRaw === "string" && noteRaw.trim().length > 0 ? noteRaw.trim() : null;
   return { ok: true, suggestions, note };
+}
+
+/**
+ * A citation is only worth showing if it points at something real.
+ *
+ * The text comes from the record here rather than from the model, so a
+ * suggestion can never attribute to the owners a decision they did not make.
+ */
+function citation(raw: unknown): { id: string; text: string } | null {
+  if (typeof raw !== "string") return null;
+  const id = raw.trim().toUpperCase();
+  if (!CITABLE_IDS.has(id)) return null;
+  const text = describeCitation(id);
+  return text === null ? null : { id, text };
 }
 
 function describe(error: unknown): string {

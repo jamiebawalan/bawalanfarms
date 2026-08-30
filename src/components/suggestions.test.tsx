@@ -14,6 +14,8 @@ const s: Suggestion = {
   dueDate: "2024-06-05",
   isCritical: false,
   reason: "The last reading was five weeks ago and there is no rate yet.",
+  restsOn: { id: "O003", text: "What D-leaf threshold best predicts target commercial fruit size?" },
+  isTrial: false,
 };
 
 const render = (suggestion: Suggestion, added = false) =>
@@ -37,6 +39,21 @@ describe("a suggested action", () => {
   it("marks a critical one, and leaves an ordinary one unmarked", () => {
     expect(render({ ...s, isCritical: true })).toContain("Critical");
     expect(render(s)).not.toContain("Critical");
+  });
+
+  it("names the decision it rests on, so it is theirs and not the machine's", () => {
+    const html = render(s);
+    expect(html).toContain("O003");
+    expect(html).toContain("What D-leaf threshold best predicts");
+  });
+
+  it("says nothing about a decision when it rests on none", () => {
+    expect(render({ ...s, restsOn: null })).not.toContain("O003");
+  });
+
+  it("marks a trial as a trial, so it does not quietly become practice", () => {
+    expect(render({ ...s, isTrial: true })).toContain("Trial");
+    expect(render(s)).not.toContain("Trial");
   });
 
   it("offers to add it", () => {

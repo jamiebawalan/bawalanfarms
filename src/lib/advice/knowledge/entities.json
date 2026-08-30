@@ -1,0 +1,164 @@
+[
+  {
+    "id": "E001",
+    "type": "farm",
+    "name": "Pineapple farm",
+    "attributes": {
+      "location": "Barangay Batas, Silang, Cavite, Philippines",
+      "soil": "clay loam",
+      "water_regime": "predominantly rainfed",
+      "area_context_ha": [
+        10,
+        12,
+        15
+      ]
+    }
+  },
+  {
+    "id": "E002",
+    "type": "crop",
+    "name": "Smooth Cayenne pineapple",
+    "attributes": {
+      "role": "primary crop",
+      "working_density_plants_per_ha": 25000
+    }
+  },
+  {
+    "id": "E003",
+    "type": "crop",
+    "name": "Peanut",
+    "attributes": {
+      "role": "rotation crop",
+      "benefits": [
+        "nitrogen fixation",
+        "residue",
+        "rotation break"
+      ]
+    }
+  },
+  {
+    "id": "E004",
+    "type": "crop",
+    "name": "Ube",
+    "attributes": {
+      "role": "trial/alternative crop"
+    }
+  },
+  {
+    "id": "E005",
+    "type": "crop",
+    "name": "Calamansi",
+    "attributes": {
+      "role": "evaluated alternative crop",
+      "working_spacing": "5 x 5 m",
+      "approx_trees_per_ha": 400
+    }
+  },
+  {
+    "id": "E006",
+    "type": "fertilizer",
+    "name": "21-0-0",
+    "attributes": {
+      "role": "vegetative nitrogen; post-ethrel practice questioned"
+    }
+  },
+  {
+    "id": "E007",
+    "type": "fertilizer",
+    "name": "0-0-60",
+    "attributes": {
+      "role": "potassium source",
+      "trial_status": "promising visual/harvest response"
+    }
+  },
+  {
+    "id": "E008",
+    "type": "fertilizer",
+    "name": "16-20-0",
+    "attributes": {
+      "role": "starter/early fertilizer"
+    }
+  },
+  {
+    "id": "E009",
+    "type": "fertilizer",
+    "name": "DAP / 18-46-0",
+    "attributes": {
+      "role": "starter phosphorus option"
+    }
+  },
+  {
+    "id": "E010",
+    "type": "plant_growth_regulator",
+    "name": "Ethrel / ethephon",
+    "attributes": {
+      "role": "flower induction/forcing"
+    }
+  },
+  {
+    "id": "E011",
+    "type": "measurement",
+    "name": "D-leaf",
+    "attributes": {
+      "role": "pineapple plant maturity/forcing indicator"
+    }
+  },
+  {
+    "id": "E012",
+    "type": "planting_material",
+    "name": "suwe",
+    "attributes": {
+      "english": "sucker"
+    }
+  },
+  {
+    "id": "E013",
+    "type": "planting_material",
+    "name": "salo",
+    "attributes": {
+      "english": "slip"
+    }
+  },
+  {
+    "id": "E014",
+    "type": "herbicide",
+    "name": "Diuron",
+    "attributes": {
+      "role": "pineapple weed-management option discussed"
+    }
+  },
+  {
+    "id": "E015",
+    "type": "infrastructure",
+    "name": "Water tank",
+    "attributes": {
+      "capacity_liters": 50000
+    }
+  },
+  {
+    "id": "E016",
+    "type": "infrastructure",
+    "name": "Deep well",
+    "attributes": {
+      "depth_m_context": "60–70",
+      "submersible_pipe_context": "4 inch",
+      "target_flow_lpm_context": 60
+    }
+  },
+  {
+    "id": "E017",
+    "type": "monitoring",
+    "name": "EOSDA / MapMyCrop",
+    "attributes": {
+      "role": "NDVI/remote crop monitoring"
+    }
+  },
+  {
+    "id": "E018",
+    "type": "monitoring",
+    "name": "Windy / Meteoblue",
+    "attributes": {
+      "role": "weather/rainfall planning"
+    }
+  }
+]

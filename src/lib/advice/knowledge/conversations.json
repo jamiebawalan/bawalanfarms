@@ -1,0 +1,260 @@
+[
+  {
+    "date": "2026-08-26",
+    "title": "Peanut weed management plan",
+    "user_messages": [
+      "for my crop rotation im doing peanuts. however i have weed problems. i have both dicot and monocot weeds."
+    ],
+    "availability": "verbatim user prompt available"
+  },
+  {
+    "date": "2026-08-21",
+    "title": "Plant Decomposition Time",
+    "user_messages": [
+      "How long will it take for the plants to decompose once I uproot them",
+      "Pineapple plants I mean",
+      "Are there cheap shredder machines"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-08-02",
+    "title": "Peanut Harvest for Nitrogen Fixation",
+    "user_messages": [
+      "Explain how to harvest peanuts from my farm if I wanna maximize the nitrogen fixation.",
+      "How can I practically harvest the peanuts but also leave the roots on the soil?"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-08-01",
+    "title": "Calamansi in Clay Loam",
+    "user_messages": [
+      "Does calamansi plants work in clay loam soil?",
+      "What is the planting density per hectare. And how much kg harvest per plant per year.",
+      "What type of farm management is required for calamansi"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-26",
+    "title": "0-0-60 Dosage Test",
+    "user_messages": [
+      "Can I test increasing 0-0-60 dosage to 15g per plant?",
+      "My neighboring farmers apply another dose of 21-0 after ethrel.",
+      "What dosage is helpful?"
+    ],
+    "availability": "project prompt text normalized from visible context"
+  },
+  {
+    "date": "2026-06-24",
+    "title": "Harvest Analysis and Insights",
+    "user_messages": [
+      "This is the result of my harvest"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "verbatim user prompt available"
+  },
+  {
+    "date": "2026-06-21",
+    "title": "Fertilizer Choice for Pineapple",
+    "user_messages": [
+      "18-46 vs 16-20 for pineapple?"
+    ],
+    "availability": "verbatim user prompt available"
+  },
+  {
+    "date": "2026-06-20",
+    "title": "Pineapple Sizing Cavite System",
+    "user_messages": [
+      "Are you familiar with the sizing system of pineapple in Cavite? Primers segunda etc",
+      "This is my harvest today"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-17",
+    "title": "Herbicide Comparison for Pineapple",
+    "user_messages": [
+      "Can you compare these three chemical herbicides. Help me figure out which one to use for my pineapple farm",
+      "Add this too",
+      "So it's best to pre emptively apply diuron?"
+    ],
+    "attachments": [
+      "4 images"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-14",
+    "title": "Side Dressing Pineapple Fertilizer",
+    "user_messages": [
+      "For 16-20 application on my pineapple after planting. Can I just side dress?",
+      "I keep confusing suwe and salo",
+      "With ethrel induction how does that affect slips vs suckers",
+      "How do I decide or maximize both?",
+      "How many suckers per plant usually?"
+    ],
+    "availability": "project prompt text lightly normalized"
+  },
+  {
+    "date": "2026-06-07",
+    "title": "Ube Seedling Propagation Methods",
+    "user_messages": [
+      "How do you make ube seedlings like this",
+      "How high should the raised beds be",
+      "For crop rotation can you plant pineapple after? With the crh now in the soil?"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "project prompt text lightly normalized"
+  },
+  {
+    "date": "2026-06-05",
+    "title": "Fruit Weight Analysis",
+    "user_messages": [
+      "This is the average weight",
+      "What should I aim for as average fruit weight?",
+      "Ok calculate"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-05",
+    "title": "Harvest Analysis and Insights",
+    "user_messages": [
+      "These are the harvests today. The 0-0-60 seems to be working.",
+      "Larger than older harvests for sure.",
+      "I want to complete the feedback loop. What should I do with the plants that produced these fruits? Any measurements that I should take now?",
+      "There was no ethrel used here",
+      "Does it make sense to measure the plant d leaf post harvest?",
+      "Is a salt refractometer and brix the same"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-04",
+    "title": "Planting Trial Suggestions",
+    "user_messages": [
+      "[image-only planting trial request]"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "title and attachment available; exact text not present"
+  },
+  {
+    "date": "2026-06-04",
+    "title": "Ube planting material viability",
+    "user_messages": [
+      "Ube is this good as planting material?",
+      "For my trial I will do I add rice hull to the soil?",
+      "Anything else worth testing I can do more"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-03",
+    "title": "Peanut planting distance",
+    "user_messages": [
+      "What's planting distance for peanuts again"
+    ],
+    "availability": "verbatim user prompt available"
+  },
+  {
+    "date": "2026-06-03",
+    "title": "Pineapple D-Leaf Analysis",
+    "user_messages": [
+      "These are my d leaf measurements for one plot.",
+      "Can i get away with an average of 75cm?",
+      "These were planted September 2025"
+    ],
+    "attachments": [
+      "image"
+    ],
+    "availability": "verbatim user prompts available"
+  },
+  {
+    "date": "2026-06-01",
+    "title": "Pineapple Rainwater Needs",
+    "user_messages": [
+      "How much mm rain does pineapple need?"
+    ],
+    "availability": "project prompt text normalized"
+  },
+  {
+    "date": "2025-11-08",
+    "title": "Peanut nitrogen fixation",
+    "summary": "Discussed Rhizobium root nodules, nitrogen fixation, and benefits of residues/roots for the following crop.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2025-11-24",
+    "title": "Pineapple D-leaf content",
+    "summary": "Generated a D-leaf PDF and discussed forcing readiness, including Smooth Cayenne thresholds.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-01-12",
+    "title": "D-leaf readiness and rotation",
+    "summary": "Discussed Smooth Cayenne forcing readiness, propagule counts, and peanut–kamote rotation.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-01-25",
+    "title": "D-leaf identification",
+    "summary": "Clarified how to identify the D-leaf and assessed crop maturity.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-01-29",
+    "title": "Planting material sorting",
+    "summary": "Recommended sorting planting materials by type and size to improve uniformity.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-02-08",
+    "title": "Chicken manure and starter fertilizer",
+    "summary": "Discussed optional composted chicken manure, pH/drainage, and starter fertilizer.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-02-25",
+    "title": "Potassium chloride plan",
+    "summary": "Discussed a historical split KCl application concept.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-03-08",
+    "title": "Vegetative nitrogen",
+    "summary": "Discussed split 21-0-0 applications and soil-moisture timing.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-03-22",
+    "title": "Suwe and salo",
+    "summary": "Recorded local terms for suckers/slips and discussed planting-material multiplication.",
+    "availability": "summary retrieved from prior project context"
+  },
+  {
+    "date": "2026-04-20",
+    "title": "D-leaf forcing readiness",
+    "summary": "Assessed ~60 cm and ~73 cm D-leaf plants as nearly ready but not fully ready.",
+    "availability": "summary retrieved from prior project context"
+  }
+]
