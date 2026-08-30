@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeLedger } from "./fixture";
+import { cycleIsLiveOn, plotIsOccupiedOn } from "./allocation";
 import {
   landUse, ownerDashboard, plotCostRanking, projectForcing, projectHarvest,
   tasksForWeek, windows,
@@ -74,14 +75,16 @@ describe("land use", () => {
   const u = landUse(L, TODAY);
 
   it("measures planted area against the area that could be planted", () => {
-    // p1 (6000) and p2 (2000) are live; p3 (2000) is empty. Mango is excluded.
+    // Only p1 (6000) is carrying a crop. p2's peanut cycle is closed, so the
+    // plot is free whatever its close date says, and p3 (2000) was never
+    // planted. Mango is excluded — it takes no share of anything.
     expect(u.totalSqm).toBe(10_000);
-    expect(u.plantedSqm).toBe(8_000);
-    expect(u.utilisation).toBeCloseTo(0.8);
+    expect(u.plantedSqm).toBe(6_000);
+    expect(u.utilisation).toBeCloseTo(0.6);
   });
 
   it("names the idle plots, largest first, because that is the opportunity", () => {
-    expect(u.idlePlots.map((p) => p.label)).toEqual(["Plot 3"]);
+    expect(u.idlePlots.map((p) => p.label)).toEqual(["Plot 2", "Plot 3"]);
   });
 
   it("measures plants standing against what the land could hold", () => {
@@ -104,7 +107,9 @@ describe("land use", () => {
     };
     const next = landUse(withPlan, TODAY);
     expect(next.nextPlanned?.label).toBe("Plot 3");
-    expect(next.utilisationAfterNext).toBeCloseTo(1.0);
+    // p3 goes in, so 8,000 of 10,000. p2 stays empty until something is
+    // planned for it — which is exactly the gap this figure exists to show.
+    expect(next.utilisationAfterNext).toBeCloseTo(0.8);
   });
 });
 
@@ -240,5 +245,80 @@ describe("tasks for the week", () => {
 
   it("names the plot so the manager knows where to go", () => {
     expect(tasksForWeek(withTasks, TODAY).overdue[0]!.plotLabel).toBe("Plot 1");
+  });
+});
+
+describe("closing a cycle today", () => {
+  // What the manager actually does: he finishes a plot, closes the cycle on his
+  // phone, and looks at Land in use to decide what to plant next. If the plot
+  // does not move to idle until tomorrow, the screen is lying about the farm as
+  // it is right now — and he closed it precisely to see that.
+  const closedToday: Ledger = {
+    ...L,
+    cycles: L.cycles.map((c) =>
+      c.id === "c1" ? { ...c, status: "closed" as const, dateClosed: TODAY } : c,
+    ),
+  };
+
+  it("frees the plot immediately, not tomorrow", () => {
+    const before = landUse(L, TODAY);
+    const after = landUse(closedToday, TODAY);
+    expect(after.plantedSqm).toBeLessThan(before.plantedSqm);
+    expect(after.idlePlots.map((p) => p.label)).toContain("Plot 1");
+  });
+
+  it("stops counting its plants as standing", () => {
+    expect(landUse(closedToday, TODAY).plantsStanding)
+      .toBeLessThan(landUse(L, TODAY).plantsStanding);
+  });
+
+  it("drops it out of the cost-per-plant ranking of live plots", () => {
+    const ranked = plotCostRanking(closedToday, TODAY);
+    expect(ranked.map((r) => r.plotLabel)).not.toContain("Plot 1");
+  });
+
+  it("still treats it as having been live earlier in the cycle", () => {
+    // The historical question is a different one: money spent on this plot in
+    // May belongs to the cycle that was running in May, closed or not.
+    const cycle = closedToday.cycles.find((c) => c.id === "c1")!;
+    expect(cycleIsLiveOn(cycle, "2024-05-01")).toBe(true);
+  });
+});
+
+describe("replanting a plot the same day it was closed", () => {
+  // The worse half of the same bug. The new-cycle form asks whether the plot is
+  // already busy, and quietly files the cycle as *planned* with no start date
+  // if it is. So a manager who closed a cycle in the morning and started the
+  // next one after lunch got a planned cycle he never asked for — and the plot
+  // stayed exactly as it looked before he touched anything.
+  const closedToday: Ledger = {
+    ...L,
+    cycles: L.cycles.map((c) =>
+      c.id === "c1" ? { ...c, status: "closed" as const, dateClosed: TODAY } : c,
+    ),
+  };
+
+  it("does not consider the plot busy any more", () => {
+    const stillBusy = closedToday.cycles.find(
+      (c) => c.plotId === "p1" && plotIsOccupiedOn(c, TODAY),
+    );
+    expect(stillBusy).toBeUndefined();
+  });
+
+  it("counts the replacement cycle as planted straight away", () => {
+    const replanted: Ledger = {
+      ...closedToday,
+      cycles: [
+        ...closedToday.cycles,
+        {
+          id: "c1b", plotId: "p1", crop: "pineapple", status: "land_prep" as const,
+          dateStarted: TODAY, datePlanted: null, dateClosed: null,
+          kasamaSharePct: null, targetForcingDate: null, targetHarvestDate: null,
+        },
+      ],
+    };
+    const u = landUse(replanted, TODAY);
+    expect(u.plantedSqm).toBe(6_000);
+    expect(u.idlePlots.map((p) => p.label)).not.toContain("Plot 1");
   });
 });

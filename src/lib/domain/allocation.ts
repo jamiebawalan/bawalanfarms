@@ -44,6 +44,24 @@ export function cycleIsLiveOn(cycle: Cycle, onDate: ISODate): boolean {
   return cycle.dateClosed === null || cycle.dateClosed >= onDate;
 }
 
+/**
+ * Whether this cycle is holding the plot right now.
+ *
+ * A different question from cycleIsLiveOn, and the difference is the whole of
+ * a bug this got wrong. "Was the cycle live on 10 May" is history: money spent
+ * that day belongs to whatever was growing that day, and a cycle closed on the
+ * 15th was certainly running on the 10th. "Is the plot occupied today" is the
+ * present, and a cycle the manager closed this morning is not occupying
+ * anything — he closed it because the plot is empty and he wants to see it in
+ * the idle list, today, not tomorrow.
+ *
+ * cycleIsLiveOn answers the first and must keep answering it, because every
+ * historical allocation on this farm rests on it. This answers the second.
+ */
+export function plotIsOccupiedOn(cycle: Cycle, onDate: ISODate): boolean {
+  return cycle.status !== "closed" && cycleIsLiveOn(cycle, onDate);
+}
+
 export function allocateFarmWide(
   ledger: Ledger,
   opts: { from?: ISODate; to?: ISODate } = {},

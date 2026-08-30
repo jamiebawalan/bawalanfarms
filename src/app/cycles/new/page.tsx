@@ -2,7 +2,7 @@ import { Page } from "@/components/ui";
 import { NewCycleForm } from "@/components/new-cycle-form";
 import { loadLedger } from "@/lib/db/ledger";
 import { todayISO } from "@/lib/domain/dates";
-import { cycleIsLiveOn } from "@/lib/domain/allocation";
+import { plotIsOccupiedOn } from "@/lib/domain/allocation";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export default async function NewCyclePage() {
           .filter((p) => p.active)
           .map((p) => {
             const live = ledger.cycles.find(
-              (c) => c.plotId === p.id && cycleIsLiveOn(c, today),
+              (c) => c.plotId === p.id && plotIsOccupiedOn(c, today),
             );
             const queued = ledger.cycles.find(
               (c) => c.plotId === p.id && c.status === "planned",

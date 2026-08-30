@@ -3,7 +3,7 @@ import { ExpenseForm, type FormPlot } from "@/components/expense-form";
 import { loadLedger } from "@/lib/db/ledger";
 import { areaOn } from "@/lib/domain/plots";
 import { todayISO } from "@/lib/domain/dates";
-import { cycleIsLiveOn } from "@/lib/domain/allocation";
+import { plotIsOccupiedOn } from "@/lib/domain/allocation";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function NewExpensePage({
     .filter((p) => p.active)
     .map((p) => {
       const cycle = ledger.cycles.find(
-        (c) => c.plotId === p.id && cycleIsLiveOn(c, today),
+        (c) => c.plotId === p.id && plotIsOccupiedOn(c, today),
       );
       return {
         id: p.id,
