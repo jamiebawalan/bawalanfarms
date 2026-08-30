@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Bar, Card, Empty, Note, Page, Stat, StatGrid, cx } from "@/components/ui";
 import { ChartStyles, Legend, SERIES, StackedBar } from "@/components/charts";
 import { loadLedger } from "@/lib/db/ledger";
-import { landUse, plotCostRanking, tasksForWeek } from "@/lib/domain/dashboards";
+import { landUse, plotCostByAge, tasksForWeek } from "@/lib/domain/dashboards";
+import { cycleAgeMonths, groupByBand } from "@/lib/domain/age";
 import { formatPeso, formatPesoPrecise } from "@/lib/domain/money";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
 
@@ -17,10 +18,16 @@ export default async function ManagerPage() {
   const ledger = await loadLedger();
   const today = todayISO();
   const land = landUse(ledger, today);
-  const rows = plotCostRanking(ledger, today);
+  const rows = plotCostByAge(ledger, today);
+  const cycleById = new Map(ledger.cycles.map((c) => [c.id, c]));
   const tasks = tasksForWeek(ledger, today);
 
+  // Bars are drawn in cost per plant and scaled to the worst of them, so their
+  // lengths mean something across rows rather than only within one.
+  const perPlant = (value: number, plants: number | null) =>
+    plants === null || plants <= 0 ? 0 : value / plants;
   const worstCost = Math.max(1, ...rows.map((r) => r.costPerPlantCentavos ?? 0));
+  const banded = groupByBand(rows, (r) => ({ cycle: cycleById.get(r.cycleId)! }), today);
 
   return (
     <Page title="Day to day" subtitle="Land, cost per plant, and this week's work">
@@ -99,7 +106,7 @@ export default async function ManagerPage() {
       </Card>
 
       {/* 2. Which plots cost the most to grow. */}
-      <Card title="Cost per plant, worst first">
+      <Card title="Cost per plant, oldest first">
         {rows.length === 0 ? (
           <Empty>No pineapple cycle is running.</Empty>
         ) : (
@@ -111,8 +118,13 @@ export default async function ManagerPage() {
                 { color: "var(--s-other)", label: SERIES.other.label },
               ]}
             />
-            <ul className="viz divide-y-2 divide-line">
-              {rows.map((r) => (
+            {banded.map(({ band, items }) => (
+            <section key={band?.key ?? "rest"} className="viz">
+              <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-soft first:mt-0">
+                {band === null ? "Everything else" : band.label}
+              </h3>
+              <ul className="divide-y-2 divide-line">
+              {items.map((r) => (
                 <li key={r.cycleId} className="py-3">
                   <Link href={`/cycles/${r.cycleId}`} className="block">
                     <div className="flex items-baseline justify-between gap-3">
@@ -124,17 +136,23 @@ export default async function ManagerPage() {
                       </span>
                     </div>
                     <div className="mb-1.5 text-sm text-ink-soft">
+                      {(() => {
+                        const months = cycleAgeMonths(cycleById.get(r.cycleId)!, today);
+                        return months === null ? "not started" : `${months} months in`;
+                      })()}
+                      {" · "}
                       {r.plants === null
                         ? "no plant count"
                         : `${r.plants.toLocaleString("en-PH")} plants`}
                       {" · "}
-                      {formatPeso(r.totalCostCentavos)} so far
+                      {formatPeso(r.totalCostCentavos)}
                     </div>
                     <StackedBar
+                      of={worstCost}
                       segments={[
-                        { value: r.labourCentavos, color: "var(--s-labour)", label: "Labour" },
-                        { value: r.inputsCentavos, color: "var(--s-inputs)", label: "Inputs" },
-                        { value: r.otherCentavos, color: "var(--s-other)", label: "Everything else" },
+                        { value: perPlant(r.labourCentavos, r.plants), color: "var(--s-labour)", label: "Labour" },
+                        { value: perPlant(r.inputsCentavos, r.plants), color: "var(--s-inputs)", label: "Inputs" },
+                        { value: perPlant(r.otherCentavos, r.plants), color: "var(--s-other)", label: "Everything else" },
                       ]}
                     />
                     {/* Written out as well as coloured: the aqua sits below 3:1
@@ -147,10 +165,7 @@ export default async function ManagerPage() {
 
                     <div className="mt-2 rounded-lg bg-paper-sunk px-3 py-2 text-sm">
                       {r.latestDleafCm === null ? (
-                        <div className="text-ink-soft">
-                          No D-leaf measured yet — {ledger.settings.dleafSampleSize} plants
-                          at random starts the clock on forcing.
-                        </div>
+                        <div className="text-ink-soft">No D-leaf measured yet.</div>
                       ) : (
                         <div className="text-ink">
                           D-leaf{" "}
@@ -192,21 +207,22 @@ export default async function ManagerPage() {
                         </div>
                       ) : r.dleafReadings === 1 ? (
                         <div className="mt-0.5 text-ink-soft">
-                          One reading so far. A second gives the growth rate, which is
-                          what says when to force.
+                          One reading — a second gives the rate.
                         </div>
                       ) : null}
 
                       {r.projectedHarvest !== null ? (
                         <div className="text-ink-soft">
-                          Harvest would follow around {formatDate(r.projectedHarvest)}
+                          Harvest ~{formatDateShort(r.projectedHarvest)}
                         </div>
                       ) : null}
                     </div>
                   </Link>
                 </li>
               ))}
-            </ul>
+              </ul>
+            </section>
+            ))}
           </>
         )}
       </Card>

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Card, Empty, Money, Note, Page, Stat, StatGrid } from "@/components/ui";
 import { loadLedger } from "@/lib/db/ledger";
-import { allCyclePnL, unattachedCosts } from "@/lib/domain/pnl";
-import { overheadWatch, periodSpend } from "@/lib/domain/reports";
+import { allCyclePnL } from "@/lib/domain/pnl";
+import { periodSpend } from "@/lib/domain/reports";
+import { byAgeOldestFirst, cycleAgeMonths } from "@/lib/domain/age";
 import { remainingStock } from "@/lib/domain/dosing";
 import { formatDate, formatDateShort, presetPeriods, todayISO } from "@/lib/domain/dates";
 import { formatPeso, percent } from "@/lib/domain/money";
@@ -20,7 +21,14 @@ export default async function HomePage() {
   const [thisMonth] = presetPeriods(today);
 
   const month = periodSpend(ledger, thisMonth!.from, thisMonth!.to);
-  const cycles = allCyclePnL(ledger).filter((c) => !c.isClosed && c.cycle.status !== "planned");
+  // Oldest first: the plot furthest into its cycle is the one with a decision
+  // waiting on it. Banana sits at the bottom — planted years ago, and there is
+  // little left to decide about it.
+  const cycles = byAgeOldestFirst(
+    allCyclePnL(ledger).filter((c) => !c.isClosed && c.cycle.status !== "planned"),
+    (c) => c,
+    today,
+  );
   const plotById = new Map(ledger.plots.map((p) => [p.id, p]));
 
   const todayExpenses = ledger.expenses
@@ -38,9 +46,6 @@ export default async function HomePage() {
       ),
     }))
     .filter((s) => s.remaining > 0.001);
-
-  const unattached = unattachedCosts(ledger);
-  const overhead = overheadWatch(ledger);
 
   return (
     <Page
@@ -63,25 +68,6 @@ export default async function HomePage() {
         </Link>
       }
     >
-      {unattached.length > 0 ? (
-        <Note tone="warn">
-          <Link href="/reports/unattached" className="underline underline-offset-4">
-            {formatPeso(unattached.reduce((a, r) => a + r.amountCentavos, 0))} of costs
-            sit on plots with no cycle open
-          </Link>
-          . They belong to a plot but reach no profit figure.
-        </Note>
-      ) : null}
-
-      {overhead.rising && overhead.latestShare !== null ? (
-        <Note tone="warn">
-          <Link href="/reports/overhead" className="underline underline-offset-4">
-            Whole-farm costs are climbing
-          </Link>
-          {" "}— now {(overhead.latestShare * 100).toFixed(0)}% of spend.
-        </Note>
-      ) : null}
-
       <StatGrid>
         <Stat
           label="Logged today"
@@ -165,8 +151,12 @@ export default async function HomePage() {
                       {c.plot?.label} · {c.cycle.crop}
                     </div>
                     <div className="text-sm text-ink-soft">
-                      {c.cycle.status.replace("_", " ")} · started{" "}
-                      {formatDateShort(c.cycle.dateStarted)}
+                      {(() => {
+                        const months = cycleAgeMonths(c.cycle, today);
+                        return months === null ? "not started" : `${months} months in`;
+                      })()}
+                      {" · "}
+                      {c.cycle.status.replace("_", " ")}
                     </div>
                   </div>
                   <div className="text-right">
