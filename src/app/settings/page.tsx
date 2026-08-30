@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Card, Note, Page } from "@/components/ui";
 import { SheetsRefresh } from "@/components/sheets-refresh";
+import { DrivePanel } from "@/components/drive-panel";
+import { createAdminClient } from "@/lib/supabase/server";
 import { loadLedger } from "@/lib/db/ledger";
 import { plotsMissingArea } from "@/lib/domain/plots";
 import { todayISO } from "@/lib/domain/dates";
@@ -8,13 +10,19 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ drive?: string }>;
+}) {
+  const { drive: driveStatus } = await searchParams;
   const ledger = await loadLedger();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: people } = await supabase.from("app_users").select("email, role, display_name");
 
   const missingArea = plotsMissingArea(ledger.plots, ledger.plotAreas, todayISO());
+  const drive = await readDrive();
 
   return (
     <Page title="Settings" subtitle={user?.email ?? undefined}>
@@ -32,6 +40,22 @@ export default async function SettingsPage() {
           back from Sheets — that is what let the old workbook drift.
         </p>
         <SheetsRefresh />
+      </Card>
+
+      <Card title="Google Drive copy">
+        <p className="mb-3 text-ink-soft">
+          A folder for each plot, a folder inside it for each cycle, and the whole
+          history of that cycle as a file you can read on your phone without this
+          app. The files are yours — if this app ever stops, the record does not.
+        </p>
+        <DrivePanel
+          connected={drive !== null}
+          connectedBy={drive?.connected_by ?? null}
+          lastMirrorAt={drive?.last_mirror_at ?? null}
+          lastError={drive?.last_error ?? null}
+          folderId={drive?.root_folder_id ?? null}
+          status={driveStatus}
+        />
       </Card>
 
       <Card title="Import history">
@@ -63,4 +87,24 @@ export default async function SettingsPage() {
       </Card>
     </Page>
   );
+}
+
+/**
+ * The Drive connection, read with the service key.
+ *
+ * google_auth holds a credential, so no policy grants anyone read access to it
+ * through the API. Only the server ever looks, and only at the parts that are
+ * safe to show — never the token itself.
+ */
+async function readDrive() {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("google_auth")
+      .select("connected_by, last_mirror_at, last_error, root_folder_id")
+      .maybeSingle();
+    return data ?? null;
+  } catch {
+    return null;
+  }
 }
