@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CROP_COLOURS, OTHER_CROP } from "@/lib/domain/map";
-import { cx } from "./ui";
+import { Button, Field, Input, Note, cx } from "./ui";
+import { newId } from "@/lib/queue";
+import { formatDateShort, todayISO } from "@/lib/domain/dates";
 
 type MapShape = {
   plotId: string;
@@ -17,6 +20,8 @@ type MapShape = {
   cycleId: string | null;
   colourKey: string;
   months: number | null;
+  /** Open tasks on this plot, whether or not a cycle is running on it. */
+  tasks: { id: string; title: string; dueDate: string; isCritical: boolean }[];
 };
 
 /**
@@ -38,7 +43,51 @@ export function FarmMap({
   metresPerUnit: number;
   legend: { key: string; label: string }[];
 }) {
+  const router = useRouter();
+  const today = todayISO();
   const [selected, setSelected] = useState<MapShape | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState(today);
+  const [critical, setCritical] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * A task on a plot, not on a cycle.
+   *
+   * Most of what needs doing on an empty plot is maintenance — clearing edges,
+   * cutting weeds, mending a fence — and none of it waits for a crop to be in
+   * the ground. The tasks table has always allowed a plot with no cycle; the map
+   * is simply the first place it is easy to say so, because the plot he wants is
+   * the one he is looking at.
+   */
+  async function addTask(shape: MapShape) {
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: newId(),
+        plot_id: shape.plotId,
+        cycle_id: shape.cycleId,
+        title: title.trim(),
+        due_date: due,
+        is_critical: critical,
+      }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setTitle("");
+      setCritical(false);
+      setAdding(false);
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Could not add that task.");
+    }
+  }
 
   // A round number of metres that comes out a sensible length on screen.
   const barMetres = 100;
@@ -83,6 +132,10 @@ export function FarmMap({
             <span className="text-ink-soft">{item.label}</span>
           </li>
         ))}
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="h-3 w-3 rounded-full border-2 border-paper bg-ink" />
+          <span className="text-ink-soft">Has a task waiting</span>
+        </li>
       </ul>
 
       <svg
@@ -106,11 +159,12 @@ export function FarmMap({
                 tabIndex={0}
                 role="button"
                 aria-label={`${s.label}${s.crop ? `, ${s.crop}` : ", nothing planted"}`}
-                onClick={() => setSelected(isSelected ? null : s)}
+                onClick={() => { setSelected(isSelected ? null : s); setAdding(false); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     setSelected(isSelected ? null : s);
+                    setAdding(false);
                   }
                 }}
               />
@@ -123,6 +177,23 @@ export function FarmMap({
               >
                 {s.code}
               </text>
+              {/* A plot with work waiting says so without being tapped —
+                  otherwise finding it means opening all twenty-seven. */}
+              {s.tasks.length > 0 ? (
+                <circle
+                  cx={s.labelX}
+                  cy={s.labelY + 15}
+                  r={4.5}
+                  className="pointer-events-none"
+                  fill={
+                    s.tasks.some((t) => t.isCritical)
+                      ? "var(--color-danger)"
+                      : "var(--color-ink)"
+                  }
+                  stroke="var(--color-paper)"
+                  strokeWidth="1.5"
+                />
+              ) : null}
             </g>
           );
         })}
@@ -156,18 +227,76 @@ export function FarmMap({
                 : `${selected.crop}${selected.months === null ? "" : `, ${selected.months} months in`}`}
             </span>
           </div>
-          {selected.cycleId === null ? (
-            <p className="mt-1 text-sm text-ink-soft">
-              No cycle running. Start one from the Plots tab.
-            </p>
-          ) : (
-            <Link
-              href={`/cycles/${selected.cycleId}`}
-              className="mt-2 inline-flex min-h-12 items-center font-semibold text-brand underline underline-offset-4"
+          {selected.tasks.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {selected.tasks.map((t) => (
+                <li key={t.id} className="text-sm">
+                  <span className={cx("font-semibold", t.isCritical && "text-danger")}>
+                    {t.isCritical ? "Critical · " : ""}{t.title}
+                  </span>
+                  <span className="text-ink-soft"> — {formatDateShort(t.dueDate)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            {selected.cycleId === null ? (
+              <span className="text-sm text-ink-soft">No cycle running.</span>
+            ) : (
+              <Link
+                href={`/cycles/${selected.cycleId}`}
+                className="inline-flex min-h-12 items-center font-semibold text-brand underline underline-offset-4"
+              >
+                Open {selected.label} →
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => { setAdding(!adding); setError(null); }}
+              className="inline-flex min-h-12 items-center font-semibold text-brand underline underline-offset-4"
             >
-              Open {selected.label} →
-            </Link>
-          )}
+              {adding ? "Cancel" : "Add a task"}
+            </button>
+          </div>
+
+          {adding ? (
+            <div className="mt-2 border-t-2 border-line pt-3">
+              <Field label="What needs doing?" htmlFor="map-task">
+                <Input
+                  id="map-task"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. clear the edges"
+                />
+              </Field>
+              <Field label="By when" htmlFor="map-task-due">
+                <Input
+                  id="map-task-due"
+                  type="date"
+                  value={due}
+                  onChange={(e) => setDue(e.target.value)}
+                />
+              </Field>
+              <label className="mb-3 flex min-h-12 items-center gap-2 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={critical}
+                  onChange={(e) => setCritical(e.target.checked)}
+                  className="h-5 w-5"
+                />
+                Critical — it costs the crop if it slips
+              </label>
+              {error ? <Note tone="danger">{error}</Note> : null}
+              <Button
+                variant="secondary"
+                disabled={busy || title.trim().length < 3}
+                onClick={() => void addTask(selected)}
+              >
+                {busy ? "Saving…" : "Add it"}
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>
