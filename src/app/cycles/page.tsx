@@ -27,9 +27,14 @@ export default async function CyclesPage() {
       title="Cycles"
       subtitle="One crop, in one plot, from land prep to the last harvest"
       action={
-        <Link href="/cycles/new">
-          <Button size="md">New</Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/map" className="font-semibold text-brand underline underline-offset-4">
+            Map
+          </Link>
+          <Link href="/cycles/new">
+            <Button size="md">New</Button>
+          </Link>
+        </div>
       }
     >
       <Card title={`Running (${running.length})`}>
