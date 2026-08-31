@@ -30,24 +30,24 @@ on conflict (code) do nothing;
 insert into plot_areas (plot_id, effective_from, area_sqm, note)
 select p.id, date '2015-01-01', v.area, 'Initial survey'
 from (values
-  ('1',7056),('2',6519),('3',2929),('4',4200),('5',4143),('6',5534),('7',7775),('8',7802),
-  ('9',2452),('10',2221),('11',7935),('12',3258),('13',2075),('14',6227),('15',2499),('16',5276),
-  ('17',4065),('18',2386),('19',3273),('20',2323),('21',3432),('22',3265),('23',3148),('24',3778),
-  ('25',6764),('26',4465),('Mango',3630)
+  ('1',6364),('2',5651),('3',3468),('4',4200),('5',4228),('6',7370),('7',7775),('8',8376),
+  ('9',1984),('10',2942),('11',7536),('12',3258),('13',2075),('14',6180),('15',3208),('16',2711),
+  ('17',5537),('18',3854),('19',3273),('20',2722),('21',3673),('22',3872),('23',3631),('24',3631),
+  ('25',6765),('26',4466),('Mango',3630)
 ) as v(code, area)
 join plots p on p.code = v.code
 on conflict (plot_id, effective_from) do nothing;
 -- Coffee (27) deliberately has no area row. See DECISIONS.md, open question 1.
 
--- Guard the seed against a typo: plots 1-26 must total 114,800 sqm.
+-- Guard the seed against a typo: plots 1-26 must total 118,750 sqm.
 do $$
 declare total numeric;
 begin
   select sum(a.area_sqm) into total
   from plot_areas a join plots p on p.id = a.plot_id
   where p.code ~ '^[0-9]+$' and p.code::int between 1 and 26;
-  if total <> 114800 then
-    raise exception 'plot areas 1-26 total % sqm, expected 114800', total;
+  if total <> 118750 then
+    raise exception 'plot areas 1-26 total % sqm, expected 118750', total;
   end if;
 end $$;
 
