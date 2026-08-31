@@ -322,3 +322,48 @@ describe("replanting a plot the same day it was closed", () => {
     expect(u.idlePlots.map((p) => p.label)).not.toContain("Plot 1");
   });
 });
+
+describe("tasks on a plot with no cycle", () => {
+  // Most of what needs doing on empty land is maintenance — clearing edges,
+  // cutting weeds, mending a fence — and none of it waits for a crop to be in
+  // the ground. Those tasks have to reach the week view like any other.
+  const maintenance: Ledger = {
+    ...L,
+    tasks: [
+      {
+        id: "t-idle", plotId: "p3", cycleId: null, title: "Clear the edges",
+        activity: null, dueDate: TODAY, isCritical: false, doneAt: null,
+      },
+      {
+        id: "t-cycle", plotId: "p1", cycleId: "c1", title: "Measure D-leaf",
+        activity: null, dueDate: TODAY, isCritical: false, doneAt: null,
+      },
+    ],
+  };
+
+  it("shows a task that belongs to no cycle at all", () => {
+    const week = tasksForWeek(maintenance, TODAY).thisWeek;
+    expect(week.map((t) => t.id)).toContain("t-idle");
+  });
+
+  it("still says which plot it is on", () => {
+    // Without the plot name it is an instruction with no address.
+    const task = tasksForWeek(maintenance, TODAY).thisWeek
+      .find((t) => t.id === "t-idle")!;
+    expect(task.plotLabel).toBe("Plot 3");
+  });
+
+  it("sits alongside cycle tasks rather than in a separate list", () => {
+    const week = tasksForWeek(maintenance, TODAY).thisWeek;
+    expect(week.map((t) => t.id).sort()).toEqual(["t-cycle", "t-idle"]);
+  });
+
+  it("still leads with anything critical, cycle or not", () => {
+    const urgent: Ledger = {
+      ...maintenance,
+      tasks: maintenance.tasks.map((t) =>
+        t.id === "t-idle" ? { ...t, isCritical: true } : t),
+    };
+    expect(tasksForWeek(urgent, TODAY).thisWeek[0]!.id).toBe("t-idle");
+  });
+});

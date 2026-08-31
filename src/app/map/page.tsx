@@ -42,6 +42,16 @@ export default async function MapPage() {
       cycleId: cycle?.id ?? null,
       colourKey: colourKeyFor(crop),
       months: cycle === undefined ? null : cycleAgeMonths(cycle, today),
+      // Tasks follow the plot, not the cycle: most of what needs doing on empty
+      // land — clearing, cutting, mending — has no crop attached to it.
+      tasks: ledger.tasks
+        .filter((t) => t.doneAt === null && t.plotId === plot.id)
+        .sort((a, b) =>
+          Number(b.isCritical) - Number(a.isCritical) ||
+          a.dueDate.localeCompare(b.dueDate))
+        .map((t) => ({
+          id: t.id, title: t.title, dueDate: t.dueDate, isCritical: t.isCritical,
+        })),
       surveyedSqm: areaOn(ledger.plotAreas, plot.id, today),
     }];
   });
@@ -89,6 +99,7 @@ export default async function MapPage() {
                 cycleId: s.cycleId,
                 colourKey: s.colourKey,
                 months: s.months,
+                tasks: s.tasks,
               }))}
               width={projected.width}
               height={projected.height}
