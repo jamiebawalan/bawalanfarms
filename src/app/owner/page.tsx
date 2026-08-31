@@ -224,6 +224,15 @@ export default async function OwnerPage() {
           Plot history, spend by period, overhead watch, buyer margin, capital.
         </p>
         <Link
+          href="/map"
+          className="mt-3 block font-semibold text-brand underline underline-offset-4"
+        >
+          The farm, drawn →
+        </Link>
+        <p className="mt-1 text-sm text-ink-soft">
+          Every plot as a shape you can tap, coloured by what is growing.
+        </p>
+        <Link
           href="/knowledge"
           className="mt-3 block font-semibold text-brand underline underline-offset-4"
         >

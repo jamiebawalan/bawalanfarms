@@ -140,6 +140,7 @@ export function makeLedger(): Ledger {
     ],
     leafMeasurements: [],
     leafPlants: [],
+    boundaries: [],
     tasks: [],
     settings: DEFAULT_SETTINGS,
     activities: [
