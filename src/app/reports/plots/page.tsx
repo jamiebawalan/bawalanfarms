@@ -13,6 +13,8 @@ export const dynamic = "force-dynamic";
  */
 export default async function PlotsPage() {
   const ledger = await loadLedger();
+  const cropNames = new Map(ledger.crops.map((c) => [c.code, c.label]));
+  const cropLabel = (code: string) => cropNames.get(code) ?? code;
   const histories = plotHistories(ledger);
 
   return (
@@ -49,7 +51,7 @@ export default async function PlotsPage() {
                     className="flex min-h-14 items-center justify-between gap-3 py-2.5"
                   >
                     <div className="min-w-0">
-                      <div className="font-semibold">{c.cycle.crop}</div>
+                      <div className="font-semibold">{cropLabel(c.cycle.crop)}</div>
                       <div className="text-sm text-ink-soft">
                         {c.cycle.dateStarted ? formatDate(c.cycle.dateStarted) : "not started"}
                         {c.isClosed ? ` → ${formatDate(c.cycle.dateClosed)}` : " → running"}

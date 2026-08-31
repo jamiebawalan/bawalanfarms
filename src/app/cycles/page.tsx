@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default async function CyclesPage() {
   const ledger = await loadLedger();
+  const cropNames = new Map(ledger.crops.map((c) => [c.code, c.label]));
+  const cropLabel = (code: string) => cropNames.get(code) ?? code;
   const all = allCyclePnL(ledger);
   const today = todayISO();
 
@@ -61,7 +63,7 @@ export default async function CyclesPage() {
                 >
                   <div className="min-w-0">
                     <div className="font-semibold">
-                      {c.plot?.label} · {c.cycle.crop}
+                      {c.plot?.label} · {cropLabel(c.cycle.crop)}
                     </div>
                     <div className="text-sm text-ink-soft">
                       {(() => {
@@ -98,7 +100,7 @@ export default async function CyclesPage() {
                   className="flex min-h-14 items-center justify-between py-3"
                 >
                   <span className="font-semibold">
-                    {c.plot?.label} · {c.cycle.crop}
+                    {c.plot?.label} · {cropLabel(c.cycle.crop)}
                   </span>
                   <span className="text-sm text-ink-soft">not started</span>
                 </Link>
@@ -121,7 +123,7 @@ export default async function CyclesPage() {
                 >
                   <div className="min-w-0">
                     <div className="font-semibold">
-                      {c.plot?.label} · {c.cycle.crop}
+                      {c.plot?.label} · {cropLabel(c.cycle.crop)}
                     </div>
                     <div className="text-sm text-ink-soft">
                       closed {formatDate(c.cycle.dateClosed)}

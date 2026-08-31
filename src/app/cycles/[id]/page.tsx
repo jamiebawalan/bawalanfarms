@@ -32,6 +32,8 @@ export default async function CyclePage({
 }) {
   const { id } = await params;
   const ledger = await loadLedger();
+  const cropNames = new Map(ledger.crops.map((c) => [c.code, c.label]));
+  const cropLabel = (code: string) => cropNames.get(code) ?? code;
   const pnl = cyclePnL(ledger, id);
   if (!pnl) notFound();
 
@@ -69,7 +71,7 @@ export default async function CyclePage({
 
   return (
     <Page
-      title={`${pnl.plot?.label ?? "Plot"} · ${cycle.crop}`}
+      title={`${pnl.plot?.label ?? "Plot"} · ${cropLabel(cycle.crop)}`}
       subtitle={
         cycle.dateStarted
           ? `${cycle.status.replace("_", " ")} · started ${formatDate(cycle.dateStarted)}` +

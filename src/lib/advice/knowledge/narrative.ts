@@ -20,6 +20,7 @@ The primary crop is Smooth Cayenne pineapple, planted at a working density of ab
 Local terms, which the owners and the crew use in preference to English:
 - suwe = suckers
 - salo = slips
+- mane = peanut. One crop, two words; the crew says mane.
 - D-leaf = the longest fully expanded firm leaf, sitting at roughly 45 degrees; the plant-maturity indicator the farm steers forcing by.
 - Fruit is graded in the Cavite system: primera, segunda, tercera, kwarta, quinta.`;
 

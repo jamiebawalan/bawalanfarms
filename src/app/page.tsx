@@ -17,6 +17,8 @@ export const dynamic = "force-dynamic";
  */
 export default async function HomePage() {
   const ledger = await loadLedger();
+  const cropNames = new Map(ledger.crops.map((c) => [c.code, c.label]));
+  const cropLabel = (code: string) => cropNames.get(code) ?? code;
   const today = todayISO();
   const [thisMonth] = presetPeriods(today);
 
@@ -148,7 +150,7 @@ export default async function HomePage() {
                 >
                   <div className="min-w-0">
                     <div className="font-semibold">
-                      {c.plot?.label} · {c.cycle.crop}
+                      {c.plot?.label} · {cropLabel(c.cycle.crop)}
                     </div>
                     <div className="text-sm text-ink-soft">
                       {(() => {

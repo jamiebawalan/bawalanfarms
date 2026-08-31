@@ -130,8 +130,8 @@ export function centroid(points: [number, number][]): [number, number] {
  */
 export const CROP_COLOURS: Record<string, { light: string; dark: string; label: string }> = {
   pineapple: { light: "#eda100", dark: "#c98500", label: "Pineapple" },
-  peanut: { light: "#1baf7a", dark: "#199e70", label: "Peanut" },
-  mane: { light: "#2a78d6", dark: "#3987e5", label: "Mane" },
+  peanut: { light: "#1baf7a", dark: "#199e70", label: "Mane (peanut)" },
+  banana: { light: "#2a78d6", dark: "#3987e5", label: "Banana" },
 };
 
 export const OTHER_CROP = { light: "#8a8f8a", dark: "#79817b", label: "Other crop" };
