@@ -30,7 +30,7 @@ update plot_areas a
   from (values
     ('1',6364),('2',5651),('3',3468),('4',4200),('5',4228),('6',7370),('7',7775),('8',8376),
     ('9',1984),('10',2942),('11',7536),('12',3258),('13',2075),('14',6180),('15',3208),('16',2711),
-    ('17',5537),('18',3854),('19',3273),('20',2722),('21',3673),('22',3872),('23',3631),('24',3631),
+    ('17',5537),('18',3854),('19',3273),('20',2722),('21',3673),('22',3872),('23',3031),('24',3631),
     ('25',6765),('26',4466),('Mango',3630)
   ) as v(code, area)
   join plots p on p.code = v.code
@@ -45,13 +45,13 @@ select p.id, date '2015-01-01', v.area, 'Corrected from the farm workbook, Per P
 from (values
   ('1',6364),('2',5651),('3',3468),('4',4200),('5',4228),('6',7370),('7',7775),('8',8376),
   ('9',1984),('10',2942),('11',7536),('12',3258),('13',2075),('14',6180),('15',3208),('16',2711),
-  ('17',5537),('18',3854),('19',3273),('20',2722),('21',3673),('22',3872),('23',3631),('24',3631),
+  ('17',5537),('18',3854),('19',3273),('20',2722),('21',3673),('22',3872),('23',3031),('24',3631),
   ('25',6765),('26',4466),('Mango',3630)
 ) as v(code, area)
 join plots p on p.code = v.code
 on conflict (plot_id, effective_from) do nothing;
 
--- Guard against a typo in the list above: plots 1-26 must now total 118,750.
+-- Guard against a typo in the list above: plots 1-26 must now total 118,150.
 do $$
 declare total numeric;
 begin
@@ -59,8 +59,8 @@ begin
   from plot_areas a join plots p on p.id = a.plot_id
   where p.code ~ '^[0-9]+$' and p.code::int between 1 and 26
     and a.effective_from = date '2015-01-01';
-  if total <> 118750 then
-    raise exception 'plot areas 1-26 total % sqm, expected 118750', total;
+  if total <> 118150 then
+    raise exception 'plot areas 1-26 total % sqm, expected 118150', total;
   end if;
 end $$;
 
