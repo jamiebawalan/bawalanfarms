@@ -50,21 +50,21 @@ export function FarmMap({
         .viz-map {
           --c-pineapple: ${CROP_COLOURS.pineapple!.light};
           --c-peanut: ${CROP_COLOURS.peanut!.light};
-          --c-mane: ${CROP_COLOURS.mane!.light};
+          --c-banana: ${CROP_COLOURS.banana!.light};
           --c-other: ${OTHER_CROP.light};
         }
         @media (prefers-color-scheme: dark) {
           :root:not([data-theme="light"]) .viz-map {
             --c-pineapple: ${CROP_COLOURS.pineapple!.dark};
             --c-peanut: ${CROP_COLOURS.peanut!.dark};
-            --c-mane: ${CROP_COLOURS.mane!.dark};
+            --c-banana: ${CROP_COLOURS.banana!.dark};
             --c-other: ${OTHER_CROP.dark};
           }
         }
         :root[data-theme="dark"] .viz-map {
           --c-pineapple: ${CROP_COLOURS.pineapple!.dark};
           --c-peanut: ${CROP_COLOURS.peanut!.dark};
-          --c-mane: ${CROP_COLOURS.mane!.dark};
+          --c-banana: ${CROP_COLOURS.banana!.dark};
           --c-other: ${OTHER_CROP.dark};
         }
       `}</style>
@@ -177,6 +177,6 @@ export function FarmMap({
 function fillFor(key: string): string {
   if (key === "pineapple") return "var(--c-pineapple)";
   if (key === "peanut") return "var(--c-peanut)";
-  if (key === "mane") return "var(--c-mane)";
+  if (key === "banana") return "var(--c-banana)";
   return "var(--c-other)";
 }

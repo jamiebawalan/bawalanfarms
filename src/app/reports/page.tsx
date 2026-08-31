@@ -43,6 +43,8 @@ const REPORTS = [
 
 export default async function ReportsPage() {
   const ledger = await loadLedger();
+  const cropNames = new Map(ledger.crops.map((c) => [c.code, c.label]));
+  const cropLabel = (code: string) => cropNames.get(code) ?? code;
   const today = todayISO();
   const [, , thisYear] = presetPeriods(today);
 
@@ -101,7 +103,7 @@ export default async function ReportsPage() {
                 >
                   <div className="min-w-0">
                     <div className="truncate font-semibold">
-                      {c.plot?.label} · {c.cycle.crop}
+                      {c.plot?.label} · {cropLabel(c.cycle.crop)}
                     </div>
                     <div className="text-sm text-ink-soft">
                       {c.isClosed ? "closed" : c.cycle.status.replace("_", " ")}

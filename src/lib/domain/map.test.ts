@@ -104,15 +104,21 @@ describe("crop colours", () => {
     expect(colourKeyFor("pineapple")).toBe("pineapple");
     expect(colourKeyFor("Pineapple ")).toBe("other");   // trimmed upstream, not here
     expect(colourKeyFor("peanut")).toBe("peanut");
-    expect(colourKeyFor("mane")).toBe("mane");
+    expect(colourKeyFor("banana")).toBe("banana");
+  });
+
+  it("has no separate colour for mane, because mane is peanut", () => {
+    // One rotation crop under two words. Two hues would have shown it as two
+    // different things on a screen meant to make the rotation legible.
+    expect(colourKeyFor("mane")).toBe("other");
   });
 
   it("folds the rest into one residual rather than inventing hues", () => {
     // A fourth categorical hue cannot be told from the other three on the dark
-    // surface, so banana and mango share a neutral instead.
-    expect(colourKeyFor("banana")).toBe("other");
+    // surface, so mango and the rest share a neutral instead.
     expect(colourKeyFor("mango")).toBe("other");
     expect(colourKeyFor("papaya")).toBe("other");
+    expect(colourKeyFor("corn")).toBe("other");
   });
 
   it("gives an empty plot no colour at all", () => {
@@ -125,7 +131,7 @@ describe("crop colours", () => {
   });
 
   it("puts the residual and the empty plots after the named crops", () => {
-    const legend = legendFor(["mane", "banana", null, "pineapple"]);
-    expect(legend.map((l) => l.key)).toEqual(["pineapple", "mane", "other", "idle"]);
+    const legend = legendFor(["banana", "mango", null, "pineapple"]);
+    expect(legend.map((l) => l.key)).toEqual(["pineapple", "banana", "other", "idle"]);
   });
 });

@@ -71,16 +71,3 @@ on conflict (plot_id, part) do update
       area_sqm = excluded.area_sqm,
       source = excluded.source,
       updated_at = now();
-
--- Where the drawn shape and the surveyed figure disagree by more than 2%.
--- Nothing is changed here; it is a list to look at.
-select p.code as plot,
-       a.area_sqm as surveyed,
-       round(sum(b.area_sqm)) as from_the_map,
-       round(sum(b.area_sqm) - a.area_sqm) as difference
-  from plot_boundaries b
-  join plots p on p.id = b.plot_id
-  join plot_areas a on a.plot_id = p.id and a.effective_from = date '2015-01-01'
- group by p.code, a.area_sqm
-having abs(sum(b.area_sqm) - a.area_sqm) > a.area_sqm * 0.02
- order by case when p.code ~ '^[0-9]+$' then p.code::int else 99 end;
