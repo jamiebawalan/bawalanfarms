@@ -25,13 +25,14 @@ export function CashCard({
   sinceLastAdvanceCentavos: number;
   daysRemaining: number | null;
   isLow: boolean;
-  recent: { id: string; date: string; amountCentavos: number }[];
+  recent: { id: string; date: string; amountCentavos: number; note?: string | null }[];
 }) {
   const router = useRouter();
   const today = todayISO();
   const [adding, setAdding] = useState(false);
   const [amount, setAmount] = useState("30000");
   const [date, setDate] = useState(today);
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,12 +48,14 @@ export function CashCard({
         id: newId(),
         date,
         amount_centavos: Math.round(pesos * 100),
+        note: note.trim() || undefined,
       }),
     });
     setBusy(false);
     if (res.ok) {
       setAdding(false);
       setAmount("30000");
+      setNote("");
       router.refresh();
     } else {
       const body = await res.json().catch(() => ({}));
@@ -125,7 +128,10 @@ export function CashCard({
               <ul className="mt-2 space-y-1 text-sm tabular text-ink-soft">
                 {recent.map((a) => (
                   <li key={a.id} className="flex justify-between gap-3">
-                    <span>{formatDate(a.date)}</span>
+                    <span>
+                      {formatDate(a.date)}
+                      {a.note ? <span className="text-ink-soft"> · {a.note}</span> : null}
+                    </span>
                     <span className="font-semibold">{formatPeso(a.amountCentavos)}</span>
                   </li>
                 ))}
@@ -154,6 +160,21 @@ export function CashCard({
               value={date}
               max={today}
               onChange={(e) => setDate(e.target.value)}
+            />
+          </Field>
+          {/* The first entry is usually not a handover at all — it is the cash
+              he counted in his pocket the day tracking started. Saying so keeps
+              the record honest a year from now. */}
+          <Field
+            label="Note (optional)"
+            hint={startedOn === null ? "e.g. cash counted on hand at the start" : undefined}
+            htmlFor="cash-note"
+          >
+            <Input
+              id="cash-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={startedOn === null ? "cash counted on hand" : ""}
             />
           </Field>
           <div className="flex gap-2">

@@ -316,7 +316,7 @@ export default async function ManagerPage() {
           recent={[...ledger.cashAdvances]
             .sort((a, b) => b.date.localeCompare(a.date))
             .slice(0, 12)
-            .map((a) => ({ id: a.id, date: a.date, amountCentavos: a.amountCentavos }))}
+            .map((a) => ({ id: a.id, date: a.date, amountCentavos: a.amountCentavos, note: a.note }))}
         />
       </Section>
 
