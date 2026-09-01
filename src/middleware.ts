@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/login") || path.startsWith("/auth");
+  const isPublic = isPublicPath(path);
 
   if (forwardsMagicLink(path, request.nextUrl.searchParams.has("code"))) {
     const url = request.nextUrl.clone();
@@ -86,6 +86,24 @@ export function forwardsMagicLink(path: string, hasCode: boolean): boolean {
   if (path.startsWith("/auth/")) return false;
   if (path.startsWith("/api/")) return false;
   return true;
+}
+
+/**
+ * The pages anyone may read without signing in.
+ *
+ * Sign-in itself, and the two documents Google requires before it will publish
+ * an external app. Google will not accept a privacy policy that sits behind a
+ * login, and it is right not to: a policy nobody can read is not a policy.
+ *
+ * Everything else on this farm's books stays behind the door.
+ */
+export function isPublicPath(path: string): boolean {
+  return (
+    path.startsWith("/login") ||
+    path.startsWith("/auth") ||
+    path === "/privacy" ||
+    path === "/terms"
+  );
 }
 
 export const config = {
