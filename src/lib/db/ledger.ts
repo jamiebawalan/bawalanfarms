@@ -18,7 +18,7 @@ export async function loadLedger(): Promise<Ledger> {
   const [
     plots, plotAreas, cycles, expenses, allocations, purchases, draws,
     harvests, harvestLines, sales, saleLines, plantCounts, capitalAssets,
-    buyers, products, activities, crops, leaves, leafPlants, boundaries, tasks, settings,
+    buyers, products, activities, crops, leaves, leafPlants, boundaries, cash, tasks, settings,
   ] = await Promise.all([
     supabase.from("plots").select("*").order("sort_order"),
     supabase.from("plot_areas").select("*"),
@@ -40,6 +40,7 @@ export async function loadLedger(): Promise<Ledger> {
     supabase.from("leaf_measurements").select("*"),
     supabase.from("leaf_plant_readings").select("*"),
     supabase.from("plot_boundaries").select("*"),
+    supabase.from("cash_advances").select("*"),
     supabase.from("tasks").select("*"),
     supabase.from("farm_settings").select("*"),
   ]);
@@ -133,6 +134,11 @@ export async function loadLedger(): Promise<Ledger> {
       plotId: b.plot_id, part: b.part,
       ring: b.ring as [number, number][],
       areaSqm: Number(b.area_sqm),
+    })),
+    cashAdvances: rows<any>(cash, "cash advances").map((a) => ({
+      id: a.id, date: a.date,
+      amountCentavos: Number(a.amount_centavos),
+      note: a.note,
     })),
     tasks: rows<any>(tasks, "tasks").map((t) => ({
       id: t.id, plotId: t.plot_id, cycleId: t.cycle_id, title: t.title,

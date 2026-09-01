@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Bar, Card, Empty, Note, Page, Stat, StatGrid, cx } from "@/components/ui";
+import { Bar, Card, Empty, Note, Page, Stat, StatGrid, cx, Section } from "@/components/ui";
 import { ChartStyles, Legend, SERIES, StackedBar } from "@/components/charts";
 import { loadLedger } from "@/lib/db/ledger";
 import { landUse, plotCostByAge, tasksForWeek } from "@/lib/domain/dashboards";
+import { cashIsLow, cashPosition } from "@/lib/domain/cash";
+import { CashCard } from "@/components/cash-card";
 import { cycleAgeMonths, groupByBand } from "@/lib/domain/age";
 import { formatPeso, formatPesoPrecise } from "@/lib/domain/money";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
@@ -28,13 +30,20 @@ export default async function ManagerPage() {
     plants === null || plants <= 0 ? 0 : value / plants;
   const worstCost = Math.max(1, ...rows.map((r) => r.costPerPlantCentavos ?? 0));
   const banded = groupByBand(rows, (r) => ({ cycle: cycleById.get(r.cycleId)! }), today);
+  const cash = cashPosition(ledger, today);
+  const lowOnCash = cashIsLow(cash);
+  const worst = rows.find((r) => r.costPerPlantCentavos !== null) ?? null;
 
   return (
     <Page title="Day to day" subtitle="Land, cost per plant, and this week's work">
       <ChartStyles />
 
       {/* 1. Keep the land planted. */}
-      <Card title="Land in use">
+      <Section
+        title="Land in use"
+        summary={`${Math.round(land.utilisation * 100)}% planted · ${land.idlePlots.length} idle`}
+        tone={land.utilisation < 0.7 ? "warn" : undefined}
+      >
         <StatGrid>
           <Stat
             label="Planted"
@@ -103,10 +112,17 @@ export default async function ManagerPage() {
             farm-wide costs while it earns nothing.
           </Note>
         )}
-      </Card>
+      </Section>
 
       {/* 2. Which plots cost the most to grow. */}
-      <Card title="Cost per plant, oldest first">
+      <Section
+        title="Cost per plant"
+        summary={
+          worst === null
+            ? "no pineapple cycle running"
+            : `oldest first · worst ${formatPesoPrecise(worst.costPerPlantCentavos!)} on ${worst.plotLabel}`
+        }
+      >
         {rows.length === 0 ? (
           <Empty>No pineapple cycle is running.</Empty>
         ) : (
@@ -225,16 +241,18 @@ export default async function ManagerPage() {
             ))}
           </>
         )}
-      </Card>
+      </Section>
 
       {/* 3. What needs doing. */}
-      <Card
+      <Section
         title="This week"
-        action={
-          <span className="text-sm text-ink-soft">
-            {tasks.overdue.length + tasks.thisWeek.length} open
-          </span>
+        defaultOpen
+        summary={
+          tasks.overdue.length > 0
+            ? `${tasks.overdue.length} overdue · ${tasks.thisWeek.length} due`
+            : `${tasks.thisWeek.length} due in the next seven days`
         }
+        tone={tasks.overdue.length > 0 ? "danger" : undefined}
       >
         {tasks.overdue.length === 0 && tasks.thisWeek.length === 0 ? (
           <Empty>
@@ -265,7 +283,42 @@ export default async function ManagerPage() {
             {tasks.later.length} more after this week.
           </p>
         ) : null}
-      </Card>
+      </Section>
+
+      {/* 4. What is left in his pocket. */}
+      <Section
+        title="Cash"
+        summary={
+          cash.startedOn === null
+            ? "not tracked yet"
+            : cash.onHandCentavos <= 0
+              ? "spent — ask for more"
+              : `${formatPeso(cash.onHandCentavos)} on hand${
+                  cash.daysRemaining === null ? "" : ` · about ${cash.daysRemaining} days`
+                }`
+        }
+        tone={lowOnCash ? (cash.onHandCentavos <= 0 ? "danger" : "warn") : undefined}
+        defaultOpen={lowOnCash}
+      >
+        <CashCard
+          onHandCentavos={cash.onHandCentavos}
+          advancedCentavos={cash.advancedCentavos}
+          spentCentavos={cash.spentCentavos}
+          startedOn={cash.startedOn}
+          lastAdvance={
+            cash.lastAdvance === null
+              ? null
+              : { date: cash.lastAdvance.date, amountCentavos: cash.lastAdvance.amountCentavos }
+          }
+          sinceLastAdvanceCentavos={cash.sinceLastAdvanceCentavos}
+          daysRemaining={cash.daysRemaining}
+          isLow={lowOnCash}
+          recent={[...ledger.cashAdvances]
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .slice(0, 12)
+            .map((a) => ({ id: a.id, date: a.date, amountCentavos: a.amountCentavos }))}
+        />
+      </Section>
 
       <Card>
         <Link href="/owner" className="font-semibold text-brand underline underline-offset-4">

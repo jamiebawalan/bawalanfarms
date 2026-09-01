@@ -248,6 +248,7 @@ export type Ledger = {
   leafMeasurements: LeafMeasurement[];
   leafPlants: LeafPlantReading[];
   boundaries: { plotId: string; part: string; ring: [number, number][]; areaSqm: number }[];
+  cashAdvances: { id: string; date: ISODate; amountCentavos: Centavos; note?: string | null }[];
   tasks: Task[];
   settings: FarmSettings;
 };
@@ -256,6 +257,6 @@ export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
   purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
-  activities: [], crops: [], leafMeasurements: [], leafPlants: [], boundaries: [], tasks: [],
+  activities: [], crops: [], leafMeasurements: [], leafPlants: [], boundaries: [], cashAdvances: [], tasks: [],
   settings: DEFAULT_SETTINGS,
 };
