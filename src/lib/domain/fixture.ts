@@ -141,6 +141,7 @@ export function makeLedger(): Ledger {
     leafMeasurements: [],
     leafPlants: [],
     boundaries: [],
+    cashAdvances: [],
     tasks: [],
     settings: DEFAULT_SETTINGS,
     activities: [

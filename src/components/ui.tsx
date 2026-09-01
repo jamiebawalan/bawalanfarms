@@ -65,6 +65,60 @@ export function Card({ title, action, children, className }: {
   );
 }
 
+/**
+ * A card that starts closed, with its headline on the lid.
+ *
+ * The Plan screen had grown to five full sections and several screens of
+ * scrolling on a phone held in one hand at the edge of a field. Collapsing them
+ * only helps if the closed state still says something, so each summary carries
+ * the number the section exists to report — the whole page is then readable
+ * without opening anything, and opening one is a deliberate act.
+ */
+export function Section({
+  title, summary, tone, defaultOpen = false, children,
+}: {
+  title: string;
+  /** The one figure worth seeing without opening it. */
+  summary?: ReactNode;
+  tone?: "warn" | "danger";
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="mb-4 overflow-hidden rounded-2xl border-2 border-line bg-paper"
+    >
+      <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="block font-bold">{title}</span>
+          {summary !== undefined ? (
+            <span
+              className={cx(
+                "block text-sm",
+                tone === "danger" ? "font-semibold text-danger"
+                  : tone === "warn" ? "font-semibold text-warn"
+                  : "text-ink-soft",
+              )}
+            >
+              {summary}
+            </span>
+          ) : null}
+        </span>
+        <svg
+          width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+          strokeLinejoin="round" aria-hidden
+          className="shrink-0 text-ink-soft transition-transform [details[open]_&]:rotate-180"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </summary>
+      <div className="border-t-2 border-line px-4 py-3">{children}</div>
+    </details>
+  );
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="py-6 text-center text-ink-soft">{children}</p>;
 }

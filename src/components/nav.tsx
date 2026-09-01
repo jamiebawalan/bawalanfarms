@@ -14,7 +14,7 @@ const TABS = [
   { href: "/", label: "Today", icon: HomeIcon },
   { href: "/manager", label: "Plan", icon: StockIcon },
   { href: "/expenses/new", label: "Log", icon: PlusIcon, primary: true },
-  { href: "/cycles", label: "Plots", icon: CycleIcon },
+  { href: "/map", label: "Plots", icon: CycleIcon, also: "/cycles" },
   { href: "/owner", label: "Farm", icon: ReportIcon },
 ] as const;
 
@@ -31,8 +31,14 @@ export function Nav() {
       <ul className="mx-auto flex max-w-2xl">
         {TABS.map(({ href, label, icon: Icon, ...rest }) => {
           const primary = "primary" in rest && rest.primary;
+          // Plots lands on the map but owns the list and every plot page too,
+          // so the tab stays lit wherever in that group he is.
+          const also = "also" in rest ? rest.also : null;
           const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+            href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(href) ||
+                (also !== null && pathname.startsWith(also));
           return (
             <li key={href} className={cx("flex-1", primary && "flex-[1.3]")}>
               <Link

@@ -75,7 +75,15 @@ export default async function MapPage() {
     .sort((a, b) => Math.abs(b.mapped - b.surveyed) - Math.abs(a.mapped - a.surveyed));
 
   return (
-    <Page title="The farm" subtitle="Tap a plot to open it">
+    <Page
+      title="Plots"
+      subtitle="Tap a plot to open it, or add a task to it"
+      action={
+        <Link href="/cycles" className="font-semibold text-brand underline underline-offset-4">
+          List
+        </Link>
+      }
+    >
       {ledger.boundaries.length === 0 ? (
         <Card>
           <Empty>
