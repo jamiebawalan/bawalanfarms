@@ -7,7 +7,7 @@
  * wrong exchange. Connecting Drive ended on a server error every time.
  */
 import { describe, expect, it } from "vitest";
-import { forwardsMagicLink } from "./middleware";
+import { forwardsMagicLink, isPublicPath } from "./middleware";
 
 describe("rescuing a stray magic link", () => {
   it("forwards one that landed on the site root", () => {
@@ -38,5 +38,31 @@ describe("an API route answering its own OAuth round trip", () => {
     for (const path of ["/api/sheets/mirror", "/api/suggest", "/api/tasks"]) {
       expect(forwardsMagicLink(path, true)).toBe(false);
     }
+  });
+});
+
+describe("what can be read without signing in", () => {
+  it("lets anyone reach sign-in", () => {
+    expect(isPublicPath("/login")).toBe(true);
+    expect(isPublicPath("/auth/callback")).toBe(true);
+  });
+
+  it("lets anyone read the privacy policy and the terms", () => {
+    // Google will not publish an external app whose policy sits behind a login,
+    // and a policy nobody can read is not a policy.
+    expect(isPublicPath("/privacy")).toBe(true);
+    expect(isPublicPath("/terms")).toBe(true);
+  });
+
+  it("keeps the farm's books behind the door", () => {
+    for (const path of ["/", "/cycles", "/map", "/owner", "/settings", "/reports"]) {
+      expect(isPublicPath(path)).toBe(false);
+    }
+  });
+
+  it("does not open anything that merely starts with a public name", () => {
+    // /privacy-report would be a page about the farm, not a policy.
+    expect(isPublicPath("/privacy-report")).toBe(false);
+    expect(isPublicPath("/terms-of-the-lease")).toBe(false);
   });
 });
