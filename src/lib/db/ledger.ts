@@ -50,6 +50,33 @@ export async function loadLedger(): Promise<Ledger> {
     return r.data ?? [];
   };
 
+  /**
+   * The same, for a table a newer feature added.
+   *
+   * A deploy can reach the farm before somebody has run the migration behind
+   * it, and when that happens the missing table should cost the feature that
+   * needs it — not the expense form, which is the one screen that must work
+   * every day. The reports that read these already treat an empty list as
+   * "nothing recorded yet", so they degrade to exactly that.
+   *
+   * Only a missing table is forgiven. Anything else is a real fault and still
+   * throws, because a permissions error that silently returned no rows would be
+   * a farm quietly reporting that it had spent nothing.
+   */
+  const optional = <T,>(r: { data: T[] | null; error: unknown }, what: string): T[] => {
+    const error = r.error as { code?: string; message?: string } | null;
+    if (error) {
+      const missing =
+        error.code === "42P01" || /does not exist|schema cache/i.test(error.message ?? "");
+      if (!missing) {
+        throw new Error(`could not load ${what}: ${JSON.stringify(error)}`);
+      }
+      console.warn(`${what}: table not there yet — run the migration for it.`);
+      return [];
+    }
+    return r.data ?? [];
+  };
+
   return {
     plots: rows<any>(plots, "plots").map((p) => ({
       id: p.id, code: p.code, label: p.label,
@@ -120,32 +147,32 @@ export async function loadLedger(): Promise<Ledger> {
       defaultCategory: a.default_category,
     })),
     crops: rows<any>(crops, "crops").map((c) => ({ code: c.code, label: c.label })),
-    leafMeasurements: rows<any>(leaves, "leaf measurements").map((l) => ({
+    leafMeasurements: optional<any>(leaves, "leaf measurements").map((l) => ({
       id: l.id, cycleId: l.cycle_id, date: l.date,
       avgLengthCm: Number(l.avg_length_cm),
       sampleSize: l.sample_size === null ? null : Number(l.sample_size),
     })),
-    leafPlants: rows<any>(leafPlants, "leaf plant readings").map((r) => ({
+    leafPlants: optional<any>(leafPlants, "leaf plant readings").map((r) => ({
       measurementId: r.measurement_id,
       plantNo: Number(r.plant_no),
       lengthCm: Number(r.length_cm),
     })),
-    boundaries: rows<any>(boundaries, "plot boundaries").map((b) => ({
+    boundaries: optional<any>(boundaries, "plot boundaries").map((b) => ({
       plotId: b.plot_id, part: b.part,
       ring: b.ring as [number, number][],
       areaSqm: Number(b.area_sqm),
     })),
-    cashAdvances: rows<any>(cash, "cash advances").map((a) => ({
+    cashAdvances: optional<any>(cash, "cash advances").map((a) => ({
       id: a.id, date: a.date,
       amountCentavos: Number(a.amount_centavos),
       note: a.note,
     })),
-    tasks: rows<any>(tasks, "tasks").map((t) => ({
+    tasks: optional<any>(tasks, "tasks").map((t) => ({
       id: t.id, plotId: t.plot_id, cycleId: t.cycle_id, title: t.title,
       activity: t.activity, dueDate: t.due_date, isCritical: t.is_critical,
       doneAt: t.done_at,
     })),
-    settings: readSettings(rows<any>(settings, "farm settings")),
+    settings: readSettings(optional<any>(settings, "farm settings")),
   };
 }
 
