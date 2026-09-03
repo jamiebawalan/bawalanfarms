@@ -101,22 +101,31 @@ export default async function HomePage() {
                 .filter((a) => a.expenseId === e.id)
                 .map((a) => plotById.get(a.plotId)?.code ?? "?");
               return (
-                <li key={e.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold">
-                      {activityLabel.get(e.activity) ?? e.activity}
+                <li key={e.id}>
+                  {/* He is most likely to notice the wrong plot or the wrong
+                      figure within a minute of tapping Save, so today's list is
+                      the shortest path back into the entry. */}
+                  <Link
+                    href={`/expenses/${e.id}`}
+                    className="-mx-2 flex min-h-14 items-center justify-between gap-3 rounded-xl px-2 py-3 active:bg-paper-sunk"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">
+                        {activityLabel.get(e.activity) ?? e.activity}
+                      </div>
+                      <div className="text-sm text-ink-soft">
+                        {e.attribution === "farm_wide"
+                          ? "Whole farm"
+                          : e.attribution === "capital"
+                            ? "Equipment"
+                            : on.length > 0
+                              ? `Plot ${on.join(", ")}`
+                              : "—"}
+                        {e.revisedAt ? " · corrected" : ""}
+                      </div>
                     </div>
-                    <div className="text-sm text-ink-soft">
-                      {e.attribution === "farm_wide"
-                        ? "Whole farm"
-                        : e.attribution === "capital"
-                          ? "Equipment"
-                          : on.length > 0
-                            ? `Plot ${on.join(", ")}`
-                            : "—"}
-                    </div>
-                  </div>
-                  <Money centavos={e.amountCentavos} />
+                    <Money centavos={e.amountCentavos} />
+                  </Link>
                 </li>
               );
             })}

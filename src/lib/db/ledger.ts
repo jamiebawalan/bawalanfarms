@@ -23,7 +23,9 @@ export async function loadLedger(): Promise<Ledger> {
     supabase.from("plots").select("*").order("sort_order"),
     supabase.from("plot_areas").select("*"),
     supabase.from("crop_cycles").select("*"),
-    supabase.from("expenses").select("*"),
+    // A deleted cost is marked void rather than removed (0022), and to every
+    // report in this app it is simply not there.
+    supabase.from("expenses").select("*").is("voided_at", null),
     supabase.from("expense_allocations").select("*"),
     supabase.from("input_purchases").select("*"),
     supabase.from("input_draws").select("*"),
@@ -77,6 +79,19 @@ export async function loadLedger(): Promise<Ledger> {
     return r.data ?? [];
   };
 
+  const liveExpenses = rows<any>(expenses, "expenses").map((e) => ({
+    id: e.id, date: e.date, category: e.category, activity: e.activity,
+    activityOtherNote: e.activity_other_note, attribution: e.attribution,
+    farmWideReason: e.farm_wide_reason, capitalAssetId: e.capital_asset_id,
+    labourMode: e.labour_mode,
+    unitPriceCentavos: e.unit_price_centavos === null ? null : Number(e.unit_price_centavos),
+    quantity: e.quantity === null ? null : Number(e.quantity),
+    amountCentavos: Number(e.amount_centavos),
+    paidTo: e.paid_to, note: e.note,
+    revisedAt: e.revised_at ?? null,
+  }));
+  const live = new Set(liveExpenses.map((e) => e.id));
+
   return {
     plots: rows<any>(plots, "plots").map((p) => ({
       id: p.id, code: p.code, label: p.label,
@@ -93,20 +108,16 @@ export async function loadLedger(): Promise<Ledger> {
       targetHarvestDate: c.target_harvest_date ?? null,
       plantingMaterialSource: c.planting_material_source, notes: c.notes,
     })),
-    expenses: rows<any>(expenses, "expenses").map((e) => ({
-      id: e.id, date: e.date, category: e.category, activity: e.activity,
-      activityOtherNote: e.activity_other_note, attribution: e.attribution,
-      farmWideReason: e.farm_wide_reason, capitalAssetId: e.capital_asset_id,
-      labourMode: e.labour_mode,
-      unitPriceCentavos: e.unit_price_centavos === null ? null : Number(e.unit_price_centavos),
-      quantity: e.quantity === null ? null : Number(e.quantity),
-      amountCentavos: Number(e.amount_centavos),
-      paidTo: e.paid_to, note: e.note,
-    })),
-    allocations: rows<any>(allocations, "allocations").map((a) => ({
-      expenseId: a.expense_id, plotId: a.plot_id, cycleId: a.cycle_id,
-      amountCentavos: Number(a.amount_centavos),
-    })),
+    expenses: liveExpenses,
+    // The allocation rows of a voided cost stay in the database, so they are
+    // dropped here too. Leaving them would hand a deleted cost's share back to
+    // the plot P&L by the back door.
+    allocations: rows<any>(allocations, "allocations")
+      .filter((a) => live.has(a.expense_id))
+      .map((a) => ({
+        expenseId: a.expense_id, plotId: a.plot_id, cycleId: a.cycle_id,
+        amountCentavos: Number(a.amount_centavos),
+      })),
     purchases: rows<any>(purchases, "input purchases").map((p) => ({
       id: p.id, date: p.date, inputType: p.input_type, quantity: Number(p.quantity),
       unit: p.unit, unitCostCentavos: Number(p.unit_cost_centavos),

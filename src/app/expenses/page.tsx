@@ -19,7 +19,7 @@ export default async function ExpensesPage() {
   return (
     <Page
       title="Costs"
-      subtitle={`${ledger.expenses.length} entries`}
+      subtitle={`${ledger.expenses.length} entries — tap one to correct it`}
       action={
         <Link
           href="/expenses/new"
@@ -40,23 +40,31 @@ export default async function ExpensesPage() {
                   .filter((a) => a.expenseId === e.id)
                   .map((a) => plotByCode.get(a.plotId) ?? "?");
                 return (
-                  <li key={e.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold">
-                        {activityLabel.get(e.activity) ?? e.activity}
-                        {e.activityOtherNote ? ` — ${e.activityOtherNote}` : ""}
+                  <li key={e.id}>
+                    {/* Every row is a way in to fixing it. The wrong figure he
+                        can see and cannot touch is the one that stays wrong. */}
+                    <Link
+                      href={`/expenses/${e.id}`}
+                      className="-mx-2 flex min-h-14 items-center justify-between gap-3 rounded-xl px-2 py-3 active:bg-paper-sunk"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold">
+                          {activityLabel.get(e.activity) ?? e.activity}
+                          {e.activityOtherNote ? ` — ${e.activityOtherNote}` : ""}
+                        </div>
+                        <div className="text-sm text-ink-soft">
+                          {e.category}
+                          {" · "}
+                          {e.attribution === "farm_wide"
+                            ? `Whole farm (${FARM_WIDE_REASONS[e.farmWideReason!]?.split(" — ")[0] ?? ""})`
+                            : e.attribution === "capital"
+                              ? "Equipment"
+                              : `Plot ${plots.join(", ")}`}
+                          {e.revisedAt ? " · corrected" : ""}
+                        </div>
                       </div>
-                      <div className="text-sm text-ink-soft">
-                        {e.category}
-                        {" · "}
-                        {e.attribution === "farm_wide"
-                          ? `Whole farm (${FARM_WIDE_REASONS[e.farmWideReason!]?.split(" — ")[0] ?? ""})`
-                          : e.attribution === "capital"
-                            ? "Equipment"
-                            : `Plot ${plots.join(", ")}`}
-                      </div>
-                    </div>
-                    <Money centavos={e.amountCentavos} />
+                      <Money centavos={e.amountCentavos} />
+                    </Link>
                   </li>
                 );
               })}
