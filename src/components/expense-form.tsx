@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AmountInput, Button, Card, Chip, ChipGroup, Field, Input, Money, Note, cx,
@@ -87,7 +87,7 @@ export function storedShares(existing: ExistingExpense | null | undefined): Reco
  *    plots, which is the single fix for the largest gap in the old data
  */
 export function ExpenseForm({
-  plots, activities, recentActivities, prefill, existing,
+  plots, activities, recentActivities, prefill, existing, returnTo,
 }: {
   plots: FormPlot[];
   activities: Activity[];
@@ -95,10 +95,26 @@ export function ExpenseForm({
   prefill?: { activity?: string; plotIds?: string[]; note?: string } | null;
   /** Set when correcting a cost that is already in the books. */
   existing?: ExistingExpense | null;
+  /**
+   * Where he was before he came here. Logging a cost is something he does in
+   * the middle of doing something else — looking at a plot — and dropping him
+   * on Today afterwards makes him find his way back every time.
+   */
+  returnTo?: { href: string; label: string } | null;
 }) {
   const router = useRouter();
   const today = todayISO();
   const correcting = existing != null;
+
+  // Navigating away renders a whole dashboard on the server, which over farm
+  // signal is a second or three of nothing happening. Without this the button
+  // reads as dead and gets tapped again.
+  const [leaving, startLeaving] = useTransition();
+  const goHome = () => startLeaving(() => router.push("/"));
+  const goBack = () =>
+    startLeaving(() =>
+      router.push((returnTo?.href ?? "/") as Parameters<typeof router.push>[0]),
+    );
 
   const [date, setDate] = useState(existing?.date ?? today);
   const [confirmedFuture, setConfirmedFuture] = useState(false);
@@ -380,11 +396,15 @@ export function ExpenseForm({
               : `Corrected. It now reads ${formatPeso(done.amount)}.`}
         </Note>
         <div className="flex flex-col gap-2">
-          <Button variant="secondary" onClick={() => router.push("/expenses")}>
-            Back to costs
+          <Button
+            variant="secondary"
+            disabled={leaving}
+            onClick={() => startLeaving(() => router.push("/expenses"))}
+          >
+            {leaving ? "Going…" : "Back to costs"}
           </Button>
-          <Button variant="quiet" onClick={() => router.push("/")}>
-            Done for now
+          <Button variant="quiet" disabled={leaving} onClick={goHome}>
+            {leaving ? "Going…" : "Done for now"}
           </Button>
         </div>
       </Card>
@@ -429,8 +449,12 @@ export function ExpenseForm({
           <Button variant="secondary" onClick={() => { resetForNext(); setPlotIds([]); }}>
             Log another
           </Button>
-          <Button variant="quiet" onClick={() => router.push("/")}>
-            Done for now
+          <Button variant="quiet" disabled={leaving} onClick={returnTo ? goBack : goHome}>
+            {leaving
+              ? "Going…"
+              : returnTo
+                ? `Back to ${returnTo.label}`
+                : "Done for now"}
           </Button>
         </div>
       </Card>
