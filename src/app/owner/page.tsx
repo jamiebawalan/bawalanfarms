@@ -28,7 +28,21 @@ export default async function OwnerPage() {
   const nothingYet = d.year.revenueCentavos === 0 && d.year.costCentavos === 0;
 
   return (
-    <Page title="The farm" subtitle="Last 3 months, against the last 12">
+    <Page
+      title="The farm"
+      subtitle="Last 3 months, against the last 12"
+      action={
+        // The owners read a figure here and want to see what is behind it —
+        // and, often enough, to fix one. Correcting is not a manager-only job,
+        // so the door has to be on their screen too.
+        <Link
+          href="/expenses"
+          className="text-sm font-semibold text-brand underline underline-offset-4"
+        >
+          All costs
+        </Link>
+      }
+    >
       <ChartStyles />
 
       {nothingYet ? (

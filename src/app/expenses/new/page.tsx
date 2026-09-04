@@ -4,13 +4,16 @@ import { loadLedger } from "@/lib/db/ledger";
 import { areaOn } from "@/lib/domain/plots";
 import { todayISO } from "@/lib/domain/dates";
 import { plotIsOccupiedOn } from "@/lib/domain/allocation";
+import { returnTarget } from "@/lib/return-to";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewExpensePage({
   searchParams,
 }: {
-  searchParams: Promise<{ activity?: string; plots?: string; note?: string }>;
+  searchParams: Promise<{
+    activity?: string; plots?: string; note?: string; from?: string;
+  }>;
 }) {
   const params = await searchParams;
   const ledger = await loadLedger();
@@ -35,12 +38,15 @@ export default async function NewExpensePage({
   // a list he will scroll past; the eight he used last month, he will tap.
   const recentActivities = mostUsedActivities(ledger, 90, 10);
 
+  const back = returnTarget(params.from, ledger.cycles, ledger.plots);
+
   return (
     <Page title="Log a cost">
       <ExpenseForm
         plots={plots}
         activities={ledger.activities}
         recentActivities={recentActivities}
+        returnTo={back}
         prefill={
           params.activity || params.plots
             ? {

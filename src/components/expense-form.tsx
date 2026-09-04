@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AmountInput, Button, Card, Chip, ChipGroup, Field, Input, Money, Note, cx,
@@ -11,7 +11,8 @@ import { formatDate, todayISO } from "@/lib/domain/dates";
 import { areaPercentages, splitByPercent } from "@/lib/domain/split";
 import {
   EXPENSE_CATEGORIES, FARM_WIDE_REASONS, LABOUR_MODES,
-  type Activity, type ExpenseCategory, type FarmWideReason, type LabourMode,
+  type Activity, type Attribution, type ExpenseCategory, type FarmWideReason,
+  type LabourMode,
 } from "@/lib/domain/types";
 
 export type FormPlot = {
@@ -24,6 +25,50 @@ export type FormPlot = {
 };
 
 type Scope = "plots" | "farm_wide" | "capital";
+
+/**
+ * A cost already in the books, opened to be corrected.
+ *
+ * Everything the form asks for, as it was saved — so the screen he corrects on
+ * is the screen he entered on, already filled in, and he changes the one thing
+ * that was wrong rather than reconstructing the entry from memory.
+ */
+export type ExistingExpense = {
+  id: string;
+  date: string;
+  category: ExpenseCategory;
+  activity: string;
+  activityOtherNote: string | null;
+  attribution: Attribution;
+  farmWideReason: FarmWideReason | null;
+  labourMode: LabourMode | null;
+  unitPriceCentavos: number | null;
+  quantity: number | null;
+  amountCentavos: number;
+  paidTo: string | null;
+  note: string | null;
+  allocations: { plotId: string; amountCentavos: number }[];
+  capitalAsset: { name: string; usefulLifeMonths: number } | null;
+  /** When it was last corrected, if it has been. */
+  revisedAt: string | null;
+};
+
+/**
+ * The stored split, as percentages, so the share boxes open showing the split
+ * that is actually in the books rather than what the areas would have
+ * suggested. He overruled the areas once; the correction screen must not
+ * quietly put them back.
+ */
+export function storedShares(existing: ExistingExpense | null | undefined): Record<string, string> {
+  if (!existing || existing.allocations.length < 2) return {};
+  const total = existing.allocations.reduce((a, l) => a + l.amountCentavos, 0);
+  if (total <= 0) return {};
+  const out: Record<string, string> = {};
+  for (const a of existing.allocations) {
+    out[a.plotId] = String(Math.round((a.amountCentavos / total) * 1000) / 10);
+  }
+  return out;
+}
 
 /**
  * Logging a cost, in four taps: activity, plots, amount, save.
@@ -42,43 +87,94 @@ type Scope = "plots" | "farm_wide" | "capital";
  *    plots, which is the single fix for the largest gap in the old data
  */
 export function ExpenseForm({
-  plots, activities, recentActivities, prefill,
+  plots, activities, recentActivities, prefill, existing, returnTo,
 }: {
   plots: FormPlot[];
   activities: Activity[];
   recentActivities: string[];
   prefill?: { activity?: string; plotIds?: string[]; note?: string } | null;
+  /** Set when correcting a cost that is already in the books. */
+  existing?: ExistingExpense | null;
+  /**
+   * Where he was before he came here. Logging a cost is something he does in
+   * the middle of doing something else — looking at a plot — and dropping him
+   * on Today afterwards makes him find his way back every time.
+   */
+  returnTo?: { href: string; label: string } | null;
 }) {
   const router = useRouter();
   const today = todayISO();
+  const correcting = existing != null;
 
-  const [date, setDate] = useState(today);
+  // Navigating away renders a whole dashboard on the server, which over farm
+  // signal is a second or three of nothing happening. Without this the button
+  // reads as dead and gets tapped again.
+  const [leaving, startLeaving] = useTransition();
+  const goHome = () => startLeaving(() => router.push("/"));
+  const goBack = () =>
+    startLeaving(() =>
+      router.push((returnTo?.href ?? "/") as Parameters<typeof router.push>[0]),
+    );
+
+  const [date, setDate] = useState(existing?.date ?? today);
   const [confirmedFuture, setConfirmedFuture] = useState(false);
-  const [activity, setActivity] = useState<string>(prefill?.activity ?? "");
+  const [activity, setActivity] = useState<string>(
+    existing?.activity ?? prefill?.activity ?? "",
+  );
   const [showAllActivities, setShowAllActivities] = useState(false);
-  const [otherNote, setOtherNote] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory | null>(null);
-  const [categoryTouched, setCategoryTouched] = useState(false);
+  const [otherNote, setOtherNote] = useState(existing?.activityOtherNote ?? "");
+  const [category, setCategory] = useState<ExpenseCategory | null>(
+    existing?.category ?? null,
+  );
+  // A saved entry's category is a decision already taken, possibly against the
+  // activity's default. It is shown as chosen, not re-derived.
+  const [categoryTouched, setCategoryTouched] = useState(correcting);
 
-  const [scope, setScope] = useState<Scope>("plots");
-  const [plotIds, setPlotIds] = useState<string[]>(prefill?.plotIds ?? []);
-  const [reason, setReason] = useState<FarmWideReason | null>(null);
-  const [assetName, setAssetName] = useState("");
-  const [assetLife, setAssetLife] = useState("60");
+  const [scope, setScope] = useState<Scope>(
+    existing == null ? "plots"
+    : existing.attribution === "farm_wide" ? "farm_wide"
+    : existing.attribution === "capital" ? "capital"
+    : "plots",
+  );
+  const [plotIds, setPlotIds] = useState<string[]>(
+    existing ? existing.allocations.map((a) => a.plotId) : prefill?.plotIds ?? [],
+  );
+  const [reason, setReason] = useState<FarmWideReason | null>(
+    existing?.farmWideReason ?? null,
+  );
+  const [assetName, setAssetName] = useState(existing?.capitalAsset?.name ?? "");
+  const [assetLife, setAssetLife] = useState(
+    String(existing?.capitalAsset?.usefulLifeMonths ?? 60),
+  );
 
-  const [labourMode, setLabourMode] = useState<LabourMode | null>(null);
-  const [people, setPeople] = useState("");
-  const [rate, setRate] = useState("");
-  const [lump, setLump] = useState("");
+  const [labourMode, setLabourMode] = useState<LabourMode | null>(
+    existing?.labourMode ?? null,
+  );
+  const [people, setPeople] = useState(
+    existing?.quantity != null ? String(existing.quantity) : "",
+  );
+  const [rate, setRate] = useState(
+    existing?.unitPriceCentavos != null ? String(existing.unitPriceCentavos / 100) : "",
+  );
+  const [lump, setLump] = useState(
+    existing != null && existing.unitPriceCentavos == null
+      ? String(existing.amountCentavos / 100)
+      : "",
+  );
 
-  const [paidTo, setPaidTo] = useState("");
-  const [note, setNote] = useState(prefill?.note ?? "");
-  // Shares he has set himself, as percentages. Empty means "use the area".
-  const [shares, setShares] = useState<Record<string, string>>({});
+  const [paidTo, setPaidTo] = useState(existing?.paidTo ?? "");
+  const [note, setNote] = useState(existing?.note ?? prefill?.note ?? "");
+  // Shares he has set himself, as percentages. On a correction these open on
+  // the split that is in the books; on a new entry, empty means "use the area".
+  const initialShares = useMemo(() => storedShares(existing), [existing]);
+  const [shares, setShares] = useState<Record<string, string>>(initialShares);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<null | { amount: number; queued: boolean }>(null);
+  const [done, setDone] = useState<
+    null | { amount: number; queued: boolean; deleted?: boolean }
+  >(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   const activityMap = useMemo(
     () => new Map(activities.map((a) => [a.code, a])), [activities],
@@ -123,10 +219,40 @@ export function ExpenseForm({
     return Number.isFinite(n) && n >= 0 ? n : 0;
   };
 
+  // Two different questions, and conflating them made the split card contradict
+  // itself: the rows said "your share" while the heading still said "suggested
+  // by area".
+  //
+  //   edited      — is a share set at all? Decides what the card is called.
+  //   sharesMoved — has he changed one since this form opened? Only a
+  //                 correction can answer no to this while edited is yes.
   const edited = Object.values(shares).some((v) => v.trim() !== "");
+  const sharesMoved = [...new Set([...Object.keys(shares), ...Object.keys(initialShares)])]
+    .some((k) => (shares[k] ?? "").trim() !== (initialShares[k] ?? "").trim());
+
+  // Reopening a saved split and changing nothing must save back the same
+  // centavos. Re-deriving them from rounded percentages could move one, and a
+  // figure that shifts when you look at it is exactly what cost the family
+  // their trust in the spreadsheet.
+  const splitUnchanged =
+    existing != null &&
+    !sharesMoved &&
+    scope === "plots" &&
+    amountCentavos === existing.amountCentavos &&
+    selected.length === existing.allocations.length &&
+    existing.allocations.every((a) => plotIds.includes(a.plotId));
 
   const lines = useMemo(() => {
     if (scope !== "plots" || amountCentavos === null) return [];
+    if (splitUnchanged && existing) {
+      const stored = new Map(existing.allocations.map((a) => [a.plotId, a.amountCentavos]));
+      return selected.map((p) => ({
+        plotId: p.id,
+        label: p.label,
+        amountCentavos: stored.get(p.id) ?? 0,
+        percent: Math.round(((stored.get(p.id) ?? 0) / amountCentavos) * 1000) / 10,
+      }));
+    }
     if (!isSplit) {
       const only = selected[0];
       return only
@@ -147,7 +273,7 @@ export function ExpenseForm({
       amountCentavos: l.amountCentavos,
       percent: Math.round(l.fraction * 1000) / 10,
     }));
-  }, [scope, isSplit, amountCentavos, selected, shares, suggested]);
+  }, [scope, isSplit, amountCentavos, selected, shares, suggested, splitUnchanged, existing]);
 
   const unsurveyed = selected.filter((p) => p.areaSqm === null);
 
@@ -171,9 +297,14 @@ export function ExpenseForm({
     setSaving(true);
     setError(null);
 
-    const id = newId();
+    // A correction keeps the entry's id — it is the same cost, restated — and
+    // carries its own id for the change, so a correction queued on the phone
+    // and sent twice is applied once.
+    const id = existing?.id ?? newId();
+    const revisionId = correcting ? newId() : undefined;
     const body = {
       id,
+      revision_id: revisionId,
       date,
       category: effectiveCategory,
       activity,
@@ -200,14 +331,13 @@ export function ExpenseForm({
     };
 
     const label = `${formatPeso(amountCentavos)} ${chosen?.label ?? activity}`;
+    const where =
+      scope === "plots" ? selected.map((p) => p.label).join(", ") : "whole farm";
     const result = await send({
-      id,
-      endpoint: "/api/expenses",
+      id: revisionId ?? id,
+      endpoint: correcting ? "/api/expenses/edit" : "/api/expenses",
       body,
-      describe:
-        scope === "plots"
-          ? `${label} — ${selected.map((p) => p.label).join(", ")}`
-          : `${label} — whole farm`,
+      describe: `${correcting ? "Correction: " : ""}${label} — ${where}`,
     });
 
     setSaving(false);
@@ -221,10 +351,66 @@ export function ExpenseForm({
     }
   }
 
+  /**
+   * Deleting an entry.
+   *
+   * It is marked void rather than removed, and the reason is required: "logged
+   * twice" and "this was Plot 12" are different facts, and in six months the
+   * difference is the whole story. To everyone using the app the entry is then
+   * gone — it leaves every report and the cash-on-hand total with it.
+   */
+  async function remove() {
+    if (!existing || deleteReason.trim().length < 3) return;
+    setSaving(true);
+    setError(null);
+
+    const revisionId = newId();
+    const result = await send({
+      id: revisionId,
+      endpoint: "/api/expenses/void",
+      body: { id: existing.id, reason: deleteReason.trim(), revision_id: revisionId },
+      describe: `Delete ${formatPeso(existing.amountCentavos)} ${chosen?.label ?? activity}`,
+    });
+
+    setSaving(false);
+    if (result.ok || result.queued) {
+      setDone({ amount: existing.amountCentavos, queued: !result.ok, deleted: true });
+      if (result.ok) router.refresh();
+    } else {
+      setError(result.error);
+    }
+  }
+
   // --- saved ---------------------------------------------------------------
   // Rule 4: 171 of 664 rows in the old book were Food, and most were untagged.
   // Offering it here, already pointed at the crew's plots, is the one change
   // that fixes the largest single category of missing attribution.
+  if (done && correcting) {
+    return (
+      <Card>
+        <Note tone={done.queued ? "warn" : "good"}>
+          {done.queued
+            ? "Saved on this phone. It will send when the signal comes back."
+            : done.deleted
+              ? `Deleted. ${formatPeso(done.amount)} is off the books.`
+              : `Corrected. It now reads ${formatPeso(done.amount)}.`}
+        </Note>
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="secondary"
+            disabled={leaving}
+            onClick={() => startLeaving(() => router.push("/expenses"))}
+          >
+            {leaving ? "Going…" : "Back to costs"}
+          </Button>
+          <Button variant="quiet" disabled={leaving} onClick={goHome}>
+            {leaving ? "Going…" : "Done for now"}
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   if (done) {
     const wasLabour = effectiveCategory === "Labor" && activity !== "food";
     return (
@@ -263,8 +449,12 @@ export function ExpenseForm({
           <Button variant="secondary" onClick={() => { resetForNext(); setPlotIds([]); }}>
             Log another
           </Button>
-          <Button variant="quiet" onClick={() => router.push("/")}>
-            Done for now
+          <Button variant="quiet" disabled={leaving} onClick={returnTo ? goBack : goHome}>
+            {leaving
+              ? "Going…"
+              : returnTo
+                ? `Back to ${returnTo.label}`
+                : "Done for now"}
           </Button>
         </div>
       </Card>
@@ -297,6 +487,22 @@ export function ExpenseForm({
 
   return (
     <>
+      {correcting && existing ? (
+        <Note tone="info">
+          <p className="font-semibold">
+            Correcting {formatPeso(existing.amountCentavos)}, logged{" "}
+            {formatDate(existing.date)}.
+          </p>
+          <p className="mt-1 text-sm">
+            Change what was wrong and save. The owners can still see what it said
+            before.
+            {existing.revisedAt
+              ? " This entry has already been corrected once."
+              : ""}
+          </p>
+        </Note>
+      ) : null}
+
       {/* 1. What was the work? Picking it sets the category. */}
       <Card title="What was it?">
         {Object.entries(grouped).map(([group, items]) => (
@@ -645,6 +851,36 @@ export function ExpenseForm({
         </div>
       </details>
 
+      {correcting && existing ? (
+        <details className="mb-4">
+          <summary className="min-h-14 cursor-pointer list-none rounded-xl border-2 border-line bg-paper px-4 py-4 font-semibold text-danger">
+            Delete this entry
+          </summary>
+          <div className="mt-3 rounded-(--radius-card) border-2 border-line p-4">
+            <p className="mb-3 text-sm text-ink-soft">
+              Use this when the cost never happened, or when it went in twice.
+              If the figure or the plot was simply wrong, correct it above
+              instead — that keeps the cost in the books.
+            </p>
+            <Field label="Why are you deleting it?" htmlFor="delete-reason">
+              <Input
+                id="delete-reason"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="e.g. logged twice"
+              />
+            </Field>
+            <Button
+              variant="danger"
+              disabled={saving || deleteReason.trim().length < 3}
+              onClick={remove}
+            >
+              Delete {formatPeso(existing.amountCentavos)}
+            </Button>
+          </div>
+        </details>
+      ) : null}
+
       {error ? <Note tone="danger">{error}</Note> : null}
 
       <div className="sticky bottom-2 z-10">
@@ -656,7 +892,9 @@ export function ExpenseForm({
           {saving
             ? "Saving…"
             : amountCentavos !== null && problems.length === 0
-              ? `Save ${formatPeso(amountCentavos)}`
+              ? correcting
+                ? `Save correction — ${formatPeso(amountCentavos)}`
+                : `Save ${formatPeso(amountCentavos)}`
               : "Save"}
         </Button>
         {problems.length > 0 ? (

@@ -108,6 +108,8 @@ export type Expense = {
   amountCentavos: Centavos;
   paidTo?: string | null;
   note?: string | null;
+  /** Set when the entry has been corrected since it was first saved. */
+  revisedAt?: string | null;
 };
 
 export type Allocation = {

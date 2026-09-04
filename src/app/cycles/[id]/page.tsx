@@ -174,7 +174,22 @@ export default async function CyclePage({
         closed={pnl.isClosed}
       />
 
-      <Card title="Cost by category">
+      <Card
+        title="Cost by category"
+        action={
+          // Standing on the plot is when he knows what the cost was. Sales and
+          // harvests could be logged from here; costs, the thing that happens
+          // twice a day, could not.
+          !pnl.isClosed ? (
+            <Link
+              href={`/expenses/new?plots=${cycle.plotId}&from=/cycles/${cycle.id}`}
+              className="text-sm font-semibold text-brand underline underline-offset-4"
+            >
+              Log a cost
+            </Link>
+          ) : null
+        }
+      >
         {pnl.costByCategory.length === 0 ? (
           <Empty>No costs yet.</Empty>
         ) : (
@@ -210,6 +225,14 @@ export default async function CyclePage({
             ))}
           </ul>
         )}
+        {/* These bars are totals. When one looks wrong the entry behind it is
+            what needs correcting, and it is on this plot's list. */}
+        <Link
+          href={`/expenses?plot=${cycle.plotId}`}
+          className="mt-3 inline-block text-sm font-semibold text-brand underline underline-offset-4"
+        >
+          Every cost on this plot →
+        </Link>
       </Card>
 
       <Card

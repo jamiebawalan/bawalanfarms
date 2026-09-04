@@ -318,6 +318,15 @@ export default async function ManagerPage() {
             .slice(0, 12)
             .map((a) => ({ id: a.id, date: a.date, amountCentavos: a.amountCentavos, note: a.note }))}
         />
+        {/* Cash on hand is spend, counted backwards. If a figure here looks
+            wrong the entry behind it is what needs fixing, so the list is one
+            tap away rather than back through Today. */}
+        <Link
+          href="/expenses"
+          className="mt-3 inline-block font-semibold text-brand underline underline-offset-4"
+        >
+          Every cost logged →
+        </Link>
       </Section>
 
       <Card>
