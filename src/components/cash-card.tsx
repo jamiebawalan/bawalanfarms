@@ -35,8 +35,34 @@ export function CashCard({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The entry he is about to take back out. Nothing goes on one tap: this is
+  // money, and the list is small enough that a mis-tap is easy.
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const pesos = Number(amount.replace(/,/g, ""));
+
+  /**
+   * Taking back a handover that was recorded twice.
+   *
+   * There is no negative amount, and there should not be: cash on hand is the
+   * advances less the spending, so a negative "handover" would be a subtraction
+   * wearing the wrong label — and in a year nobody reading the list would know
+   * whether it meant money returned, money never given, or a typo. Removing the
+   * wrong row says exactly what happened.
+   */
+  async function remove(id: string) {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/cash?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    setBusy(false);
+    if (res.ok) {
+      setRemoving(null);
+      router.refresh();
+    } else {
+      const detail = await res.json().catch(() => ({}));
+      setError(detail.error ?? "Could not remove that entry.");
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -123,16 +149,45 @@ export function CashCard({
           {recent.length > 0 ? (
             <details className="mt-3">
               <summary className="cursor-pointer text-sm font-semibold text-brand">
-                Cash received ({recent.length})
+                Cash received ({recent.length}) — tap one to correct it
               </summary>
               <ul className="mt-2 space-y-1 text-sm tabular text-ink-soft">
                 {recent.map((a) => (
-                  <li key={a.id} className="flex justify-between gap-3">
-                    <span>
-                      {formatDate(a.date)}
-                      {a.note ? <span className="text-ink-soft"> · {a.note}</span> : null}
-                    </span>
-                    <span className="font-semibold">{formatPeso(a.amountCentavos)}</span>
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => setRemoving(removing === a.id ? null : a.id)}
+                      className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
+                    >
+                      <span>
+                        {formatDate(a.date)}
+                        {a.note ? <span className="text-ink-soft"> · {a.note}</span> : null}
+                      </span>
+                      <span className="font-semibold">{formatPeso(a.amountCentavos)}</span>
+                    </button>
+
+                    {removing === a.id ? (
+                      <div className="mb-2 rounded-xl border-2 border-danger bg-danger-tint p-3">
+                        <p className="mb-2 font-semibold text-danger">
+                          Remove this {formatPeso(a.amountCentavos)}?
+                        </p>
+                        <p className="mb-3 text-ink">
+                          Use this only if the money was never handed over — a
+                          handover recorded twice, or the wrong amount. Cash on
+                          hand goes up by {formatPeso(a.amountCentavos)}.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button size="md" variant="danger" disabled={busy}
+                                  onClick={() => remove(a.id)}>
+                            {busy ? "Removing…" : "Remove it"}
+                          </Button>
+                          <Button size="md" variant="secondary" disabled={busy}
+                                  onClick={() => setRemoving(null)}>
+                            Keep it
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
