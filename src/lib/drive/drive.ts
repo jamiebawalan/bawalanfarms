@@ -83,6 +83,28 @@ export class Drive {
     return id;
   }
 
+  /**
+   * Put a file in the owner's Drive bin.
+   *
+   * Trashed rather than destroyed. This app is a guest in somebody's Drive: a
+   * mis-tap on a phone should be undoable from the bin for thirty days, not
+   * final. A file that has already gone counts as done — the owner may well
+   * have tidied it up herself, and refusing to finish the job because Drive
+   * agrees the file is absent would be perverse.
+   */
+  async trash(fileId: string): Promise<void> {
+    const res = await fetch(`${FILES}/${fileId}`, {
+      method: "PATCH",
+      headers: {
+        authorization: `Bearer ${this.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ trashed: true }),
+    });
+    if (res.status === 404) return;
+    if (!res.ok) throw new Error(await this.explain(res));
+  }
+
   /** Whether a remembered id still points at something that is not in the bin. */
   private async alive(id: string): Promise<boolean> {
     const res = await fetch(`${FILES}/${id}?fields=id,trashed`, {
