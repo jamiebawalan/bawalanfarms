@@ -45,6 +45,7 @@ export function PlotPhotos({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showing, setShowing] = useState<Photo | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const byDate = [...photos].sort((a, b) => b.takenOn.localeCompare(a.takenOn));
 
@@ -76,6 +77,32 @@ export function PlotPhotos({
     }
   }
 
+  /**
+   * Taking a photo back out.
+   *
+   * Offered only from the opened photo, never from the grid. Twelve square
+   * thumbnails of the same green plot are not something anyone can tell apart
+   * at that size, and a delete button on each one is a delete button on the
+   * wrong one. He opens it, sees it, then decides.
+   *
+   * The file goes to the bin in the owners' Drive, not into nothing, so a
+   * mis-tap here is recoverable for thirty days.
+   */
+  async function remove(photo: Photo) {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/photos/${photo.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (res.ok) {
+      setConfirming(false);
+      setShowing(null);
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Could not remove that photo.");
+    }
+  }
+
   return (
     <Card title="Photos">
       {error ? <Note tone="danger">{error}</Note> : null}
@@ -91,7 +118,7 @@ export function PlotPhotos({
             <li key={photo.id}>
               <button
                 type="button"
-                onClick={() => setShowing(photo)}
+                onClick={() => { setShowing(photo); setConfirming(false); }}
                 className="block w-full text-left"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -125,12 +152,41 @@ export function PlotPhotos({
             </span>
             <button
               type="button"
-              onClick={() => setShowing(null)}
+              onClick={() => { setShowing(null); setConfirming(false); }}
               className="text-sm font-semibold text-brand"
             >
               Close
             </button>
           </div>
+
+          {closed ? null : confirming ? (
+            <div className="mt-2 rounded-xl border-2 border-danger bg-danger-tint p-3">
+              <p className="mb-1 font-semibold text-danger">Remove this photo?</p>
+              <p className="mb-3 text-sm text-ink">
+                It goes to the bin in the farm&rsquo;s Google Drive, so it can be
+                put back from there for thirty days.
+              </p>
+              <div className="flex gap-2">
+                <Button size="md" variant="danger" disabled={busy}
+                        onClick={() => remove(showing)}>
+                  {busy ? "Removing…" : "Remove it"}
+                </Button>
+                <Button size="md" variant="secondary" disabled={busy}
+                        onClick={() => setConfirming(false)}>
+                  Keep it
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="quiet"
+              size="md"
+              className="px-0 text-danger"
+              onClick={() => setConfirming(true)}
+            >
+              Remove this photo
+            </Button>
+          )}
         </div>
       ) : null}
 

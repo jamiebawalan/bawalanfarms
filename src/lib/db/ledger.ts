@@ -156,6 +156,9 @@ export async function loadLedger(): Promise<Ledger> {
     activities: rows<any>(activities, "activities").map((a) => ({
       code: a.code, label: a.label, activityGroup: a.activity_group,
       defaultCategory: a.default_category,
+      // Null until the migration that adds the column has run, which is the
+      // right answer meanwhile: the form simply keeps asking.
+      impliesFarmWideReason: a.implies_farm_wide_reason ?? null,
     })),
     crops: rows<any>(crops, "crops").map((c) => ({ code: c.code, label: c.label })),
     leafMeasurements: optional<any>(leaves, "leaf measurements").map((l) => ({

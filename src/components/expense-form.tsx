@@ -130,7 +130,7 @@ export function ExpenseForm({
   // activity's default. It is shown as chosen, not re-derived.
   const [categoryTouched, setCategoryTouched] = useState(correcting);
 
-  const [scope, setScope] = useState<Scope>(
+  const [scopeChoice, setScope] = useState<Scope>(
     existing == null ? "plots"
     : existing.attribution === "farm_wide" ? "farm_wide"
     : existing.attribution === "capital" ? "capital"
@@ -139,7 +139,7 @@ export function ExpenseForm({
   const [plotIds, setPlotIds] = useState<string[]>(
     existing ? existing.allocations.map((a) => a.plotId) : prefill?.plotIds ?? [],
   );
-  const [reason, setReason] = useState<FarmWideReason | null>(
+  const [reasonChoice, setReason] = useState<FarmWideReason | null>(
     existing?.farmWideReason ?? null,
   );
   const [assetName, setAssetName] = useState(existing?.capitalAsset?.name ?? "");
@@ -182,6 +182,29 @@ export function ExpenseForm({
   const chosen = activity ? activityMap.get(activity) ?? null : null;
   const effectiveCategory: ExpenseCategory | null =
     categoryTouched ? category : (chosen?.defaultCategory ?? category);
+
+  /**
+   * Some activities answer "where?" by themselves.
+   *
+   * Feeding the carabao is not a cost any plot carries, and it never was. So
+   * the activity carries the attribution with it, and the Where card states it
+   * rather than asking — with a way to overrule it, because a rule that cannot
+   * be overruled is a rule that will one day be wrong and immovable.
+   */
+  const settledReason = chosen?.impliesFarmWideReason ?? null;
+  // A saved entry filed against a plot stays filed against a plot, even if its
+  // activity would normally settle the question. It was somebody's decision,
+  // and a correction screen must not quietly undo one.
+  const [overrodeWhere, setOverrodeWhere] = useState(
+    existing != null && existing.attribution !== "farm_wide",
+  );
+  const whereIsSettled = settledReason !== null && !overrodeWhere;
+
+  // Everything below reads these, not the raw choices, so the settled answer
+  // flows through the split, the validation and the save without a special
+  // case at each one.
+  const scope: Scope = whereIsSettled ? "farm_wide" : scopeChoice;
+  const reason: FarmWideReason | null = whereIsSettled ? settledReason : reasonChoice;
 
   // --- the amount ----------------------------------------------------------
   // Daily labour is people x rate; everything else is one figure. Either way
@@ -476,13 +499,22 @@ export function ExpenseForm({
     setNote("");
     setShares({});
     setReason(null);
+    setOverrodeWhere(false);
     setAssetName("");
   }
 
   // --- the form ------------------------------------------------------------
+  // The shortlist is what he actually taps. An activity that settles its own
+  // attribution exists precisely to save him taps, so hiding it behind "show
+  // all 52" until he has used it once would defeat the point of adding it.
   const quickActivities = showAllActivities
     ? activities
-    : activities.filter((a) => recentActivities.includes(a.code) || a.code === "other");
+    : activities.filter(
+        (a) =>
+          recentActivities.includes(a.code) ||
+          a.code === "other" ||
+          a.impliesFarmWideReason != null,
+      );
   const grouped = groupBy(quickActivities, (a) => a.activityGroup);
 
   return (
@@ -578,8 +610,29 @@ export function ExpenseForm({
         ) : null}
       </Card>
 
-      {/* 2. Where? Chips only. Blank is not reachable. */}
+      {/* 2. Where? Chips only. Blank is not reachable — and for a cost whose
+             activity already answers the question, not asked at all. */}
       <Card title="Where?">
+        {whereIsSettled ? (
+          <div>
+            <p className="font-semibold">
+              Whole farm · {FARM_WIDE_REASONS[settledReason!].split(" — ")[0]}
+            </p>
+            <p className="mt-1 text-sm text-ink-soft">
+              {chosen?.label ?? "This"} is not a cost for any one plot, so it is
+              not charged to a cycle. Just the amount, then save.
+            </p>
+            <Button
+              variant="quiet"
+              size="md"
+              className="mt-1 px-0"
+              onClick={() => { setOverrodeWhere(true); setScope("farm_wide"); setReason(settledReason); }}
+            >
+              Put it somewhere else
+            </Button>
+          </div>
+        ) : (
+        <>
         <ChipGroup>
           <Chip selected={scope === "plots"} onClick={() => setScope("plots")}>
             Plots
@@ -666,6 +719,8 @@ export function ExpenseForm({
             </Field>
           </div>
         ) : null}
+        </>
+        )}
       </Card>
 
       {/* 3. How much? Computed live, never typed twice. */}

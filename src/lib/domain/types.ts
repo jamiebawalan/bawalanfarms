@@ -226,6 +226,13 @@ export type Activity = {
   label: string;
   activityGroup: string;
   defaultCategory: ExpenseCategory | null;
+  /**
+   * When set, choosing this activity settles the attribution: the cost is
+   * whole-farm for this reason and the form stops asking. Feeding an animal is
+   * not a cost any one plot carries, and it never was — so it is not a question
+   * worth putting to him every week.
+   */
+  impliesFarmWideReason?: FarmWideReason | null;
 };
 
 /** Everything the reports read. Loaded once, reused across every cut. */
