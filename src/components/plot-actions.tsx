@@ -6,6 +6,7 @@ import { Button, Card, Chip, ChipGroup, Empty, Field, Input, Note, cx } from "./
 import { Sparkline } from "./charts";
 import { newId } from "@/lib/queue";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
+import { BIOMASS_BASES, type BiomassBasis } from "@/lib/domain/types";
 
 export type Reading = {
   date: string;
@@ -16,6 +17,9 @@ export type Reading = {
   tallestCm: number | null;
   spreadCm: number | null;
   evenness: { label: string; tone: "good" | "warn" | "danger" } | null;
+  avgWeightGrams: number | null;
+  biomassBasis: BiomassBasis | null;
+  weighedCount: number;
 };
 export type PlotTask = {
   id: string;
@@ -51,6 +55,7 @@ export function LeafTracker({
   const router = useRouter();
   const today = todayISO();
   const [plants, setPlants] = useState<string[]>(() => Array(sampleSize).fill(""));
+  const [grams, setGrams] = useState<string[]>(() => Array(sampleSize).fill(""));
   const [date, setDate] = useState(today);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,13 +64,37 @@ export function LeafTracker({
   const sorted = [...readings].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1] ?? null;
 
+  /**
+   * What is going on the scale, if anything.
+   *
+   * Carried over from the last reading, because a farm that starts weighing
+   * keeps weighing — and because a column of grams is only comparable with
+   * the ones above it if the same thing was weighed each time.
+   */
+  const [basis, setBasis] = useState<BiomassBasis | null>(
+    () => latest?.biomassBasis ?? null,
+  );
+
   const entered = plants
-    .map((value, i) => ({ no: i + 1, cm: Number(value) }))
+    .map((value, i) => {
+      const g = Number(grams[i]);
+      return {
+        no: i + 1,
+        cm: Number(value),
+        g: basis !== null && g > 0 && Number.isFinite(g) ? g : null,
+      };
+    })
     .filter((p) => p.cm > 0 && Number.isFinite(p.cm));
   const runningAverage =
     entered.length === 0
       ? null
       : Math.round((entered.reduce((a, p) => a + p.cm, 0) / entered.length) * 10) / 10;
+
+  const weighed = entered.filter((p) => p.g !== null);
+  const runningWeight =
+    weighed.length === 0
+      ? null
+      : Math.round((weighed.reduce((a, p) => a + (p.g ?? 0), 0) / weighed.length) * 10) / 10;
 
   async function save() {
     if (entered.length === 0) return;
@@ -74,11 +103,15 @@ export function LeafTracker({
     const res = await fetch("/api/leaf", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ cycle_id: cycleId, date, plants: entered }),
+      body: JSON.stringify({
+        cycle_id: cycleId, date, plants: entered,
+        biomass_basis: weighed.length > 0 ? basis : null,
+      }),
     });
     setBusy(false);
     if (res.ok) {
       setPlants(Array(sampleSize).fill(""));
+      setGrams(Array(sampleSize).fill(""));
       setOpen(false);
       router.refresh();
     } else {
@@ -98,9 +131,19 @@ export function LeafTracker({
         <>
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="tabular text-3xl font-bold">{latest.avgLengthCm} cm</span>
+            {latest.avgWeightGrams !== null ? (
+              <span className="tabular text-3xl font-bold">
+                · {latest.avgWeightGrams} g
+              </span>
+            ) : null}
             <span className="text-ink-soft">
               on {formatDate(latest.date)}
               {latest.sampleSize ? `, ${latest.sampleSize} plants` : ""}
+              {latest.avgWeightGrams !== null && latest.biomassBasis !== null
+                ? ` · ${latest.weighedCount} weighed (${
+                    latest.biomassBasis === "d_leaf" ? "D-leaf" : "whole plant"
+                  })`
+                : ""}
             </span>
           </div>
 
@@ -167,6 +210,7 @@ export function LeafTracker({
                 <tr className="text-left text-xs uppercase tracking-wide text-ink-soft">
                   <th className="py-1 pr-3 font-bold">Date</th>
                   <th className="py-1 pr-3 font-bold">Average</th>
+                  <th className="py-1 pr-3 font-bold">Weight</th>
                   <th className="py-1 pr-3 font-bold">Range</th>
                   <th className="py-1 font-bold">Plants</th>
                 </tr>
@@ -176,6 +220,9 @@ export function LeafTracker({
                   <tr key={r.date} className="border-t border-line">
                     <td className="py-1 pr-3">{formatDateShort(r.date)}</td>
                     <td className="py-1 pr-3 font-semibold">{r.avgLengthCm} cm</td>
+                    <td className="py-1 pr-3 text-ink-soft">
+                      {r.avgWeightGrams === null ? "—" : `${r.avgWeightGrams} g`}
+                    </td>
                     <td className="py-1 pr-3 text-ink-soft">
                       {r.shortestCm === null ? "—" : `${r.shortestCm}–${r.tallestCm}`}
                     </td>
@@ -200,11 +247,39 @@ export function LeafTracker({
             />
           </Field>
 
-          <p className="mb-2 text-sm text-ink-soft">
+          {/* One decision, not two: whether anything goes on the scale, and
+              what. Grams with no record of what was weighed are unreadable a
+              year later, so the question cannot be skipped. */}
+          <p className="mb-1.5 text-sm font-semibold text-ink">Weighing as well?</p>
+          <ChipGroup>
+            <Chip selected={basis === null} onClick={() => setBasis(null)}>
+              Length only
+            </Chip>
+            <Chip selected={basis === "d_leaf"} onClick={() => setBasis("d_leaf")}>
+              D-leaf weight
+            </Chip>
+            <Chip
+              selected={basis === "whole_plant"}
+              onClick={() => setBasis("whole_plant")}
+            >
+              Whole plant
+            </Chip>
+          </ChipGroup>
+          {basis !== null ? (
+            <p className="mb-2 mt-1 text-sm text-ink-soft">{BIOMASS_BASES[basis]}</p>
+          ) : null}
+
+          <p className="mb-2 mt-3 text-sm text-ink-soft">
             One row per plant, in the order you measured them. Leave a row blank
             if you measured fewer than {sampleSize}.
+            {basis !== null ? " The weight can be left blank on its own." : ""}
           </p>
-          <ul className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <ul
+            className={cx(
+              "mb-3 grid gap-2",
+              basis === null ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1 sm:grid-cols-2",
+            )}
+          >
             {plants.map((value, i) => (
               <li key={i} className="flex items-center gap-1.5">
                 <span className="w-5 shrink-0 text-right text-sm tabular text-ink-soft">
@@ -220,6 +295,22 @@ export function LeafTracker({
                     setPlants(next);
                   }}
                 />
+                {basis === null ? null : (
+                  <>
+                    <span className="shrink-0 text-xs text-ink-soft">cm</span>
+                    <Input
+                      aria-label={`Plant ${i + 1}, grams`}
+                      inputMode="decimal"
+                      value={grams[i] ?? ""}
+                      onChange={(e) => {
+                        const next = [...grams];
+                        next[i] = e.target.value;
+                        setGrams(next);
+                      }}
+                    />
+                    <span className="shrink-0 text-xs text-ink-soft">g</span>
+                  </>
+                )}
               </li>
             ))}
           </ul>
@@ -234,6 +325,15 @@ export function LeafTracker({
                   average across {entered.length}{" "}
                   {entered.length === 1 ? "plant" : "plants"}
                 </span>
+                {runningWeight !== null ? (
+                  <>
+                    {" · "}
+                    <strong className="tabular">{runningWeight} g</strong>{" "}
+                    <span className="text-ink-soft">
+                      across {weighed.length} weighed
+                    </span>
+                  </>
+                ) : null}
               </>
             )}
           </p>

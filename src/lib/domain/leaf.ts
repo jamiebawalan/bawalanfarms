@@ -9,7 +9,7 @@
  * number that shows whether it is working belongs on the screen.
  */
 
-import type { LeafMeasurement, LeafPlantReading, Ledger } from "./types";
+import type { BiomassBasis, LeafMeasurement, LeafPlantReading, Ledger } from "./types";
 
 export type Reading = {
   id: string;
@@ -22,6 +22,16 @@ export type Reading = {
   tallestCm: number | null;
   /** How far a typical plant sits from the average. Null without the plants. */
   spreadCm: number | null;
+  /**
+   * Weight, where it was taken. Length says how far a plant has stretched;
+   * weight says how much plant is there. Two blocks at the same length can
+   * carry very different crops, and forcing the light one makes small fruit.
+   */
+  avgWeightGrams: number | null;
+  weights: number[];
+  biomassBasis: BiomassBasis | null;
+  /** How many of the measured plants were also weighed. */
+  weighedCount: number;
 };
 
 export function readingsFor(ledger: Ledger, cycleId: string): Reading[] {
@@ -45,11 +55,25 @@ function describe(m: LeafMeasurement, plants: LeafPlantReading[]): Reading {
     .sort((a, b) => a.plantNo - b.plantNo)
     .map((p) => p.lengthCm);
 
+  // Weights only from the plants that have one: a morning where he measured
+  // twenty and weighed eight should report both, not average eight into twenty.
+  const weights = plants
+    .slice()
+    .sort((a, b) => a.plantNo - b.plantNo)
+    .map((p) => p.weightGrams)
+    .filter((w): w is number => typeof w === "number" && w > 0);
+  const avgWeightGrams =
+    weights.length > 0
+      ? round(weights.reduce((a, v) => a + v, 0) / weights.length)
+      : m.avgWeightGrams ?? null;
+
   if (lengths.length === 0) {
     return {
       id: m.id, date: m.date, avgLengthCm: m.avgLengthCm,
       sampleSize: m.sampleSize, plants: [],
       shortestCm: null, tallestCm: null, spreadCm: null,
+      avgWeightGrams, weights: [], biomassBasis: m.biomassBasis ?? null,
+      weighedCount: 0,
     };
   }
 
@@ -63,6 +87,10 @@ function describe(m: LeafMeasurement, plants: LeafPlantReading[]): Reading {
     shortestCm: Math.min(...lengths),
     tallestCm: Math.max(...lengths),
     spreadCm: standardDeviation(lengths),
+    avgWeightGrams,
+    weights,
+    biomassBasis: m.biomassBasis ?? null,
+    weighedCount: weights.length,
   };
 }
 
