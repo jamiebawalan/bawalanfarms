@@ -145,6 +145,9 @@ export default async function CyclePage({
           tallestCm: r.tallestCm,
           spreadCm: r.spreadCm,
           evenness: evenness(r.spreadCm),
+          avgWeightGrams: r.avgWeightGrams,
+          biomassBasis: r.biomassBasis,
+          weighedCount: r.weighedCount,
         }))}
         sampleSize={ledger.settings.dleafSampleSize}
         forcingCm={ledger.settings.dleafForcingCm}

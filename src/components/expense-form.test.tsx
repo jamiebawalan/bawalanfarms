@@ -25,8 +25,12 @@ const plots: FormPlot[] = [
 ];
 
 const activities = [
-  { code: "deweed", label: "Deweed", activityGroup: "Field", defaultCategory: "Labor" as const },
-  { code: "abono", label: "Fertilise", activityGroup: "Field", defaultCategory: "Farm Inputs" as const },
+  { code: "deweed", label: "Deweed", activityGroup: "Field", defaultCategory: "Labor" as const,
+    impliesFarmWideReason: null },
+  { code: "abono", label: "Fertilise", activityGroup: "Field", defaultCategory: "Farm Inputs" as const,
+    impliesFarmWideReason: null },
+  { code: "animal_feed", label: "Animal Feed", activityGroup: "Animals",
+    defaultCategory: "Farm Inputs" as const, impliesFarmWideReason: "animal_care" as const },
 ];
 
 const existing: ExistingExpense = {
@@ -164,5 +168,91 @@ describe("an equipment purchase, corrected", () => {
     });
     expect(html).toContain('value="Knapsack sprayer"');
     expect(html).toContain('value="60"');
+  });
+});
+
+/**
+ * Feeding the carabao is a weekly cost with a fixed answer to "where?". Before
+ * this, logging a sack of feed meant picking "Other" — which demands a typed
+ * note — then "Whole farm", then the reason. Four decisions and a sentence,
+ * every time, for a cost that is never once in doubt.
+ */
+describe("a cost whose activity already settles where it belongs", () => {
+  const renderWith = (activity: string) =>
+    renderToStaticMarkup(
+      <ExpenseForm
+        plots={plots}
+        activities={activities as never}
+        recentActivities={["deweed"]}
+        prefill={{ activity }}
+      />,
+    );
+
+  it("states the attribution instead of asking for it", () => {
+    const html = renderWith("animal_feed");
+    expect(html).toContain("Whole farm · Animal care");
+    expect(html).not.toContain("Why is this whole-farm?");
+  });
+
+  it("does not offer plots, because an animal is not on one", () => {
+    expect(renderWith("animal_feed")).not.toContain("no cycle open");
+  });
+
+  it("says why it is not charged to a cycle, rather than leaving it a mystery", () => {
+    expect(renderWith("animal_feed")).toContain("not a cost for any one plot");
+  });
+
+  it("leaves a way to overrule it", () => {
+    expect(renderWith("animal_feed")).toContain("Put it somewhere else");
+  });
+
+  /**
+   * The point of the activity is to save taps, so burying it behind "show all
+   * 52 activities" until he has used it once would defeat adding it at all.
+   */
+  it("is on the shortlist before he has ever used it", () => {
+    expect(renderWith("deweed")).toContain("Animal Feed");
+  });
+
+  it("leaves every other activity asking as it always did", () => {
+    const html = renderWith("deweed");
+    expect(html).not.toContain("Whole farm · Animal care");
+    // The scope chips, which only exist on the version that asks.
+    expect(html).toContain("Plots");
+    expect(html).toContain("Equipment");
+  });
+});
+
+describe("correcting a cost whose activity settles where it belongs", () => {
+  /**
+   * Somebody once decided this particular sack of feed belonged to Plot 12.
+   * Reopening the entry must not quietly overrule them — a correction screen
+   * that changes an entry just by being opened is worse than no screen.
+   */
+  it("keeps a saved entry filed where it was filed", () => {
+    const html = renderToStaticMarkup(
+      <ExpenseForm
+        plots={plots}
+        activities={activities as never}
+        recentActivities={["deweed"]}
+        existing={{ ...existing, activity: "animal_feed", attribution: "direct",
+                    allocations: [{ plotId: PLOT_A, amountCentavos: 200000 }] }}
+      />,
+    );
+    expect(html).not.toContain("Whole farm · Animal care");
+    expect(html).toContain("Plot 12");
+  });
+
+  it("states it for one that was filed whole-farm", () => {
+    const html = renderToStaticMarkup(
+      <ExpenseForm
+        plots={plots}
+        activities={activities as never}
+        recentActivities={["deweed"]}
+        existing={{ ...existing, activity: "animal_feed", attribution: "farm_wide",
+                    farmWideReason: "animal_care", allocations: [] }}
+      />,
+    );
+    expect(html).toContain("Whole farm · Animal care");
   });
 });

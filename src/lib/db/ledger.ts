@@ -156,17 +156,29 @@ export async function loadLedger(): Promise<Ledger> {
     activities: rows<any>(activities, "activities").map((a) => ({
       code: a.code, label: a.label, activityGroup: a.activity_group,
       defaultCategory: a.default_category,
+      // Null until the migration that adds the column has run, which is the
+      // right answer meanwhile: the form simply keeps asking.
+      impliesFarmWideReason: a.implies_farm_wide_reason ?? null,
     })),
     crops: rows<any>(crops, "crops").map((c) => ({ code: c.code, label: c.label })),
     leafMeasurements: optional<any>(leaves, "leaf measurements").map((l) => ({
       id: l.id, cycleId: l.cycle_id, date: l.date,
       avgLengthCm: Number(l.avg_length_cm),
       sampleSize: l.sample_size === null ? null : Number(l.sample_size),
+      avgWeightGrams:
+        l.avg_weight_grams === null || l.avg_weight_grams === undefined
+          ? null
+          : Number(l.avg_weight_grams),
+      biomassBasis: l.biomass_basis ?? null,
     })),
     leafPlants: optional<any>(leafPlants, "leaf plant readings").map((r) => ({
       measurementId: r.measurement_id,
       plantNo: Number(r.plant_no),
       lengthCm: Number(r.length_cm),
+      weightGrams:
+        r.weight_grams === null || r.weight_grams === undefined
+          ? null
+          : Number(r.weight_grams),
     })),
     boundaries: optional<any>(boundaries, "plot boundaries").map((b) => ({
       plotId: b.plot_id, part: b.part,

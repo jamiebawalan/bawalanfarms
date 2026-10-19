@@ -135,3 +135,87 @@ describe("readings for a cycle", () => {
     expect(readingsFor(ledger, "c1")[0]!.avgLengthCm).toBe(60);
   });
 });
+
+/**
+ * Weight, on the advice of the Del Monte agronomists.
+ *
+ * Length says how far a plant has stretched; weight says how much plant is
+ * actually there. Two blocks at the same D-leaf length can carry very
+ * different crops, and forcing the light one makes small fruit — the outcome
+ * this farm is deliberately trying to avoid.
+ */
+const withWeights = (
+  rows: { cm: number; g?: number | null }[],
+  basis: "d_leaf" | "whole_plant" | null = "d_leaf",
+): Ledger => ({
+  ...makeLedger(),
+  leafMeasurements: [
+    {
+      id: "m1", cycleId: "c1", date: "2026-10-01", avgLengthCm: 0, sampleSize: null,
+      avgWeightGrams: null, biomassBasis: basis,
+    },
+  ],
+  leafPlants: rows.map((r, i) => ({
+    measurementId: "m1", plantNo: i + 1, lengthCm: r.cm, weightGrams: r.g ?? null,
+  })),
+});
+
+describe("a reading that was weighed as well as measured", () => {
+  const [r] = readingsFor(
+    withWeights([{ cm: 60, g: 70 }, { cm: 62, g: 74 }, { cm: 58, g: 66 }]),
+    "c1",
+  );
+
+  it("averages the weight as well as the length", () => {
+    expect(r!.avgLengthCm).toBe(60);
+    expect(r!.avgWeightGrams).toBe(70);
+  });
+
+  it("says what was on the scale, because grams alone are unreadable later", () => {
+    expect(r!.biomassBasis).toBe("d_leaf");
+  });
+
+  it("keeps the individual weights, for the same reason it keeps the lengths", () => {
+    expect(r!.weights).toEqual([70, 74, 66]);
+    expect(r!.weighedCount).toBe(3);
+  });
+});
+
+describe("a morning where he measured more plants than he weighed", () => {
+  /**
+   * Twenty measured, three weighed is a real morning: the tape is quick, the
+   * scale is not. Averaging the three over twenty would report a plant weight
+   * of eleven grams and make the block look like a disaster.
+   */
+  const [r] = readingsFor(
+    withWeights([
+      { cm: 60, g: 70 }, { cm: 62, g: 74 }, { cm: 58, g: 66 },
+      { cm: 70 }, { cm: 50 },
+    ]),
+    "c1",
+  );
+
+  it("averages the weight over the plants that have one", () => {
+    expect(r!.avgWeightGrams).toBe(70);
+    expect(r!.weighedCount).toBe(3);
+  });
+
+  it("still averages the length over all of them", () => {
+    expect(r!.avgLengthCm).toBe(60);
+    expect(r!.sampleSize).toBe(5);
+  });
+});
+
+describe("a reading where nothing was weighed", () => {
+  const [r] = readingsFor(withWeights([{ cm: 61 }, { cm: 63 }], null), "c1");
+
+  it("reports no weight rather than a zero", () => {
+    expect(r!.avgWeightGrams).toBeNull();
+    expect(r!.weighedCount).toBe(0);
+    expect(r!.weights).toEqual([]);
+  });
+
+  it("carries no basis either, so nothing claims to have been weighed", () => {
+    expect(r!.biomassBasis).toBeNull();
+  });
+});

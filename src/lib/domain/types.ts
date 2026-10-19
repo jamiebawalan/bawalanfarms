@@ -171,12 +171,23 @@ export type CapitalAsset = {
 
 export type Buyer = { id: string; name: string };
 
+/** What was put on the scale. The two numbers are nothing like each other. */
+export type BiomassBasis = "d_leaf" | "whole_plant";
+
+export const BIOMASS_BASES: Record<BiomassBasis, string> = {
+  d_leaf: "D-leaf — the leaf you just measured, weighed",
+  whole_plant: "Whole plant — cut at the base and weighed",
+};
+
 export type LeafMeasurement = {
   id: string;
   cycleId: string;
   date: ISODate;
   avgLengthCm: number;
   sampleSize: number | null;
+  /** Null when nothing was weighed that morning. */
+  avgWeightGrams?: number | null;
+  biomassBasis?: BiomassBasis | null;
 };
 
 /**
@@ -188,6 +199,8 @@ export type LeafPlantReading = {
   measurementId: string;
   plantNo: number;
   lengthCm: number;
+  /** Null when this plant was measured but not weighed. */
+  weightGrams?: number | null;
 };
 
 export type Task = {
@@ -226,6 +239,13 @@ export type Activity = {
   label: string;
   activityGroup: string;
   defaultCategory: ExpenseCategory | null;
+  /**
+   * When set, choosing this activity settles the attribution: the cost is
+   * whole-farm for this reason and the form stops asking. Feeding an animal is
+   * not a cost any one plot carries, and it never was — so it is not a question
+   * worth putting to him every week.
+   */
+  impliesFarmWideReason?: FarmWideReason | null;
 };
 
 /** Everything the reports read. Loaded once, reused across every cut. */
