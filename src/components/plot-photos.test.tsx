@@ -15,6 +15,7 @@ const photo = (over: Partial<Photo> = {}): Photo => ({
   takenOn: "2026-10-24",
   caption: null,
   addedAt: "2026-10-24T06:32:00Z",
+  marks: [],
   ...over,
 });
 

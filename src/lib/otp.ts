@@ -12,13 +12,30 @@
  * Supabase directly, and the session lands in whatever the person is holding.
  */
 
-/** Digits only, so a pasted "123 456" or "code: 123456" still works. */
+/**
+ * Digits only, so a pasted "123 456" or "code: 123456" still works.
+ *
+ * Six was wrong. How long the code is is a setting on the Supabase project,
+ * not a fact about sign-in codes — it can be anywhere from six to ten digits,
+ * and this farm's is eight. Cutting it at six meant the owner's husband typed
+ * his whole code, had the last two silently thrown away, and was told it did
+ * not match. Nothing on the screen could have told him why.
+ */
+const SHORTEST = 6;
+const LONGEST = 10;
+
 export function normaliseCode(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 6);
+  return raw.replace(/\D/g, "").slice(0, LONGEST);
 }
 
+/**
+ * Enough digits to be worth trying. The app cannot know how long this
+ * project's codes are, so it accepts anything in the range and lets the
+ * server be the judge — which it is anyway.
+ */
 export function isCompleteCode(raw: string): boolean {
-  return normaliseCode(raw).length === 6;
+  const code = normaliseCode(raw);
+  return code.length >= SHORTEST && code.length <= LONGEST;
 }
 
 /**

@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Empty, Field, Input, Note } from "./ui";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
+import { Marks, MarkEditor } from "./photo-marks";
+import { INK, SIZES, type Mark } from "@/lib/domain/annotations";
 
 export type Photo = {
   id: string;
@@ -11,10 +13,17 @@ export type Photo = {
   caption: string | null;
   /** When it went up. Stands in as the caption when nobody wrote one. */
   addedAt: string;
+  /** Marks drawn on it. The photograph itself is never painted over. */
+  marks: Mark[];
 };
 
-/** How many thumbnails before the grid starts making the page long. */
-const SHOWN_AT_FIRST = 5;
+/**
+ * How many thumbnails before the grid starts making the page long.
+ *
+ * Four, not five: the grid is three across on a phone, so five leaves a
+ * second row with two gaps in it — and this app is used on a phone first.
+ */
+const SHOWN_AT_FIRST = 4;
 
 /**
  * What to call a photo nobody captioned.
@@ -83,6 +92,7 @@ export function PlotPhotos({
   const [expanded, setExpanded] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [editing, setEditing] = useState<string | null>(null);
+  const [marking, setMarking] = useState(false);
 
   /**
    * Photos chosen but not yet sent.
@@ -227,6 +237,58 @@ export function PlotPhotos({
     }
   }
 
+  /** Saving the marks. The picture in Drive is not touched. */
+  async function saveMarks(photo: Photo, marks: Mark[]) {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/photos/${photo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ annotations: marks }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setMarking(false);
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Could not save those marks.");
+    }
+  }
+
+  /**
+   * A flattened copy, for sending to somebody who is not in the app.
+   *
+   * The marks are painted into a new picture and uploaded as a new photo; the
+   * one he drew on keeps both its marks and its clean original. This is the
+   * "duplicate" — there is deliberately no way to paint over the original,
+   * because the farm's photographs are its memory of what the plots looked
+   * like and a typo in a label should not cost one.
+   */
+  async function saveFlattenedCopy(photo: Photo) {
+    setBusy(true);
+    setError(null);
+    try {
+      const blob = await flatten(`/api/photos/${photo.id}`, photo.marks);
+      const form = new FormData();
+      form.set("photo", blob, "marked.jpg");
+      form.set("cycle_id", cycleId);
+      form.set("taken_on", photo.takenOn);
+      form.set("caption", `${photoLabel(photo)} — marked`.slice(0, 190));
+      const res = await fetch("/api/photos", { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Could not save the marked copy.");
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError("Could not make a marked copy of that picture.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card title="Photos">
       {error ? <Note tone="danger">{error}</Note> : null}
@@ -249,12 +311,16 @@ export function PlotPhotos({
                   className="block w-full text-left"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/photos/${photo.id}`}
-                    alt={photoLabel(photo)}
-                    loading="lazy"
-                    className="aspect-square w-full rounded-lg border-2 border-line object-cover"
-                  />
+                  <span className="relative block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/photos/${photo.id}`}
+                      alt={photoLabel(photo)}
+                      loading="lazy"
+                      className="aspect-square w-full rounded-lg border-2 border-line object-cover"
+                    />
+                    <Marks marks={photo.marks} />
+                  </span>
                   <span className="mt-0.5 block truncate text-xs text-ink-soft">
                     {formatDateShort(photo.takenOn)}
                   </span>
@@ -286,19 +352,39 @@ export function PlotPhotos({
               and dragging around it works the same with a finger as with a
               mouse — no pinch gesture to discover, and the page behind does
               not move while he is looking at a leaf tip. */}
-          <div
-            className="relative overflow-auto rounded-xl border-2 border-line bg-paper-sunk"
-            style={{ maxHeight: "70vh" }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/photos/${current.id}`}
-              alt={photoLabel(current)}
-              className="block origin-top-left"
-              style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
-            />
-          </div>
+          {marking ? (
+            <MarkEditor
+              marks={current.marks}
+              busy={busy}
+              onSave={(marks) => saveMarks(current, marks)}
+              onCancel={() => setMarking(false)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/photos/${current.id}`}
+                alt={photoLabel(current)}
+                className="block w-full select-none"
+                draggable={false}
+              />
+            </MarkEditor>
+          ) : (
+            <div
+              className="relative overflow-auto rounded-xl border-2 border-line bg-paper-sunk"
+              style={{ maxHeight: "70vh" }}
+            >
+              <div className="relative" style={{ width: `${zoom * 100}%` }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/photos/${current.id}`}
+                  alt={photoLabel(current)}
+                  className="block w-full"
+                />
+                <Marks marks={current.marks} />
+              </div>
+            </div>
+          )}
 
+          {marking ? null : (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button
               size="md"
@@ -344,7 +430,9 @@ export function PlotPhotos({
               </Button>
             </span>
           </div>
+          )}
 
+          {marking ? null : (
           <div className="mt-2 flex items-baseline justify-between gap-3">
             <span className="min-w-0 text-sm">
               <strong>{photoLabel(current)}</strong>
@@ -357,10 +445,11 @@ export function PlotPhotos({
               Close
             </button>
           </div>
+          )}
 
           {/* Captions are written later or not at all. He is holding a phone
               over a pineapple when he takes these, not writing labels. */}
-          {editing !== null ? (
+          {marking ? null : editing !== null ? (
             <div className="mt-2">
               <Field label="Caption" htmlFor="photo-rename">
                 <Input
@@ -393,7 +482,25 @@ export function PlotPhotos({
             </Button>
           )}
 
-          {closed ? null : confirming ? (
+          {marking || closed ? null : (
+            <div className="mt-1 flex flex-wrap gap-2">
+              <Button size="md" variant="secondary" onClick={() => setMarking(true)}>
+                {current.marks.length > 0 ? "Change the marks" : "Draw on it"}
+              </Button>
+              {current.marks.length > 0 ? (
+                <Button
+                  size="md"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => saveFlattenedCopy(current)}
+                >
+                  {busy ? "Making a copy…" : "Save a marked copy"}
+                </Button>
+              ) : null}
+            </div>
+          )}
+
+          {marking || closed ? null : confirming ? (
             <div className="mt-2 rounded-xl border-2 border-danger bg-danger-tint p-3">
               <p className="mb-1 font-semibold text-danger">Remove this photo?</p>
               <p className="mb-3 text-sm text-ink">
@@ -411,7 +518,7 @@ export function PlotPhotos({
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : marking ? null : (
             <Button
               variant="quiet"
               size="md"
@@ -557,4 +664,69 @@ async function shrink(file: File): Promise<Blob> {
   } catch {
     return file;
   }
+}
+
+/**
+ * Paint the marks into a new picture.
+ *
+ * Only ever into a copy. The marks live as marks on the original, so this is
+ * for sending a picture to somebody who is not in the app — a consultant, a
+ * buyer — and the photograph he drew on keeps both its clean original and its
+ * removable marks.
+ *
+ * Drawn at the picture's own size rather than the screen's, so the copy is as
+ * sharp as the photograph and the circle is exactly where he put it.
+ */
+async function flatten(src: string, marks: readonly Mark[]): Promise<Blob> {
+  const image = await loadImage(src);
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (ctx === null) throw new Error("no canvas");
+  ctx.drawImage(image, 0, 0);
+
+  const W = canvas.width;
+  const H = canvas.height;
+  // Sizes are fractions of the width, exactly as the on-screen overlay scales
+  // them, so the copy matches what he was looking at when he drew it.
+  for (const mark of marks) {
+    ctx.strokeStyle = INK[mark.ink];
+    ctx.fillStyle = INK[mark.ink];
+    if (mark.kind === "pen") {
+      ctx.lineWidth = SIZES[mark.size].pen * W;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      mark.points.forEach((p, i) => {
+        const x = p.x * W;
+        const y = p.y * H;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    } else {
+      const px = SIZES[mark.size].text * W;
+      ctx.font = `700 ${px}px system-ui, sans-serif`;
+      ctx.lineWidth = px * 0.12;
+      ctx.strokeStyle = "#00000055";
+      ctx.strokeText(mark.text, mark.at.x * W, mark.at.y * H);
+      ctx.fillText(mark.text, mark.at.x * W, mark.at.y * H);
+    }
+  }
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", QUALITY),
+  );
+  if (blob === null) throw new Error("could not draw the copy");
+  return blob;
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("could not load the picture"));
+    image.src = src;
+  });
 }

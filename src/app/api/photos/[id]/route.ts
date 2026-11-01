@@ -123,7 +123,16 @@ export async function DELETE(
  * Only the caption. The picture and the day it was taken are facts about the
  * plot; the caption is the one part that is somebody's description of it.
  */
-const Rename = z.object({ caption: z.string().max(200) });
+const Rename = z.object({
+  caption: z.string().max(200).optional(),
+  /**
+   * The marks drawn on this photo. Validated loosely here and strictly when
+   * read: the browser is the only thing that writes them, every screen reads
+   * them, and a shape this route has never heard of should cost that mark
+   * rather than the photograph.
+   */
+  annotations: z.array(z.unknown()).max(200).optional(),
+});
 
 export async function PATCH(
   request: Request,
@@ -135,16 +144,32 @@ export async function PATCH(
 
   const parsed = Rename.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "That caption is too long." }, { status: 400 });
+    return NextResponse.json(
+      { error: "That caption is too long, or there are too many marks." },
+      { status: 400 },
+    );
   }
 
   const { id } = await params;
   const admin = createAdminClient();
+
+  const change: Record<string, unknown> = {};
+  if (parsed.data.caption !== undefined) {
+    change.caption = parsed.data.caption.trim() || null;
+  }
+  if (parsed.data.annotations !== undefined) {
+    change.annotations = parsed.data.annotations;
+    // Cleared marks clear the stamp with them, so a photo never claims to
+    // have been drawn on by somebody when it carries no drawing.
+    change.annotated_at = parsed.data.annotations.length > 0 ? new Date().toISOString() : null;
+    change.annotated_by = parsed.data.annotations.length > 0 ? user.email : null;
+  }
+  if (Object.keys(change).length === 0) {
+    return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
+  }
+
   const { data, error } = await admin
-    .from("plot_photos")
-    .update({ caption: parsed.data.caption.trim() || null })
-    .eq("id", id)
-    .select("id");
+    .from("plot_photos").update(change).eq("id", id).select("id");
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!data || data.length === 0) {
     return NextResponse.json({ error: "That photo is not there any more." }, { status: 404 });

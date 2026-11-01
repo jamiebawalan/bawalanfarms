@@ -17,15 +17,31 @@ describe("the code he types in", () => {
     expect(normaliseCode(" 123456 ")).toBe("123456");
   });
 
-  it("stops at six, so a stray digit does not push the real ones out", () => {
-    expect(normaliseCode("1234567")).toBe("123456");
+  /**
+   * How long the code is is a setting on the Supabase project, not a fact
+   * about sign-in codes. This farm's is eight digits, and cutting it at six
+   * meant the owner's husband typed his whole code, had the last two thrown
+   * away, and was told it did not match.
+   */
+  it("keeps a code longer than six digits", () => {
+    expect(normaliseCode("12345678")).toBe("12345678");
+    expect(normaliseCode("code: 1234 5678")).toBe("12345678");
   });
 
-  it("knows when it is not finished", () => {
+  it("stops at ten, which is as long as the setting goes", () => {
+    expect(normaliseCode("123456789012")).toBe("1234567890");
+  });
+
+  it("knows when it is not worth trying yet", () => {
     expect(isCompleteCode("12345")).toBe(false);
     expect(isCompleteCode("")).toBe(false);
     expect(isCompleteCode("abcdef")).toBe(false);
+  });
+
+  it("is willing to try anything from six to ten digits", () => {
     expect(isCompleteCode("123456")).toBe(true);
+    expect(isCompleteCode("12345678")).toBe(true);
+    expect(isCompleteCode("1234567890")).toBe(true);
   });
 });
 

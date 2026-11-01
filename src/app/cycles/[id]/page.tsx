@@ -9,6 +9,7 @@ import { ProfitProjection } from "@/components/profit-projection";
 import { Suggestions } from "@/components/suggestions";
 import { PlotPhotos } from "@/components/plot-photos";
 import { SubPlots } from "@/components/sub-plots";
+import { readMarks } from "@/lib/domain/annotations";
 import { blockedFraction, subPlotLedger } from "@/lib/domain/subplots";
 import { createAdminClient } from "@/lib/supabase/server";
 import { projectForcing } from "@/lib/domain/dashboards";
@@ -425,15 +426,19 @@ async function readPhotos(cycleId: string) {
     const [{ data: rows }, { data: auth }] = await Promise.all([
       admin
         .from("plot_photos")
-        .select("id, taken_on, caption, created_at")
+        .select("id, taken_on, caption, created_at, annotations")
         .eq("cycle_id", cycleId)
         .order("taken_on", { ascending: false }),
       admin.from("google_auth").select("root_folder_id").maybeSingle(),
     ]);
     return {
       photos: (rows ?? []).map(
-        (r: { id: string; taken_on: string; caption: string | null; created_at: string }) => ({
+        (r: {
+          id: string; taken_on: string; caption: string | null;
+          created_at: string; annotations: unknown;
+        }) => ({
           id: r.id, takenOn: r.taken_on, caption: r.caption, addedAt: r.created_at,
+          marks: readMarks(r.annotations),
         }),
       ),
       driveConnected: Boolean(auth?.root_folder_id),
