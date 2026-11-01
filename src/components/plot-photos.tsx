@@ -9,7 +9,30 @@ export type Photo = {
   id: string;
   takenOn: string;
   caption: string | null;
+  /** When it went up. Stands in as the caption when nobody wrote one. */
+  addedAt: string;
 };
+
+/** How many thumbnails before the grid starts making the page long. */
+const SHOWN_AT_FIRST = 5;
+
+/**
+ * What to call a photo nobody captioned.
+ *
+ * Derived rather than stored. Writing "01 Nov 2026, 2:32 pm" into the caption
+ * column would fill the farm's records with strings that look like somebody's
+ * description of the plot and are not — and the day and time are already known
+ * for certain, so keeping a copy only creates something that can disagree.
+ */
+export function photoLabel(photo: Photo): string {
+  if (photo.caption && photo.caption.trim() !== "") return photo.caption;
+  const when = new Date(photo.addedAt);
+  if (Number.isNaN(when.getTime())) return formatDate(photo.takenOn);
+  return `${formatDate(photo.takenOn)}, ${when.toLocaleTimeString("en-PH", {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
 
 /** A picture chosen on the phone, captioned but not yet sent. */
 type Pending = {
@@ -52,8 +75,14 @@ export function PlotPhotos({
   const [takenOn, setTakenOn] = useState(today);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showing, setShowing] = useState<Photo | null>(null);
+  // The viewer works on a position in the list, not a copy of one photo, so
+  // next and previous have somewhere to go and the picture keeps up when the
+  // list is refreshed underneath it.
+  const [at, setAt] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [editing, setEditing] = useState<string | null>(null);
 
   /**
    * Photos chosen but not yet sent.
@@ -67,6 +96,9 @@ export function PlotPhotos({
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const byDate = [...photos].sort((a, b) => b.takenOn.localeCompare(a.takenOn));
+  // Clamped, because a photo removed while the viewer is open shortens the
+  // list under it and the last position would otherwise point at nothing.
+  const current = at === null ? null : byDate[Math.min(at, byDate.length - 1)] ?? null;
 
   function queue(files: FileList | null) {
     if (files === null || files.length === 0) return;
@@ -167,11 +199,31 @@ export function PlotPhotos({
     setBusy(false);
     if (res.ok) {
       setConfirming(false);
-      setShowing(null);
+      setAt(null);
+      setZoom(1);
       router.refresh();
     } else {
       const body = await res.json().catch(() => ({}));
       setError(body.error ?? "Could not remove that photo.");
+    }
+  }
+
+  /** Writing a caption onto a photo that already exists. */
+  async function rename(photo: Photo, caption: string) {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/photos/${photo.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ caption }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setEditing(null);
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Could not save that caption.");
     }
   }
 
@@ -185,51 +237,161 @@ export function PlotPhotos({
           between remembering how it looked and guessing.
         </Empty>
       ) : (
-        <ul className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {byDate.map((photo) => (
-            <li key={photo.id}>
-              <button
-                type="button"
-                onClick={() => { setShowing(photo); setConfirming(false); }}
-                className="block w-full text-left"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/photos/${photo.id}`}
-                  alt={photo.caption ?? `Plot on ${formatDate(photo.takenOn)}`}
-                  loading="lazy"
-                  className="aspect-square w-full rounded-lg border-2 border-line object-cover"
-                />
-                <span className="mt-0.5 block text-xs text-ink-soft">
-                  {formatDateShort(photo.takenOn)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* Only the newest few. A season of photos is a very long page to
+              scroll past on the way to anything else on this plot. */}
+          <ul className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {(expanded ? byDate : byDate.slice(0, SHOWN_AT_FIRST)).map((photo, i) => (
+              <li key={photo.id}>
+                <button
+                  type="button"
+                  onClick={() => { setAt(i); setConfirming(false); setZoom(1); }}
+                  className="block w-full text-left"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/photos/${photo.id}`}
+                    alt={photoLabel(photo)}
+                    loading="lazy"
+                    className="aspect-square w-full rounded-lg border-2 border-line object-cover"
+                  />
+                  <span className="mt-0.5 block truncate text-xs text-ink-soft">
+                    {formatDateShort(photo.takenOn)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {byDate.length > SHOWN_AT_FIRST ? (
+            <Button
+              variant="quiet"
+              size="md"
+              className="mb-3 px-0"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded
+                ? `Show fewer`
+                : `More — ${byDate.length - SHOWN_AT_FIRST} older ${
+                    byDate.length - SHOWN_AT_FIRST === 1 ? "photo" : "photos"
+                  }`}
+            </Button>
+          ) : null}
+        </>
       )}
 
-      {showing !== null ? (
+      {current !== null ? (
         <div className="mb-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/api/photos/${showing.id}`}
-            alt={showing.caption ?? `Plot on ${formatDate(showing.takenOn)}`}
-            className="w-full rounded-xl border-2 border-line"
-          />
-          <div className="mt-1 flex items-baseline justify-between gap-3">
-            <span className="text-sm">
-              <strong>{formatDate(showing.takenOn)}</strong>
-              {showing.caption ? ` — ${showing.caption}` : ""}
+          {/* The picture sits in a window it can be bigger than, so zooming in
+              and dragging around it works the same with a finger as with a
+              mouse — no pinch gesture to discover, and the page behind does
+              not move while he is looking at a leaf tip. */}
+          <div
+            className="relative overflow-auto rounded-xl border-2 border-line bg-paper-sunk"
+            style={{ maxHeight: "70vh" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/photos/${current.id}`}
+              alt={photoLabel(current)}
+              className="block origin-top-left"
+              style={{ width: `${zoom * 100}%`, maxWidth: "none" }}
+            />
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              size="md"
+              variant="secondary"
+              disabled={at === 0}
+              onClick={() => { setAt((i) => Math.max(0, (i ?? 0) - 1)); setZoom(1); setConfirming(false); }}
+            >
+              ‹ Previous
+            </Button>
+            <Button
+              size="md"
+              variant="secondary"
+              disabled={at !== null && at >= byDate.length - 1}
+              onClick={() => { setAt((i) => Math.min(byDate.length - 1, (i ?? 0) + 1)); setZoom(1); setConfirming(false); }}
+            >
+              Next ›
+            </Button>
+            <span className="tabular text-sm text-ink-soft">
+              {(at ?? 0) + 1} of {byDate.length}
+            </span>
+
+            <span className="ml-auto flex items-center gap-1">
+              <Button
+                size="md"
+                variant="secondary"
+                aria-label="Zoom out"
+                disabled={zoom <= 1}
+                onClick={() => setZoom((z) => Math.max(1, Math.round((z - 0.5) * 2) / 2))}
+              >
+                −
+              </Button>
+              <span className="tabular w-12 text-center text-sm text-ink-soft">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button
+                size="md"
+                variant="secondary"
+                aria-label="Zoom in"
+                disabled={zoom >= 4}
+                onClick={() => setZoom((z) => Math.min(4, Math.round((z + 0.5) * 2) / 2))}
+              >
+                +
+              </Button>
+            </span>
+          </div>
+
+          <div className="mt-2 flex items-baseline justify-between gap-3">
+            <span className="min-w-0 text-sm">
+              <strong>{photoLabel(current)}</strong>
             </span>
             <button
               type="button"
-              onClick={() => { setShowing(null); setConfirming(false); }}
-              className="text-sm font-semibold text-brand"
+              onClick={() => { setAt(null); setConfirming(false); setZoom(1); setEditing(null); }}
+              className="shrink-0 text-sm font-semibold text-brand"
             >
               Close
             </button>
           </div>
+
+          {/* Captions are written later or not at all. He is holding a phone
+              over a pineapple when he takes these, not writing labels. */}
+          {editing !== null ? (
+            <div className="mt-2">
+              <Field label="Caption" htmlFor="photo-rename">
+                <Input
+                  id="photo-rename"
+                  value={editing}
+                  disabled={busy}
+                  autoFocus
+                  onChange={(e) => setEditing(e.target.value)}
+                  placeholder="e.g. north end, weeds"
+                />
+              </Field>
+              <div className="flex gap-2">
+                <Button size="md" disabled={busy} onClick={() => rename(current, editing)}>
+                  {busy ? "Saving…" : "Save caption"}
+                </Button>
+                <Button size="md" variant="secondary" disabled={busy}
+                        onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="quiet"
+              size="md"
+              className="px-0"
+              onClick={() => setEditing(current.caption ?? "")}
+            >
+              {current.caption ? "Edit caption" : "Add a caption"}
+            </Button>
+          )}
 
           {closed ? null : confirming ? (
             <div className="mt-2 rounded-xl border-2 border-danger bg-danger-tint p-3">
@@ -240,7 +402,7 @@ export function PlotPhotos({
               </p>
               <div className="flex gap-2">
                 <Button size="md" variant="danger" disabled={busy}
-                        onClick={() => remove(showing)}>
+                        onClick={() => remove(current)}>
                   {busy ? "Removing…" : "Remove it"}
                 </Button>
                 <Button size="md" variant="secondary" disabled={busy}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { accessTokenFrom } from "@/lib/drive/oauth";
 import { Drive } from "@/lib/drive/drive";
 import { supabaseMemory } from "@/lib/drive/mirror";
@@ -106,6 +107,48 @@ export async function DELETE(
 
   const { error } = await admin.from("plot_photos").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  return NextResponse.json({ ok: true });
+}
+
+/**
+ * Renaming a photo.
+ *
+ * Most pictures are never captioned — he is holding a phone over a pineapple,
+ * not writing labels — so the gallery falls back to the day and time it went
+ * up, which is always true and costs him nothing. This is for the ones worth
+ * a word, written whenever he gets round to it rather than at the moment of
+ * taking, which is the moment he is least able to type.
+ *
+ * Only the caption. The picture and the day it was taken are facts about the
+ * plot; the caption is the one part that is somebody's description of it.
+ */
+const Rename = z.object({ caption: z.string().max(200) });
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
+  const parsed = Rename.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "That caption is too long." }, { status: 400 });
+  }
+
+  const { id } = await params;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("plot_photos")
+    .update({ caption: parsed.data.caption.trim() || null })
+    .eq("id", id)
+    .select("id");
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: "That photo is not there any more." }, { status: 404 });
+  }
 
   return NextResponse.json({ ok: true });
 }
