@@ -52,7 +52,11 @@ export default async function CorrectExpensePage({
     note: expense.note ?? null,
     allocations: ledger.allocations
       .filter((a) => a.expenseId === expense.id)
-      .map((a) => ({ plotId: a.plotId, amountCentavos: a.amountCentavos })),
+      .map((a) => ({
+        plotId: a.plotId,
+        amountCentavos: a.amountCentavos,
+        subPlotId: a.subPlotId ?? null,
+      })),
     capitalAsset: asset
       ? { name: asset.name, usefulLifeMonths: asset.usefulLifeMonths }
       : null,
@@ -76,6 +80,11 @@ export default async function CorrectExpensePage({
         label: p.label,
         areaSqm: areaOn(ledger.plotAreas, p.id, today),
         openCycle: cycle ? { id: cycle.id, crop: cycle.crop } : null,
+        blocks: cycle
+          ? ledger.subPlots
+              .filter((b) => b.cycleId === cycle.id)
+              .map((b) => ({ id: b.id, name: b.name, plantedOn: b.plantedOn }))
+          : [],
       };
     });
 

@@ -18,7 +18,8 @@ export async function loadLedger(): Promise<Ledger> {
   const [
     plots, plotAreas, cycles, expenses, allocations, purchases, draws,
     harvests, harvestLines, sales, saleLines, plantCounts, capitalAssets,
-    buyers, products, activities, crops, leaves, leafPlants, boundaries, cash, tasks, settings,
+    buyers, products, activities, crops, subPlots, leaves, leafPlants, boundaries, cash, tasks,
+    settings,
   ] = await Promise.all([
     supabase.from("plots").select("*").order("sort_order"),
     supabase.from("plot_areas").select("*"),
@@ -39,7 +40,10 @@ export async function loadLedger(): Promise<Ledger> {
     supabase.from("products").select("*").order("sort_order"),
     supabase.from("activities").select("*").order("sort_order"),
     supabase.from("crops").select("*").order("label"),
-    supabase.from("leaf_measurements").select("*"),
+    supabase.from("sub_plots").select("*").order("planted_on"),
+    // Readings taken by the old method are set aside, not deleted (0025). A
+    // wrong number on a screen is worse than no number.
+    supabase.from("leaf_measurements").select("*").is("superseded_at", null),
     supabase.from("leaf_plant_readings").select("*"),
     supabase.from("plot_boundaries").select("*"),
     supabase.from("cash_advances").select("*"),
@@ -116,6 +120,7 @@ export async function loadLedger(): Promise<Ledger> {
       .filter((a) => live.has(a.expense_id))
       .map((a) => ({
         expenseId: a.expense_id, plotId: a.plot_id, cycleId: a.cycle_id,
+        subPlotId: a.sub_plot_id ?? null,
         amountCentavos: Number(a.amount_centavos),
       })),
     purchases: rows<any>(purchases, "input purchases").map((p) => ({
@@ -161,6 +166,14 @@ export async function loadLedger(): Promise<Ledger> {
       impliesFarmWideReason: a.implies_farm_wide_reason ?? null,
     })),
     crops: rows<any>(crops, "crops").map((c) => ({ code: c.code, label: c.label })),
+    subPlots: optional<any>(subPlots, "sub-plots").map((s) => ({
+      id: s.id, cycleId: s.cycle_id, name: s.name, plantedOn: s.planted_on,
+      landPct: Number(s.land_pct),
+      plantCount: s.plant_count === null ? null : Number(s.plant_count),
+      targetForcingDate: s.target_forcing_date ?? null,
+      forcedOn: s.forced_on ?? null,
+      note: s.note ?? null,
+    })),
     leafMeasurements: optional<any>(leaves, "leaf measurements").map((l) => ({
       id: l.id, cycleId: l.cycle_id, date: l.date,
       avgLengthCm: Number(l.avg_length_cm),

@@ -8,6 +8,8 @@ import { LeafTracker, PlotTasks } from "@/components/plot-actions";
 import { ProfitProjection } from "@/components/profit-projection";
 import { Suggestions } from "@/components/suggestions";
 import { PlotPhotos } from "@/components/plot-photos";
+import { SubPlots } from "@/components/sub-plots";
+import { blockedFraction, subPlotLedger } from "@/lib/domain/subplots";
 import { createAdminClient } from "@/lib/supabase/server";
 import { projectForcing } from "@/lib/domain/dashboards";
 import { evenness, readingsFor } from "@/lib/domain/leaf";
@@ -62,6 +64,27 @@ export default async function CyclePage({
     (t) => t.cycleId === id || (t.plotId !== null && t.plotId === cycle.plotId),
   );
   const forcing = projectForcing(ledger, id);
+
+  // Blocks, and this cycle's costs divided across them. Shared costs are
+  // divided here rather than when they were saved, so a corrected percentage
+  // or a first plant count corrects the history with it.
+  const blocks = ledger.subPlots.filter((s) => s.cycleId === id);
+  const expenseById = new Map(ledger.expenses.map((e) => [e.id, e]));
+  const blockLedger = subPlotLedger(
+    blocks,
+    ledger.allocations
+      .filter((a) => a.cycleId === id)
+      .flatMap((a) => {
+        const expense = expenseById.get(a.expenseId);
+        return expense === undefined
+          ? []
+          : [{
+              subPlotId: a.subPlotId ?? null,
+              category: expense.category,
+              amountCentavos: a.amountCentavos,
+            }];
+      }),
+  );
   const { photos, driveConnected } = await readPhotos(id);
 
   // Seed the projection with what the farm has actually realised per fruit.
@@ -133,6 +156,13 @@ export default async function CyclePage({
           or giveaway.
         </Note>
       ) : null}
+
+      <SubPlots
+        cycleId={id}
+        ledger={blockLedger}
+        blockedPct={Math.round(blockedFraction(blocks) * 1000) / 10}
+        closed={pnl.isClosed}
+      />
 
       <LeafTracker
         cycleId={id}

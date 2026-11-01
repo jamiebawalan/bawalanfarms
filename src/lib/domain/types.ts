@@ -63,6 +63,9 @@ export const CYCLE_STATUSES: readonly CycleStatus[] = [
   "closed",
 ] as const;
 
+import type { SubPlot } from "./subplots";
+export type { SubPlot };
+
 export type Plot = {
   id: string;
   code: string;
@@ -116,6 +119,8 @@ export type Allocation = {
   expenseId: string;
   plotId: string;
   cycleId: string | null;
+  /** The block this cost was tagged to, or null for the whole plot. */
+  subPlotId?: string | null;
   amountCentavos: Centavos;
 };
 
@@ -267,6 +272,7 @@ export type Ledger = {
   products: Product[];
   activities: Activity[];
   crops: Crop[];
+  subPlots: SubPlot[];
   leafMeasurements: LeafMeasurement[];
   leafPlants: LeafPlantReading[];
   boundaries: { plotId: string; part: string; ring: [number, number][]; areaSqm: number }[];
@@ -279,6 +285,6 @@ export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
   purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
-  activities: [], crops: [], leafMeasurements: [], leafPlants: [], boundaries: [], cashAdvances: [], tasks: [],
+  activities: [], crops: [], subPlots: [], leafMeasurements: [], leafPlants: [], boundaries: [], cashAdvances: [], tasks: [],
   settings: DEFAULT_SETTINGS,
 };
