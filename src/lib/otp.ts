@@ -44,15 +44,32 @@ export function isCompleteCode(raw: string): boolean {
  */
 export function explainOtpFailure(message: string): string {
   const m = message.toLowerCase();
-  if (m.includes("expired")) {
-    return "That code has expired. Ask for a new one.";
-  }
-  if (m.includes("invalid") || m.includes("token")) {
-    return "That code did not match. Check the newest email — an older code stops working once you ask for another.";
-  }
+
+  // Rate limiting first: it is the one refusal with a single unambiguous
+  // cause, and its message often mentions a token as well.
   if (m.includes("rate") || m.includes("too many") || m.includes("60 seconds")) {
     return "Too many tries. Wait a minute, then ask for a new code.";
   }
+
+  /**
+   * Supabase says "Token has expired or is invalid" for both, and will not
+   * say which — telling a wrong code from an old one would tell an attacker
+   * which half of the guess was right.
+   *
+   * This used to match "expired" first and report it as fact, which sent the
+   * farm's owners hunting a timing problem while the real cause was a code
+   * being silently cut short. An error message that picks one of two causes
+   * and states it confidently is worse than one that admits to both: it does
+   * not just fail to help, it actively misdirects.
+   */
+  if (m.includes("expired") || m.includes("invalid") || m.includes("token")) {
+    return (
+      "That code did not work. Type every digit of the code in the newest " +
+      "email — asking for a second code stops the first one working — and if " +
+      "it still refuses, ask for a new one."
+    );
+  }
+
   return message;
 }
 
