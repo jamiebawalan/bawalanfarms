@@ -26,10 +26,15 @@ export function Page({ title, subtitle, action, children }: {
   children: ReactNode;
 }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pt-5">
-      <header className="mb-5 flex items-start justify-between gap-3">
+    /* Narrow on a phone, because a line of text wider than about sixty
+       characters is hard to read and a thumb cannot reach across a page.
+       Wide on a desktop, because the owner reading plot histories on a
+       laptop was being given a phone-shaped column down the middle of his
+       screen with two-thirds of it empty. */
+    <main className="mx-auto w-full max-w-2xl px-4 pt-5 lg:max-w-6xl lg:px-8 lg:pt-8 2xl:max-w-[88rem]">
+      <header className="mb-5 flex items-start justify-between gap-3 lg:mb-7">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-3xl">{title}</h1>
           {subtitle ? <p className="mt-0.5 text-ink-soft">{subtitle}</p> : null}
         </div>
         {action}
@@ -309,7 +314,11 @@ export function Stat({ label, value, tone, hint }: {
 }
 
 export function StatGrid({ children }: { children: ReactNode }) {
-  return <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{children}</div>;
+  return (
+    <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 lg:gap-3">
+      {children}
+    </div>
+  );
 }
 
 /** A proportion bar for cost breakdowns. Labelled, never colour-only. */

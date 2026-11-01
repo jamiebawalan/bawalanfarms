@@ -25,10 +25,21 @@ export function Nav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-line bg-paper"
+      /* A bar across the bottom on a phone, where the thumb is; a rail down
+         the side on a desktop, where the bottom of the browser window is
+         nowhere near the content and the vertical space is better spent on
+         the page itself. */
+      className={cx(
+        "fixed z-20 bg-paper",
+        "inset-x-0 bottom-0 border-t-2 border-line",
+        "lg:inset-y-0 lg:right-auto lg:left-0 lg:w-48 lg:border-t-0 lg:border-r-2",
+      )}
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="mx-auto flex max-w-2xl">
+      <div className="hidden px-4 py-6 lg:block">
+        <span className="text-lg font-bold tracking-tight">Farm Tracker</span>
+      </div>
+      <ul className="mx-auto flex max-w-2xl lg:mx-0 lg:max-w-none lg:flex-col lg:gap-1 lg:px-2">
         {TABS.map(({ href, label, icon: Icon, ...rest }) => {
           const primary = "primary" in rest && rest.primary;
           // Plots lands on the map but owns the list and every plot page too,
@@ -40,17 +51,19 @@ export function Nav() {
               : pathname.startsWith(href) ||
                 (also !== null && pathname.startsWith(also));
           return (
-            <li key={href} className={cx("flex-1", primary && "flex-[1.3]")}>
+            <li key={href} className={cx("flex-1 lg:flex-none", primary && "flex-[1.3]")}>
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cx(
                   "flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-xs font-semibold",
+                  // Side by side with the label on a rail, stacked on a bar.
+                  "lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:text-base",
                   primary
                     ? "m-1.5 rounded-xl bg-brand text-white"
                     : active
-                      ? "text-brand"
-                      : "text-ink-soft",
+                      ? "text-brand lg:bg-brand-tint"
+                      : "text-ink-soft lg:hover:bg-paper-sunk",
                 )}
               >
                 <Icon />

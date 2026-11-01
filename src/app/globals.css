@@ -74,6 +74,15 @@ body {
   padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
 }
 
+/* On a wide screen the navigation moves to a rail down the left, so the page
+   no longer needs room underneath it — it needs room beside it. */
+@media (min-width: 1024px) {
+  body {
+    padding-bottom: 0;
+    padding-left: 12rem;
+  }
+}
+
 /* Numbers line up in columns and read unambiguously at a glance. */
 .tabular { font-variant-numeric: tabular-nums; }
 

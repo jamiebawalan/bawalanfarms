@@ -28,7 +28,7 @@ export function QueueBanner() {
 
   return (
     <div className="border-b-2 border-warn bg-warn-tint px-4 py-3 text-warn">
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 lg:max-w-6xl">
         <div className="min-w-0 text-sm font-semibold">
           {items.length} {items.length === 1 ? "entry is" : "entries are"} waiting to send
           <ul className="mt-1 space-y-0.5 font-normal">
