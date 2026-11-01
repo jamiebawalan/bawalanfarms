@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  Bar, Card, Empty, Money, Note, Page, Stat, StatGrid,
+  Bar, Card, Empty, Money, Note, Page, Section, Stat, StatGrid,
 } from "@/components/ui";
 import { CycleActions } from "@/components/cycle-actions";
 import { LeafTracker, PlotTasks } from "@/components/plot-actions";
@@ -57,8 +57,21 @@ export default async function CyclePage({
     .filter((p) => p.cycleId === id)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  const maxCost = Math.max(1, ...pnl.costByCategory.map((c) => c.amountCentavos));
-  const maxActivity = Math.max(1, ...pnl.costByActivity.map((c) => c.amountCentavos));
+  /**
+   * Bars are a share of what the cycle has cost, not of the biggest line.
+   *
+   * Scaling to the largest row made every plot look the same: whatever the
+   * biggest category happened to be ran the full width, and the eye read
+   * "this is where the money went" from a bar that only meant "this is the
+   * largest of these". Against the total, the widths add to the whole and a
+   * line that is a tenth of the spend looks like a tenth of the spend.
+   */
+  const categoryTotal = Math.max(
+    1, pnl.costByCategory.reduce((a, c) => a + c.amountCentavos, 0),
+  );
+  const activityTotal = Math.max(
+    1, pnl.costByActivity.reduce((a, c) => a + c.amountCentavos, 0),
+  );
 
   const readings = readingsFor(ledger, id);
   const plotTasks = ledger.tasks.filter(
@@ -92,6 +105,26 @@ export default async function CyclePage({
   const soldQty = pnl.revenueByProduct.reduce((a, r) => a + r.quantity, 0);
   const realisedPerFruit =
     soldQty > 0 ? Math.round(pnl.revenueCentavos / soldQty) : null;
+
+  // Counted blocks make the plot's own count arithmetic; see CycleActions.
+  const countedBlocks = blocks.filter((b) => b.plantCount !== null && b.plantCount > 0);
+  const derivedCount =
+    countedBlocks.length > 0 && countedBlocks.length === blocks.length
+      ? {
+          plants: countedBlocks.reduce((a, b) => a + (b.plantCount ?? 0), 0),
+          blocks: countedBlocks.length,
+        }
+      : null;
+
+  const setupSummary = [
+    blocks.length === 0 ? "not blocked out" : `${blocks.length} blocks`,
+    derivedCount !== null
+      ? `${derivedCount.plants.toLocaleString("en-PH")} plants`
+      : counts[0]
+        ? `${counts[0].count.toLocaleString("en-PH")} plants`
+        : "not counted",
+    cycle.dateStarted === null ? "no start date" : `started ${formatDate(cycle.dateStarted)}`,
+  ].join(" · ");
 
   return (
     <Page
@@ -158,11 +191,11 @@ export default async function CyclePage({
         </Note>
       ) : null}
 
-      <SubPlots
+      <PlotPhotos
         cycleId={id}
-        ledger={blockLedger}
-        blockedPct={Math.round(blockedFraction(blocks) * 1000) / 10}
+        photos={photos}
         closed={pnl.isClosed}
+        driveConnected={driveConnected}
       />
 
       <LeafTracker
@@ -185,13 +218,6 @@ export default async function CyclePage({
         projected={forcing === null ? null : { date: forcing.date, cmPerDay: forcing.cmPerDay }}
         target={cycle.targetForcingDate}
         closed={pnl.isClosed}
-      />
-
-      <PlotPhotos
-        cycleId={id}
-        photos={photos}
-        closed={pnl.isClosed}
-        driveConnected={driveConnected}
       />
 
       {pnl.isClosed ? null : (
@@ -232,9 +258,14 @@ export default async function CyclePage({
               <li key={row.category}>
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-semibold">{row.category}</span>
-                  <Money centavos={row.amountCentavos} />
+                  <span className="shrink-0 whitespace-nowrap">
+                    <Money centavos={row.amountCentavos} />
+                    <span className="ml-2 tabular text-sm text-ink-soft">
+                      {percent(row.amountCentavos, categoryTotal, 0)}
+                    </span>
+                  </span>
                 </div>
-                <Bar fraction={row.amountCentavos / maxCost} />
+                <Bar fraction={row.amountCentavos / categoryTotal} />
               </li>
             ))}
           </ul>
@@ -252,9 +283,14 @@ export default async function CyclePage({
                   <span className="font-semibold">
                     {activityLabel.get(row.activity) ?? row.activity}
                   </span>
-                  <Money centavos={row.amountCentavos} />
+                  <span className="shrink-0 whitespace-nowrap">
+                    <Money centavos={row.amountCentavos} />
+                    <span className="ml-2 tabular text-sm text-ink-soft">
+                      {percent(row.amountCentavos, activityTotal, 0)}
+                    </span>
+                  </span>
                 </div>
-                <Bar fraction={row.amountCentavos / maxActivity} />
+                <Bar fraction={row.amountCentavos / activityTotal} />
               </li>
             ))}
           </ul>
@@ -379,6 +415,23 @@ export default async function CyclePage({
         defaultPerPlantCentavos={realisedPerFruit}
       />
 
+      {/* Set once and then left alone for a season: blocked out, dated,
+          counted. Three cards' worth of chrome for something touched twice a
+          cycle, sitting above the figures he looks at every week — so it is
+          one folded section, and it is last. */}
+      <Section
+        title="Blocks, dates and plant counts"
+        summary={setupSummary}
+        defaultOpen={blocks.length === 0 && cycle.dateStarted === null}
+      >
+      <SubPlots
+        cycleId={id}
+        ledger={blockLedger}
+        blockedPct={Math.round(blockedFraction(blocks) * 1000) / 10}
+        closed={pnl.isClosed}
+        bare
+      />
+
       <CycleActions
         cycleId={cycle.id}
         status={cycle.status}
@@ -388,7 +441,10 @@ export default async function CyclePage({
         dateClosed={cycle.dateClosed}
         latestCount={counts[0] ? { date: counts[0].date, count: counts[0].count } : null}
         countHistory={counts.map((c) => ({ date: c.date, count: c.count }))}
+        derivedCount={derivedCount}
+        bare
       />
+      </Section>
     </Page>
   );
 }
