@@ -8,7 +8,7 @@ import { Button, Field, Input, Note, cx } from "./ui";
 import { newId } from "@/lib/queue";
 import { formatDateShort, todayISO } from "@/lib/domain/dates";
 
-type MapShape = {
+export type MapShape = {
   plotId: string;
   part: string;
   d: string;
@@ -20,6 +20,8 @@ type MapShape = {
   cycleId: string | null;
   colourKey: string;
   months: number | null;
+  /** The traced size of this piece, which is what weights a shared label. */
+  areaSqm: number;
   /** Open tasks on this plot, whether or not a cycle is running on it. */
   tasks: { id: string; title: string; dueDate: string; isCritical: boolean }[];
 };
@@ -91,6 +93,13 @@ export function FarmMap({
 
   // A round number of metres that comes out a sensible length on screen.
   const barMetres = 100;
+  // The first piece of each plot, so a plot in two parcels is announced to a
+  // screen reader once rather than twice.
+  const firstPartOf = new Map<string, string>();
+  for (const s of shapes) {
+    if (!firstPartOf.has(s.plotId)) firstPartOf.set(s.plotId, s.part);
+  }
+
   const barUnits = barMetres / metresPerUnit;
 
   return (
@@ -138,12 +147,17 @@ export function FarmMap({
         </li>
       </ul>
 
+      {/* eslint-disable-next-line no-use-before-define */}
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="w-full"
         role="img"
         aria-label={`Map of the farm: ${shapes.length} plots. Tap one to open it.`}
       >
+        {/* The paths are per piece of land; the label, the task dot and the
+            selection are per plot. Plot 11 is traced as two parcels three and
+            a half metres apart — a real gap, not a drawing error — so the map
+            draws both pieces, but it is one plot and should read as one. */}
         {shapes.map((s) => {
           const isSelected = selected?.plotId === s.plotId;
           return (
@@ -158,7 +172,12 @@ export function FarmMap({
                 className="cursor-pointer outline-none focus-visible:stroke-[5]"
                 tabIndex={0}
                 role="button"
-                aria-label={`${s.label}${s.crop ? `, ${s.crop}` : ", nothing planted"}`}
+                aria-label={
+                  firstPartOf.get(s.plotId) === s.part
+                    ? `${s.label}${s.crop ? `, ${s.crop}` : ", nothing planted"}`
+                    : undefined
+                }
+                aria-hidden={firstPartOf.get(s.plotId) === s.part ? undefined : true}
                 onClick={() => { setSelected(isSelected ? null : s); setAdding(false); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -168,35 +187,41 @@ export function FarmMap({
                   }
                 }}
               />
-              <text
-                x={s.labelX}
-                y={s.labelY}
-                textAnchor="middle"
-                dominantBaseline="central"
-                className="pointer-events-none select-none fill-[var(--color-ink)] text-[15px] font-bold"
-              >
-                {s.code}
-              </text>
-              {/* A plot with work waiting says so without being tapped —
-                  otherwise finding it means opening all twenty-seven. */}
-              {s.tasks.length > 0 ? (
-                <circle
-                  cx={s.labelX}
-                  cy={s.labelY + 15}
-                  r={4.5}
-                  className="pointer-events-none"
-                  fill={
-                    s.tasks.some((t) => t.isCritical)
-                      ? "var(--color-danger)"
-                      : "var(--color-ink)"
-                  }
-                  stroke="var(--color-paper)"
-                  strokeWidth="1.5"
-                />
-              ) : null}
             </g>
           );
         })}
+
+        {/* Labels last, so no neighbouring parcel is drawn over a number. */}
+        {oneLabelPerPlot(shapes).map((p) => (
+          <g key={`label-${p.plotId}`}>
+            <text
+              x={p.labelX}
+              y={p.labelY}
+              textAnchor="middle"
+              dominantBaseline="central"
+              className="pointer-events-none select-none fill-[var(--color-ink)] text-[15px] font-bold"
+            >
+              {p.code}
+            </text>
+            {/* A plot with work waiting says so without being tapped —
+                otherwise finding it means opening all twenty-seven. */}
+            {p.tasks.length > 0 ? (
+              <circle
+                cx={p.labelX}
+                cy={p.labelY + 15}
+                r={4.5}
+                className="pointer-events-none"
+                fill={
+                  p.tasks.some((t) => t.isCritical)
+                    ? "var(--color-danger)"
+                    : "var(--color-ink)"
+                }
+                stroke="var(--color-paper)"
+                strokeWidth="1.5"
+              />
+            ) : null}
+          </g>
+        ))}
 
         {/* A scale bar, so the shapes carry real size and not just proportion. */}
         <g transform={`translate(14, ${height - 18})`}>
@@ -308,4 +333,32 @@ function fillFor(key: string): string {
   if (key === "peanut") return "var(--c-peanut)";
   if (key === "banana") return "var(--c-banana)";
   return "var(--c-other)";
+}
+
+/**
+ * One label per plot, wherever its land actually is.
+ *
+ * A plot traced as two parcels used to get its number printed twice, which
+ * read as two plots. The number now sits at the centre of area across all of
+ * them — weighted, so a small outlying parcel does not drag the label into
+ * the gap between them.
+ */
+export function oneLabelPerPlot(shapes: MapShape[]) {
+  const byPlot = new Map<string, MapShape[]>();
+  for (const s of shapes) {
+    byPlot.set(s.plotId, [...(byPlot.get(s.plotId) ?? []), s]);
+  }
+
+  return [...byPlot.values()].map((parts) => {
+    const biggest = parts.reduce((a, b) => (b.areaSqm > a.areaSqm ? b : a));
+    const total = parts.reduce((a, p) => a + Math.max(0, p.areaSqm), 0);
+    // With no areas to weight by, the largest parcel keeps the label rather
+    // than the number drifting to the midpoint of two pieces of land.
+    if (total <= 0) return biggest;
+    return {
+      ...biggest,
+      labelX: parts.reduce((a, p) => a + p.labelX * Math.max(0, p.areaSqm), 0) / total,
+      labelY: parts.reduce((a, p) => a + p.labelY * Math.max(0, p.areaSqm), 0) / total,
+    };
+  });
 }
