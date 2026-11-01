@@ -79,6 +79,39 @@ export function Card({ title, action, children, className }: {
  * the number the section exists to report — the whole page is then readable
  * without opening anything, and opening one is a deliberate act.
  */
+/**
+ * A card, or the same contents without the box.
+ *
+ * Some things are a card on their own and a paragraph inside something
+ * bigger. Blocks, cycle dates and plant counts are each a card when you go
+ * looking for them, and three boxes inside a box when they are gathered into
+ * one place — which is where they belong, because they are set once and then
+ * left alone for a season.
+ */
+export function Panel({
+  title, action, bare = false, children,
+}: {
+  title?: ReactNode;
+  action?: ReactNode;
+  bare?: boolean;
+  children: ReactNode;
+}) {
+  if (!bare) return <Card title={title} action={action}>{children}</Card>;
+  return (
+    <section className="mb-6 last:mb-0">
+      {title === undefined ? null : (
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-ink-soft">
+            {title}
+          </h3>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
 export function Section({
   title, summary, tone, defaultOpen = false, children,
 }: {

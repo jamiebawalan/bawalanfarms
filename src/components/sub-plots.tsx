@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AmountInput, Button, Card, Empty, Field, Input, Money, Note } from "./ui";
+import { AmountInput, Button, Empty, Field, Input, Money, Note, Panel } from "./ui";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import { formatPeso, formatPesoPrecise } from "@/lib/domain/money";
 import type { SubPlotLedger } from "@/lib/domain/subplots";
@@ -21,12 +21,14 @@ import type { SubPlotLedger } from "@/lib/domain/subplots";
  * when it has been counted.
  */
 export function SubPlots({
-  cycleId, ledger, blockedPct, closed,
+  cycleId, ledger, blockedPct, closed, bare = false,
 }: {
   cycleId: string;
   ledger: SubPlotLedger;
   blockedPct: number;
   closed: boolean;
+  /** Rendered inside the setup section at the foot of the plot page. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const today = todayISO();
@@ -152,7 +154,7 @@ export function SubPlots({
   });
 
   return (
-    <Card title="Blocks">
+    <Panel title="Blocks" bare={bare}>
       {error ? <Note tone="danger">{error}</Note> : null}
 
       {ledger.blocks.length === 0 ? (
@@ -273,6 +275,6 @@ export function SubPlots({
           {ledger.blocks.length === 0 ? "Block out this plot" : "Add another block"}
         </Button>
       ) : null}
-    </Card>
+    </Panel>
   );
 }

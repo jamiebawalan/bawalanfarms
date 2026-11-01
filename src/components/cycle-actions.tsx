@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Field, Input, Note } from "./ui";
+import { Button, Field, Input, Note, Panel } from "./ui";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import type { CycleStatus } from "@/lib/domain/types";
 import { isCountedPerPlant } from "@/lib/domain/crops";
@@ -24,6 +24,7 @@ const NEXT_STATUS: Record<string, CycleStatus | null> = {
  */
 export function CycleActions({
   cycleId, status, crop, dateStarted, datePlanted, dateClosed, latestCount, countHistory,
+  bare = false, derivedCount = null,
 }: {
   cycleId: string;
   status: CycleStatus;
@@ -33,6 +34,14 @@ export function CycleActions({
   dateClosed: string | null;
   latestCount: { date: string; count: number } | null;
   countHistory: { date: string; count: number }[];
+  /** Rendered inside the setup section at the foot of the plot page. */
+  bare?: boolean;
+  /**
+   * The plants counted block by block, where the plot has been blocked out.
+   * Then the plot's own count is arithmetic rather than a second thing to
+   * type — and two numbers that are meant to be the same cannot disagree.
+   */
+  derivedCount?: { plants: number; blocks: number } | null;
 }) {
   const router = useRouter();
   const today = todayISO();
@@ -73,7 +82,7 @@ export function CycleActions({
 
   return (
     <>
-      <Card title="Cycle dates">
+      <Panel title="Cycle dates" bare={bare}>
         <Field
           label="Cycle started (land prep)"
           htmlFor="date-started"
@@ -122,10 +131,23 @@ export function CycleActions({
             Moving the start date changes which costs fall inside this cycle.
           </p>
         ) : null}
-      </Card>
+      </Panel>
 
-      <Card title="Plant count">
-        {latestCount ? (
+      <Panel title="Plant count" bare={bare}>
+        {/* Once the plot is blocked out and the blocks are counted, the
+            plot's total is arithmetic. Asking for it a second time would be
+            asking him to type a number the app already knows, and inviting
+            the two to disagree. */}
+        {derivedCount !== null ? (
+          <p className="mb-3 text-ink-soft">
+            <span className="tabular text-xl font-bold text-ink">
+              {derivedCount.plants.toLocaleString("en-PH")}
+            </span>{" "}
+            counted across {derivedCount.blocks}{" "}
+            {derivedCount.blocks === 1 ? "block" : "blocks"} — add or change a
+            count on the block itself and this follows.
+          </p>
+        ) : latestCount ? (
           <p className="mb-3 text-ink-soft">
             <span className="tabular text-xl font-bold text-ink">
               {latestCount.count.toLocaleString("en-PH")}
@@ -147,7 +169,7 @@ export function CycleActions({
           </p>
         )}
 
-        {status !== "closed" ? (
+        {status !== "closed" && derivedCount === null ? (
           <div className="flex items-end gap-3">
             <Field label="New count" htmlFor="count">
               <Input
@@ -208,9 +230,9 @@ export function CycleActions({
             </p>
           </details>
         ) : null}
-      </Card>
+      </Panel>
 
-      <Card title="Move it along">
+      <Panel title="Move it along" bare={bare}>
         {error ? <Note tone="danger">{error}</Note> : null}
 
         {status !== "closed" ? (
@@ -272,7 +294,7 @@ export function CycleActions({
             Reopen it
           </Button>
         )}
-      </Card>
+      </Panel>
     </>
   );
 }
