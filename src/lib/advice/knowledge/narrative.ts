@@ -15,17 +15,29 @@ export const EXPORTED_ON = "2026-08-30";
 /** Where the farm is and how it is run. From MEMORY.md and USER_PROFILE.md. */
 export const FARM = `The farm is in Barangay Batas, Silang, Cavite, Philippines. Soil is clay loam and drainage is a real constraint. Production is predominantly rainfed; irrigation has been considered but not built. The farm has grown from roughly 10 ha toward 12, with planning toward 15.
 
-The primary crop is Smooth Cayenne pineapple, planted at a working density of about 25,000 plants per hectare. Peanut is the principal rotation crop, used to fix nitrogen, return residue and break the pineapple cycle. Ube, calamansi, watermelon and papaya have been evaluated as alternatives at various points.
+The primary crop is Smooth Cayenne pineapple. Actual density today is about 26,500 plants per hectare; the protocol targets 40,000 to 50,000. Peanut is the principal rotation crop, used to fix nitrogen, return residue and break the pineapple cycle. Ube, calamansi, watermelon and papaya have been evaluated as alternatives at various points.
 
 Local terms, which the owners and the crew use in preference to English:
 - suwe = suckers
 - salo = slips
 - mane = peanut. One crop, two words; the crew says mane.
-- D-leaf = the longest fully expanded firm leaf, sitting at roughly 45 degrees; the plant-maturity indicator the farm steers forcing by.
+- D-leaf = the longest leaf when all the leaves are gathered upward in the hand: mid-plant and the most active, not the youngest. This is the protocol's definition and it replaces the one the farm used before November 2026 — the older description, the longest fully expanded firm leaf at roughly 45 degrees, is part of why the readings taken up to then have been set aside.
 - Fruit is graded in the Cavite system: primera, segunda, tercera, kwarta, quinta.`;
 
 /** What the farm has learned about growing the crop. From MEMORY.md. */
-export const AGRONOMY = `D-leaf and forcing:
+/**
+ * What the farm used to believe, kept only as history.
+ *
+ * Every line here predates the protocol and several are now known to be
+ * wrong — the D-leaf thresholds most of all, because the measurements behind
+ * them were taken by a method the consultants have since corrected. None of
+ * it may be offered as advice. It is here so that a reading of the farm's
+ * past makes sense, and so that nobody rediscovers an abandoned idea and
+ * mistakes it for a new one.
+ */
+export const HISTORICAL_PRACTICE = `Superseded by the protocol on 1 November 2026. Historical context only — never a recommendation.
+
+D-leaf and forcing:
 - D-leaf length is the key maturity and forcing indicator.
 - Working targets range from about 75-85 cm for cautious forcing readiness to 95-100 cm for larger plants and larger fruit. Both are legitimate and the owners choose per plot (D011). The default lean is toward the larger threshold, because a harvest tending to primera pays better (D010) — but seasonal pricing can reverse that. Christmas prices rise enough that forcing earlier for smaller fruit can be the better trade on a plot that would otherwise land in a flat market.
 - Smooth Cayenne needs a higher D-leaf at forcing than Queen.
@@ -72,4 +84,8 @@ When advising, weigh: rate per plant and per hectare, timing against rainfall an
  * prescription list. Eighteen months of conversation contains a great deal of
  * thinking-out-loud, and a rate discussed once is not a rate decided.
  */
-export const INTERPRETATION = `Do not treat every historical dosage in this record as a settled prescription. Several fertiliser and herbicide rates were exploratory. Prefer current label directions, Philippine registrations, soil and leaf analysis, field moisture, and evidence from the farm's own trial blocks when recommending anything new.`;
+export const INTERPRETATION = `The protocol governs. Where anything in the farm's history disagrees with it, the protocol is right and the history is a record of what was done before, not a practice to continue or revive.
+
+Advice must come from the protocol first. Where the protocol is silent, say so plainly rather than filling the gap from the old record — and where the protocol names something as an open item, treat it as open rather than picking a side.
+
+Two things remain true regardless. Doses are per plant, except lime, dolomite, rock phosphate, herbicides and land prep, which are per area. And current label directions and Philippine registrations override any rate in any document here, including the protocol.`;
