@@ -46,23 +46,43 @@ describe("the code he types in", () => {
 });
 
 describe("what he is told when a code is refused", () => {
-  it("says to ask for a new one when it has expired", () => {
-    expect(explainOtpFailure("Token has expired or is invalid"))
-      .toContain("expired");
+  /**
+   * Supabase says "Token has expired or is invalid" for both a code that has
+   * timed out and a code that is simply wrong, and will not say which.
+   *
+   * This used to match "expired" first and state it as fact. The farm's
+   * owners then spent a day hunting a timing problem while the real cause was
+   * a code being silently cut short by this app. A message that picks one of
+   * two causes and asserts it is worse than one that admits to both: it does
+   * not merely fail to help, it sends people the wrong way.
+   */
+  it("does not claim a code expired when the server did not say that", () => {
+    const said = explainOtpFailure("Token has expired or is invalid");
+    expect(said).not.toMatch(/^That code has expired/);
+    expect(said).toContain("every digit");
   });
 
-  /**
-   * The trap worth naming: asking twice kills the first code. Without this he
-   * types the code from the email he happens to have open, which is the old
-   * one, and concludes the app is broken.
-   */
-  it("warns that an older code stops working once a new one is asked for", () => {
-    expect(explainOtpFailure("Invalid token"))
-      .toContain("older code stops working");
+  it("says the same for a plainly invalid token", () => {
+    expect(explainOtpFailure("Invalid token")).toContain("every digit");
+  });
+
+  /** The trap worth naming: asking twice kills the first code. */
+  it("warns that asking for a second code stops the first working", () => {
+    expect(explainOtpFailure("Token has expired or is invalid"))
+      .toContain("asking for a second code");
   });
 
   it("says to wait when he has tried too often", () => {
     expect(explainOtpFailure("For security purposes, you can only request this after 60 seconds"))
+      .toContain("Wait a minute");
+  });
+
+  /**
+   * Rate limiting is checked first because its message mentions a token too,
+   * and "wait a minute" is the only one of these he can act on immediately.
+   */
+  it("calls a rate limit a rate limit even when it mentions a token", () => {
+    expect(explainOtpFailure("Too many requests for this token"))
       .toContain("Wait a minute");
   });
 
