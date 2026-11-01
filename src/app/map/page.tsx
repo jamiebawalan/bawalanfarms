@@ -98,6 +98,7 @@ export default async function MapPage() {
               shapes={shapes.map((s) => ({
                 plotId: s.plotId,
                 part: s.part,
+                areaSqm: s.areaSqm,
                 d: s.d,
                 labelX: s.labelX,
                 labelY: s.labelY,

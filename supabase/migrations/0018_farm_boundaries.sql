@@ -2,8 +2,10 @@
 -- The farm's boundaries, from New Farm Mapping 2.0
 -- ---------------------------------------------------------------------------
 -- Twenty-seven rings traced in Google Earth. Plot 11 arrives as two parcels,
--- 11a and 11b, both attached to the single Plot 11 the app still holds; when
--- that plot is split they move across without being redrawn.
+-- 11a and 11b, both attached to the single Plot 11 — which is what it is and
+-- what it stays. The two pieces of land sit about three and a half metres
+-- apart, so the map draws both, but it is one plot with one number on it.
+-- Where its planting needs splitting by date, that is what blocks are for.
 --
 -- The ka-Heme parcel in the same file is a neighbour's and is deliberately left
 -- out: a polygon in the app that the farm does not own would be a lie on every
