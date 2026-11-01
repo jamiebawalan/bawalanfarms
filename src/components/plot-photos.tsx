@@ -302,7 +302,7 @@ export function PlotPhotos({
         <>
           {/* Only the newest few. A season of photos is a very long page to
               scroll past on the way to anything else on this plot. */}
-          <ul className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          <ul className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
             {(expanded ? byDate : byDate.slice(0, SHOWN_AT_FIRST)).map((photo, i) => (
               <li key={photo.id}>
                 <button
@@ -369,7 +369,7 @@ export function PlotPhotos({
             </MarkEditor>
           ) : (
             <div
-              className="relative overflow-auto rounded-xl border-2 border-line bg-paper-sunk"
+              className="relative mx-auto overflow-auto rounded-xl border-2 border-line bg-paper-sunk lg:max-w-3xl"
               style={{ maxHeight: "70vh" }}
             >
               <div className="relative" style={{ width: `${zoom * 100}%` }}>

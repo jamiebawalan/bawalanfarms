@@ -52,7 +52,7 @@ export default async function OwnerPage() {
         </Note>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-2 gap-2">
+      <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
         <PairStat
           label="Sales"
           recent={formatPeso(d.quarter.revenueCentavos)}
