@@ -64,7 +64,10 @@ export async function POST(request: Request) {
     // Named by the day it was taken and a short id, so the folder sorts by date
     // and two photos on one morning cannot collide.
     const stamp = Math.random().toString(36).slice(2, 7);
-    const name = `${takenOn} ${caption || "plot"} ${stamp}.jpg`.replace(/[\\/]/g, "-");
+    // Uncaptioned photos carry the time instead of the word "plot", so a
+    // morning's batch is still tellable apart in the Drive folder itself.
+    const clock = new Date().toISOString().slice(11, 16).replace(":", "");
+    const name = `${takenOn} ${caption || clock} ${stamp}.jpg`.replace(/[\\/]/g, "-");
     const bytes = Buffer.from(await file.arrayBuffer());
     const driveId = await drive.upload(
       "photo", `${cycleId}:${stamp}`, name, folder, file.type, bytes,

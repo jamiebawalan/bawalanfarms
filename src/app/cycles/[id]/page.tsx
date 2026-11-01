@@ -395,15 +395,17 @@ async function readPhotos(cycleId: string) {
     const [{ data: rows }, { data: auth }] = await Promise.all([
       admin
         .from("plot_photos")
-        .select("id, taken_on, caption")
+        .select("id, taken_on, caption, created_at")
         .eq("cycle_id", cycleId)
         .order("taken_on", { ascending: false }),
       admin.from("google_auth").select("root_folder_id").maybeSingle(),
     ]);
     return {
-      photos: (rows ?? []).map((r: { id: string; taken_on: string; caption: string | null }) => ({
-        id: r.id, takenOn: r.taken_on, caption: r.caption,
-      })),
+      photos: (rows ?? []).map(
+        (r: { id: string; taken_on: string; caption: string | null; created_at: string }) => ({
+          id: r.id, takenOn: r.taken_on, caption: r.caption, addedAt: r.created_at,
+        }),
+      ),
       driveConnected: Boolean(auth?.root_folder_id),
     };
   } catch {
