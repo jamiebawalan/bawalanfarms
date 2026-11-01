@@ -31,6 +31,11 @@ export default async function NewExpensePage({
         label: p.label,
         areaSqm: areaOn(ledger.plotAreas, p.id, today),
         openCycle: cycle ? { id: cycle.id, crop: cycle.crop } : null,
+        blocks: cycle
+          ? ledger.subPlots
+              .filter((b) => b.cycleId === cycle.id)
+              .map((b) => ({ id: b.id, name: b.name, plantedOn: b.plantedOn }))
+          : [],
       };
     });
 

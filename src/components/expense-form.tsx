@@ -22,6 +22,12 @@ export type FormPlot = {
   areaSqm: number | null;
   /** The cycle live on this plot today, for the "goes to" line under the chips. */
   openCycle: { id: string; crop: string } | null;
+  /**
+   * The blocks that cycle is cut into, if any. Offered only when he has picked
+   * this one plot: asking which block a cost split across four plots belongs
+   * to is asking him to invent an answer.
+   */
+  blocks?: { id: string; name: string; plantedOn: string }[];
 };
 
 type Scope = "plots" | "farm_wide" | "capital";
@@ -47,7 +53,7 @@ export type ExistingExpense = {
   amountCentavos: number;
   paidTo: string | null;
   note: string | null;
-  allocations: { plotId: string; amountCentavos: number }[];
+  allocations: { plotId: string; amountCentavos: number; subPlotId?: string | null }[];
   capitalAsset: { name: string; usefulLifeMonths: number } | null;
   /** When it was last corrected, if it has been. */
   revisedAt: string | null;
@@ -162,6 +168,10 @@ export function ExpenseForm({
       : "",
   );
 
+  // Which block, when the plot has them and he picked just the one plot.
+  const [blockId, setBlockId] = useState<string | null>(
+    existing?.allocations[0]?.subPlotId ?? null,
+  );
   const [paidTo, setPaidTo] = useState(existing?.paidTo ?? "");
   const [note, setNote] = useState(existing?.note ?? prefill?.note ?? "");
   // Shares he has set himself, as percentages. On a correction these open on
@@ -298,6 +308,16 @@ export function ExpenseForm({
     }));
   }, [scope, isSplit, amountCentavos, selected, shares, suggested, splitUnchanged, existing]);
 
+  // Blocks are only offered for a cost on exactly one plot: a cost split
+  // across four plots cannot sensibly name a block in one of them.
+  const onlyBlocks =
+    scope === "plots" && selected.length === 1 ? selected[0]!.blocks ?? [] : [];
+  // A block chosen and then made unreachable — he added a second plot, or
+  // switched to whole-farm — must not ride along invisibly on the save. Read
+  // through this rather than resetting the state during render: he may well
+  // come back to one plot, and his choice is still the right one when he does.
+  const chosenBlock = onlyBlocks.some((b) => b.id === blockId) ? blockId : null;
+
   const unsurveyed = selected.filter((p) => p.areaSqm === null);
 
   const allocated = lines.reduce((a, l) => a + l.amountCentavos, 0);
@@ -349,7 +369,12 @@ export function ExpenseForm({
           : null,
       allocations:
         scope === "plots"
-          ? lines.map((l) => ({ plot_id: l.plotId, amount_centavos: l.amountCentavos }))
+          ? lines.map((l) => ({
+              plot_id: l.plotId,
+              amount_centavos: l.amountCentavos,
+              // Only ever on a single-plot cost: see `blocks` on FormPlot.
+              sub_plot_id: lines.length === 1 ? chosenBlock : null,
+            }))
           : [],
     };
 
@@ -672,6 +697,39 @@ export function ExpenseForm({
                       : "→ no cycle open, this will show as unattached"}
                   </p>
                 ))}
+              </div>
+            ) : null}
+
+            {/* Blocks, only for a cost on this one plot. Most costs are for
+                the whole plot and are divided across the blocks when they are
+                read, so "Whole plot" is the honest default rather than a
+                question he has to answer every time. */}
+            {onlyBlocks.length > 0 ? (
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-semibold text-ink">
+                  Which block? This plot is cut into {onlyBlocks.length}.
+                </p>
+                <ChipGroup>
+                  <Chip selected={chosenBlock === null} onClick={() => setBlockId(null)}>
+                    Whole plot
+                  </Chip>
+                  {onlyBlocks.map((b) => (
+                    <Chip
+                      key={b.id}
+                      selected={chosenBlock === b.id}
+                      onClick={() => setBlockId(b.id)}
+                    >
+                      {b.name}
+                    </Chip>
+                  ))}
+                </ChipGroup>
+                <p className="mt-2 text-sm text-ink-soft">
+                  {chosenBlock === null
+                    ? "Shared out across the blocks by size — or by plant count, for inputs."
+                    : `Charged to ${
+                        onlyBlocks.find((b) => b.id === chosenBlock)?.name ?? "that block"
+                      } alone.`}
+                </p>
               </div>
             ) : null}
           </div>

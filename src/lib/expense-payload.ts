@@ -15,6 +15,8 @@ import { z } from "zod";
 const Allocation = z.object({
   plot_id: z.string().uuid(),
   cycle_id: z.string().uuid().nullable().optional(),
+  /** The block within the plot, when he spent it on one in particular. */
+  sub_plot_id: z.string().uuid().nullable().optional(),
   amount_centavos: z.number().int().nonnegative(),
 });
 

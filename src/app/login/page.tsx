@@ -87,11 +87,11 @@ export default function LoginPage() {
         {state === "sent" || state === "checking" ? (
           <>
             <Note tone="good">
-              Check your email for a six-digit code and type it here. Do not tap
+              Check your email for the sign-in code and type it here. Do not tap
               the link — the code is what keeps you signed in.
             </Note>
 
-            <Field label="Six-digit code" htmlFor="code">
+            <Field label="Sign-in code" htmlFor="code">
               <Input
                 id="code"
                 inputMode="numeric"
@@ -99,7 +99,7 @@ export default function LoginPage() {
                 autoFocus
                 value={code}
                 onChange={(e) => setCode(normaliseCode(e.target.value))}
-                placeholder="123456"
+                placeholder="12345678"
                 className="tabular text-2xl tracking-[0.3em]"
               />
             </Field>
