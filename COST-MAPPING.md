@@ -8,34 +8,83 @@ without losing what was originally written down.
 
 ---
 
-## What is actually wrong
+## What "Other" actually contains
 
-The structure is sound and worth keeping. An expense carries **two** things:
-a *category* (what kind of money — Labour, Farm Inputs, Machines) and an
-*activity* (what work — Deweed, Abono, Tanim). That is the right pair of axes,
-and most farm software only has one.
+The top 100 phrases are **₱397,876 across 121 entries**. Bucketed by what
+they are:
 
-Three things are wrong with the contents.
+| | Pesos | Entries |
+|---|---:|---:|
+| Vehicles and machine repair | 67,673 | 14 |
+| Fertiliser bought | 58,400 | 15 |
+| Peanut (*mane*) rotation | 55,000 | 4 |
+| Planting and layout | 37,500 | 21 |
+| Payments to people | 34,000 | 14 |
+| Animals | 22,364 | 9 |
+| Admin and trips | 17,350 | 7 |
+| Tools and equipment | 15,989 | 10 |
+| Infrastructure and clearing | 10,850 | 10 |
+| Ripening and harvest | 8,950 | 6 |
+| Weeds | 5,400 | 4 |
 
-**1. "Other" is the largest single line.** On Plot 7 it is ₱27,450, 17% of the
-plot. It is free text, so it cannot be summed, compared between plots, or
-matched to a protocol round. Every entry in it is a real activity that had
-nowhere to go — Magnesium Sulfate, Zinc sulphate, Final Hakot and Tanim.
+**This is not mainly a missing-pineapple-activities problem**, which is what
+the first draft of this document assumed. It is four different problems that
+happen to share a bucket, and they need different fixes.
 
-**2. The same work is logged under different names.** Deweed, Pakyaw Deweed,
-Tabas, Tabas Mane are four codes for what is at most two jobs. `Pakyaw Deweed`
-is not even a different job: `pakyaw` is a *way of paying*, and the expense row
-already has a `labour_mode` column holding exactly that, with `daily`, `pakyaw`
-and `kasama` as its values. So that code records the same fact twice and
-splits the number for it.
+### 1. Work that already had a home — about ₱102,000
 
-**3. Food is filed as a Farm Input.** It is ₱12,627 on Plot 7 — 8% of the
-plot, sitting inside "Farm Inputs" next to the fertiliser. Feeding the crew is
-a real cost and belongs in the P&L, but counting it as an input makes the
-input-cost-per-plant figure wrong, and that figure is one the protocol work is
-meant to improve.
+`Barang (repairs, parts, diesel)` **already exists** as an activity, and
+₱67,673 of vehicle and machine repair went to "Other" anyway: wrangler parts,
+ball joints, chassis repair, hydroback, synchronizers.
+
+`paid_to` **already exists** as a column, and ₱34,000 went into the note
+instead: *Daddy* (8 entries), *Palabor ni Daddy*, *Severance Yoyong*.
+
+`attribution` **already exists**, and one ₱50,000 entry reads *"Plot 25
+and 26"*.
+
+That is a quarter of the free text, and none of it is a vocabulary gap. The
+right field existed and was not found. **A longer list will not fix this.**
+
+### 2. Materials with no code — about ₱58,000
+
+Urea, zinc sulphate, magnesium sulfate, 0-0-60, 16-20-0, extra Ethrel. These
+had nowhere to go because the input catalogue was ten rows from the
+spreadsheet era. `0031` has since added twenty more, so this gap is closed
+going forward — the history still needs mapping.
+
+### 3. A whole crop with no activities — ₱55,000
+
+*Mane* is **mani**, peanut, the rotation crop. *Mane Binhi* is peanut seed at
+₱50,000 — the single largest line in "Other". *Himay Mane* is shelling it;
+*Mane Planting*; diesel for *mane transport*.
+
+Which also answers a question from the first draft: **Tabas Mane is cutting
+back the peanut**, not a pineapple job.
+
+### 4. Costs that may not belong to a plot at all — about ₱17,000
+
+A ChatGPT subscription, Agrilink trips, accommodation, newspapers and a
+courier, an RFID for Balintawak, fuel for the Hilux and a taillight somebody
+drove into.
+
+These are farm *business* costs, not crop costs. If they are allocated to
+plots they are inside cost per plant, which is the figure the protocol work
+exists to improve. Worth knowing which, and that needs a query.
 
 ---
+
+## The conclusion that matters
+
+Four fifths of this is not the activity list being too short.
+
+It is that **"Other" was easier to reach than the right field**. Anthony
+typed *Daddy* into a note eight times because `paid_to` was less obvious than
+a free-text box. The same thing will happen to the new list within a year
+unless the entry screen changes too.
+
+So the build is two halves and the second is the larger: rebuild the list and
+migrate the history, **and make the right field the easy one at entry**.
 
 ## Proposed shape
 
@@ -129,26 +178,82 @@ months of history.
 
 ---
 
+## What still needs you
+
+Five decisions. Everything else I can map from the evidence.
+
+**1. Do the admin costs belong in the farm P&L?** ChatGPT, Agrilink trips,
+accommodation, newspapers, the Balintawak RFID, Hilux fuel and the taillight
+— about ₱17,000. Three answers are defensible: keep them out entirely, keep
+them in as farm-wide overhead that never touches a plot, or leave them
+allocated. Only the third one changes cost per plant, and it changes it
+wrongly.
+
+**2. Does peanut get its own activities?** It is ₱55,000 of real work —
+seed, shelling, planting, cutting back. Either it gets its own short list, or
+it shares Plant and Harvest with the crop on the cycle telling them apart.
+Sharing is tidier; its own list makes "what did the peanut rotation cost"
+answerable in one glance.
+
+**3. Are tools capital or expense?** Chainsaw, mower, sprayer, knapsack, two
+hoes, a weighing scale — ₱15,989. The expense table already has
+`capital_asset_id`. A chainsaw used across three cycles is not a cost of the
+cycle that happened to buy it.
+
+**4. Same question for the kalabaws.** ₱7,000 across two entries, and a
+carabao is not consumed by one cycle.
+
+**5. Is Tabas the same job as Deweed?** The notes have both *Start tabas* and
+*Chemical Deweed*, which reads like tabas is cutting by hand and deweed is
+spraying — two methods, not one job. If so they stay separate and the new
+names should say which is which.
+
+---
+
+## Confirmed from the notes
+
+- **Mane = mani = peanut.** So *Tabas Mane* is cutting back the peanut.
+- **Pampahinog** is the ripening agent — *Embark for pampahinog*,
+  *Pampahinog Application*. The protocol's optional ripening spray at harvest.
+- **Salo** appears alongside *Suwe* in *baba Salo/Suwe*, so both are planting
+  material being collected.
+- **Layout** is a real step in its own right — eleven entries mention it,
+  usually paired with planting. It is marking out the rows before planting,
+  and the protocol has no name for it.
+
+---
+
 ## The part that needs your data
 
 "Other" cannot be mapped from here: the answers are in the notes, which live
 in the production database. Run this in the Supabase SQL editor and send the
 result back, and the mapping can be finished.
 
+Which of the admin costs are charged to plots rather than the whole farm:
+
 ```sql
-select
-  coalesce(activity_other_note, note, '(no note)') as what_was_written,
-  count(*)                                        as entries,
-  sum(amount_centavos) / 100                      as pesos
-from expenses
-where activity = 'other'
-  and voided_at is null
-group by 1
+select e.attribution,
+       coalesce(e.activity_other_note, e.note) as what_was_written,
+       e.amount_centavos / 100 as pesos
+from expenses e
+where e.activity = 'other' and e.voided_at is null
+  and (e.activity_other_note ilike any (array[
+        '%chatgpt%','%agrilink%','%accomodation%','%newspaper%',
+        '%rfid%','%hilux%','%byd%','%scooter%','%phc trip%'])
+    or e.note ilike any (array[
+        '%chatgpt%','%agrilink%','%accomodation%','%newspaper%',
+        '%rfid%','%hilux%','%byd%','%scooter%','%phc trip%']))
 order by pesos desc;
 ```
 
-It groups identical notes, so repeated ones appear once with a total. Expect
-the list to be short — most farms reuse the same handful of phrases.
+And the full tail, since the first query stopped at 100 rows:
+
+```sql
+select count(*) as entries,
+       count(distinct coalesce(activity_other_note, note)) as phrases,
+       sum(amount_centavos) / 100 as pesos
+from expenses where activity = 'other' and voided_at is null;
+```
 
 ---
 
