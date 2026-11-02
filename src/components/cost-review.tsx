@@ -86,6 +86,17 @@ export function CostReview({
         Pick what the work actually was and the whole group moves together.
         What was originally written is kept either way.
       </p>
+      {/*
+        * Said out loud because it is the obvious worry: these chips are all
+        * activities, and an activity looks like labour. It is not. The kind
+        * of money never changes here — a sack of potash stays Farm Inputs and
+        * only the work it was for is being answered.
+        */}
+      <Note tone="info">
+        This only changes what a cost was <em>for</em>. It never changes
+        whether it was labour, materials or machines — a sack of fertiliser
+        stays Farm Inputs, filed under the work it was bought for.
+      </Note>
 
       <ul className="divide-y divide-line">
         {items.map((item) => {
@@ -123,6 +134,11 @@ export function CostReview({
               ) : (
                 <>
                   <div className="mt-2">
+                    {/*
+                      * The group, not just the label. "Side-dress (granules)"
+                      * is the Nutrients answer, and somebody looking for
+                      * Nutrients could not tell that from the name alone.
+                      */}
                     <ChipGroup>
                       {suggestions.map((h) => (
                         <Chip
@@ -130,7 +146,12 @@ export function CostReview({
                           disabled={busy !== null}
                           onClick={() => void assign(item, h.code)}
                         >
-                          {h.label}
+                          <span className="block text-left">
+                            <span className="block text-xs font-normal opacity-75">
+                              {groupOf(h.code, activities)}
+                            </span>
+                            {h.label}
+                          </span>
                         </Chip>
                       ))}
                     </ChipGroup>
@@ -165,4 +186,9 @@ export function CostReview({
       </p>
     </Card>
   );
+}
+
+/** Which part of the crop an activity belongs to, for the chip's first line. */
+function groupOf(code: string, activities: readonly ActivityOption[]): string {
+  return activities.find((a) => a.code === code)?.activityGroup ?? "";
 }

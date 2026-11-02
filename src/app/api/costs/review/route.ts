@@ -41,7 +41,17 @@ export async function POST(request: Request) {
     .eq("code", to_activity)
     .eq("active", true)
     .maybeSingle();
-  if (target === null || to_activity === "other") {
+  /*
+   * Never onto "other", and never onto a code that is itself waiting on a
+   * decision — including itself. Both would take the row out of the queue
+   * without answering anything, which is worse than leaving it: it marks
+   * work as done that was not done.
+   */
+  if (
+    target === null ||
+    to_activity === "other" ||
+    (UNSETTLED_CODES as readonly string[]).includes(to_activity)
+  ) {
     return NextResponse.json(
       { error: "That is not an activity you can file things under." },
       { status: 400 },
