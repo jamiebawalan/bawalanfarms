@@ -36,13 +36,20 @@ comment on column expenses.legacy_note is
 insert into activities (code, label, activity_group, default_category, sort_order, active) values
   -- Land prep -------------------------------------------------------------
   ('soil_test',        'Soil test',                    'Land prep', 'Miscellaneous', 100, true),
-  ('clear_crop',       'Clear the old crop',           'Land prep', 'Labor',         110, true),
+  -- Clearing, ploughing, harrowing and bed-forming default to Machines
+  -- because that is what they almost always are: a tractor and an operator.
+  -- They are not separate "machinery" activities, though — the activity says
+  -- what work was done and the category says what kind of money paid for it,
+  -- so a crew doing the same job by hand is the same activity with the
+  -- category switched. Two labels for one job is how deweeding ended up
+  -- split across four codes.
+  ('clear_crop',       'Clear the old crop',           'Land prep', 'Machines',      110, true),
   ('knockdown',        'Knockdown spray',              'Land prep', 'Labor',         120, true),
   ('amend_soil',       'Lime, dolomite or rock phosphate', 'Land prep', 'Labor',     130, true),
-  ('plough',           'Plough or deep rip',           'Land prep', 'Labor',         140, true),
-  ('harrow',           'Harrow',                       'Land prep', 'Labor',         150, true),
+  ('plough',           'Plough or deep rip',           'Land prep', 'Machines',      140, true),
+  ('harrow',           'Harrow',                       'Land prep', 'Machines',      150, true),
   ('drainage',         'Drainage canals',              'Land prep', 'Labor',         160, true),
-  ('form_beds',        'Form the beds',                'Land prep', 'Labor',         170, true),
+  ('form_beds',        'Form the beds',                'Land prep', 'Machines',      170, true),
   -- Layout is not in the protocol and is unmistakably a job: eleven of the
   -- free-text entries name it, usually in the same breath as planting.
   ('layout',           'Layout (mark the rows)',       'Land prep', 'Labor',         180, true),
@@ -114,7 +121,10 @@ insert into activities (code, label, activity_group, default_category, sort_orde
   ('infrastructure',   'Buildings and structures',     'Upkeep',    'Miscellaneous',1340, true),
 
   -- Machines ---------------------------------------------------------------
-  ('tractor_hire',     'Tractor',                      'Machines',  'Machines',     1400, true),
+  -- For tractor work that is not one of the land prep steps: hauling, a demo,
+  -- a day hired for something else. Ploughing is `plough` with the category
+  -- set to Machines, not this.
+  ('tractor_hire',     'Tractor (other work)',         'Machines',  'Machines',     1400, true),
   ('machine_fuel',     'Fuel',                         'Machines',  'Machines',     1410, true),
   ('machine_repair',   'Repairs and parts',            'Machines',  'Machines',     1420, true),
 
