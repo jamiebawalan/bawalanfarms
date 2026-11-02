@@ -91,3 +91,21 @@ describe("a critical job", () => {
     expect(html).toContain("(critical)");
   });
 });
+
+describe("the month view on a phone", () => {
+  it("offers a way into the grid rather than hiding it on small screens", () => {
+    const html = render([item({ id: "a", dueOn: TODAY })]);
+    expect(html).toContain("Month view");
+  });
+
+  it("does not offer it when there is nothing to look at", () => {
+    expect(render([])).not.toContain("Month view");
+  });
+
+  it("lets the grid scroll sideways instead of squeezing seven columns", () => {
+    // Seven columns inside 390px is 50px each: unreadable and untappable.
+    const html = render([item({ id: "a", dueOn: TODAY })]);
+    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("min-w-[44rem]");
+  });
+});

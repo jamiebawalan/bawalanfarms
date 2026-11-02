@@ -49,7 +49,13 @@ export default async function NewExpensePage({
     <Page title="Log a cost">
       <ExpenseForm
         plots={plots}
-        activities={ledger.activities}
+        /*
+         * Active only. The retired codes are kept so the cost list can still
+         * print their labels, but offering them here would mean a choice
+         * between a hundred-odd names when the whole point of rebuilding the
+         * list was that fifty-two was already too many to find anything in.
+         */
+        activities={ledger.activities.filter((a) => a.active !== false)}
         recentActivities={recentActivities}
         returnTo={back}
         prefill={

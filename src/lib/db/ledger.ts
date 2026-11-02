@@ -165,6 +165,9 @@ export async function loadLedger(): Promise<Ledger> {
       // Null until the migration that adds the column has run, which is the
       // right answer meanwhile: the form simply keeps asking.
       impliesFarmWideReason: a.implies_farm_wide_reason ?? null,
+      // Defaults to true for a database the retirement migration has not
+      // reached, which is the right answer there: nothing is retired yet.
+      active: a.active ?? true,
     })),
     crops: rows<any>(crops, "crops").map((c) => ({ code: c.code, label: c.label })),
     subPlots: optional<any>(subPlots, "sub-plots").map((s) => ({

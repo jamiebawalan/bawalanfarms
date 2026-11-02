@@ -229,6 +229,16 @@ export default async function OwnerPage() {
           Land use, cost per plant by plot, and what needs doing this week.
         </p>
         <Link
+          href="/costs/review"
+          className="mt-3 block font-semibold text-brand underline underline-offset-4"
+        >
+          Tidy up the costs →
+        </Link>
+        <p className="mt-1 text-sm text-ink-soft">
+          Everything still filed under a word rather than an activity, biggest
+          first. Pick what the work was and the whole group moves.
+        </p>
+        <Link
           href="/reports"
           className="mt-3 block font-semibold text-brand underline underline-offset-4"
         >
