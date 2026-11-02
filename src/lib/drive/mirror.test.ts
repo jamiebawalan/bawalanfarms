@@ -209,17 +209,40 @@ describe("what a cycle's history file says", () => {
     expect(cycleDossier(L, "nope", TODAY)).toBeNull();
   });
 
-  it("shows readings and the forcing projection once there are two", () => {
+  it("tables the readings, and judges forcing on weight rather than length", () => {
     const withLeaf: Ledger = {
       ...L,
       leafMeasurements: [
-        { id: "lm-c1-2024-04-01", cycleId: "c1", date: "2024-04-01", avgLengthCm: 60, sampleSize: 10 },
-        { id: "lm-c1-2024-05-01", cycleId: "c1", date: "2024-05-01", avgLengthCm: 75, sampleSize: 10 },
+        { id: "lm-c1-2024-04-01", cycleId: "c1", date: "2024-04-01", avgLengthCm: 60,
+          sampleSize: 10, avgWeightGrams: null, biomassBasis: null },
+        { id: "lm-c1-2024-05-01", cycleId: "c1", date: "2024-05-01", avgLengthCm: 75,
+          sampleSize: 10, avgWeightGrams: 2800, biomassBasis: "whole_plant" },
       ],
+      leafPlants: Array.from({ length: 10 }, (_, i) => ({
+        measurementId: "lm-c1-2024-05-01",
+        plantNo: i + 1,
+        lengthCm: 75,
+        weightGrams: 2800,
+      })),
     };
     const md = cycleDossier(withLeaf, "c1", TODAY)!.markdown;
     expect(md).toContain("| 01 Apr 2024 | 60 cm | 10 |");
-    expect(md).toContain("Growing 0.5 cm a day");
-    expect(md).toContain("Forcing projected for");
+    expect(md).toContain("Weight survey of 01 May 2024: 10 plants, 2.8 kg average");
+    expect(md).toContain("Ready to force on the protocol's criteria.");
+    // No projection, however many readings there are.
+    expect(md).not.toContain("projected for");
+    expect(md).not.toContain("cm a day");
+  });
+
+  it("says there is no verdict when nothing has been weighed", () => {
+    const lengthOnly: Ledger = {
+      ...L,
+      leafMeasurements: [
+        { id: "lm-c1-2024-05-01", cycleId: "c1", date: "2024-05-01", avgLengthCm: 130,
+          sampleSize: 10, avgWeightGrams: null, biomassBasis: null },
+      ],
+    };
+    const md = cycleDossier(lengthOnly, "c1", TODAY)!.markdown;
+    expect(md).toContain("No plants weighed yet, so no forcing verdict.");
   });
 });

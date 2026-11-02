@@ -12,7 +12,8 @@
  */
 
 import { cyclePnL } from "./pnl";
-import { latestLeaf, projectForcing, projectHarvest } from "./dashboards";
+import { readingsFor } from "./leaf";
+import { FORCING, forcingReadiness } from "./protocol";
 import { formatDate, todayISO } from "./dates";
 import { formatPeso, formatPesoPrecise } from "./money";
 import type { ISODate, Ledger } from "./types";
@@ -102,23 +103,34 @@ export function cycleDossier(
       row([formatDate(r.date), `${r.avgLengthCm} cm`, r.sampleSize ?? ledger.settings.dleafSampleSize]);
     }
     out.push("");
-    const forcing = projectForcing(ledger, cycleId);
-    const latest = latestLeaf(ledger, cycleId);
-    if (latest !== null) {
-      const short = ledger.settings.dleafForcingCm - latest.avgLengthCm;
+
+    /*
+     * Weight decides forcing, so weight is what this reports. Length stays
+     * in the table above as the reference figure the protocol says it is.
+     */
+    const surveys = readingsFor(ledger, cycleId).filter((r) => r.weights.length > 0);
+    const last = surveys[surveys.length - 1] ?? null;
+    const readiness = last === null ? null : forcingReadiness(last.weights);
+    if (readiness === null) {
       out.push(
-        short <= 0
-          ? `The latest reading is at or past the ${ledger.settings.dleafForcingCm} cm forcing length.`
-          : `${Math.round(short * 10) / 10} cm short of the ${ledger.settings.dleafForcingCm} cm forcing length.`,
+        "No plants weighed yet, so no forcing verdict. Forcing goes on weight: " +
+          `average at least ${(FORCING.averageMin / 1000).toFixed(1)} kg, ` +
+          `${Math.round(FORCING.shareMin * 100)}% of plants at or above it, ` +
+          `lightest at least ${(FORCING.lightestMin / 1000).toFixed(1)} kg, ` +
+          `average not over ${(FORCING.averageMax / 1000).toFixed(1)} kg.`,
+      );
+    } else {
+      out.push(
+        `Weight survey of ${formatDate(last!.date)}: ${readiness.weighed} plants, ` +
+          `${(readiness.averageGrams / 1000).toFixed(1)} kg average, lightest ` +
+          `${(readiness.lightestGrams / 1000).toFixed(1)} kg.`,
+      );
+      out.push(
+        readiness.ready
+          ? "Ready to force on the protocol's criteria."
+          : `Not ready to force. ${readiness.blocker}`,
       );
     }
-    if (forcing === null) {
-      out.push("No growth rate yet — that needs at least two readings.");
-    } else {
-      out.push(`Growing ${forcing.cmPerDay} cm a day. Forcing projected for ${formatDate(forcing.date)}.`);
-    }
-    const harvest = projectHarvest(ledger, cycleId, today);
-    if (harvest !== null) out.push(`Harvest projected for ${formatDate(harvest)}.`);
   }
   if (cycle.targetForcingDate !== null) {
     out.push(`Target forcing date: ${formatDate(cycle.targetForcingDate)}.`);

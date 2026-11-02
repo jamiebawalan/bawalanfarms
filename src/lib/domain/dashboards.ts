@@ -247,14 +247,10 @@ export type PlotCostRow = {
   latestDleafDate: ISODate | null;
   dleafReadings: number;
   /** cm a day, from the first reading to the last. */
-  dleafGrowthPerDay: number | null;
+
   targetForcing: ISODate | null;
-  projectedForcing: ISODate | null;
   /** Positive means forcing looks later than planned. */
-  forcingSlipDays: number | null;
   targetHarvest: ISODate | null;
-  projectedHarvest: ISODate | null;
-  slipDays: number | null;
 };
 
 export function plotCostRanking(ledger: Ledger, today = todayISO()): PlotCostRow[] {
@@ -264,8 +260,6 @@ export function plotCostRanking(ledger: Ledger, today = todayISO()): PlotCostRow
       const labour = amountFor(c, "Labor");
       const inputs = amountFor(c, "Farm Inputs");
       const leaf = latestLeaf(ledger, c.cycle.id);
-      const forcing = projectForcing(ledger, c.cycle.id);
-      const projected = projectHarvest(ledger, c.cycle.id, today);
       const readings = ledger.leafMeasurements.filter((l) => l.cycleId === c.cycle.id);
       return {
         cycleId: c.cycle.id,
@@ -280,19 +274,8 @@ export function plotCostRanking(ledger: Ledger, today = todayISO()): PlotCostRow
         latestDleafCm: leaf?.avgLengthCm ?? null,
         latestDleafDate: leaf?.date ?? null,
         dleafReadings: readings.length,
-        dleafGrowthPerDay: forcing?.cmPerDay ?? null,
         targetForcing: c.cycle.targetForcingDate,
-        projectedForcing: forcing?.date ?? null,
-        forcingSlipDays:
-          forcing !== null && c.cycle.targetForcingDate !== null
-            ? daysApart(c.cycle.targetForcingDate, forcing.date)
-            : null,
         targetHarvest: c.cycle.targetHarvestDate,
-        projectedHarvest: projected,
-        slipDays:
-          projected !== null && c.cycle.targetHarvestDate !== null
-            ? daysApart(c.cycle.targetHarvestDate, projected)
-            : null,
       };
     })
     .sort((a, b) => (b.costPerPlantCentavos ?? -1) - (a.costPerPlantCentavos ?? -1));
@@ -332,70 +315,6 @@ export function latestLeaf(ledger: Ledger, cycleId: string) {
       .filter((l) => l.cycleId === cycleId)
       .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
   );
-}
-
-/**
- * When this cycle will be ready to force.
- *
- * This is the decision the D-leaf readings exist to time. Anthony measures ten
- * plants at random every few weeks; two readings give a growth rate, and the
- * rate says when the plants reach the length at which liquid goes on to induce
- * fruiting.
- *
- * With one reading there is no rate, so there is no projection — a single
- * measurement says how big the plants are, not how fast they are growing, and
- * inventing a rate from it would put a confident date on a guess. Returns null
- * rather than pretend.
- */
-export function projectForcing(
-  ledger: Ledger,
-  cycleId: string,
-): { date: ISODate; cmPerDay: number; fromReadings: number } | null {
-  const readings = ledger.leafMeasurements
-    .filter((l) => l.cycleId === cycleId)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (readings.length < 2) return null;
-
-  const first = readings[0]!;
-  const last = readings[readings.length - 1]!;
-  const days = daysApart(first.date, last.date);
-  const grown = last.avgLengthCm - first.avgLengthCm;
-  if (days <= 0 || grown <= 0) return null;
-
-  const perDay = grown / days;
-  const remaining = ledger.settings.dleafForcingCm - last.avgLengthCm;
-  return {
-    // Already big enough: it is ready now, not in the past.
-    date: remaining <= 0 ? last.date : addDays(last.date, Math.ceil(remaining / perDay)),
-    cmPerDay: Math.round(perDay * 1000) / 1000,
-    fromReadings: readings.length,
-  };
-}
-
-/**
- * When this cycle is likely to be harvested.
- *
- * Harvest follows forcing by a set number of months, so the D-leaf readings
- * reach it through the forcing date rather than predicting it directly. Where
- * there are not two readings to give a rate, it falls back to planting date
- * plus the farm's typical cycle length. With neither, null.
- */
-export function projectHarvest(
-  ledger: Ledger,
-  cycleId: string,
-  today = todayISO(),
-): ISODate | null {
-  const cycle = ledger.cycles.find((c) => c.id === cycleId);
-  if (!cycle) return null;
-
-  const forcing = projectForcing(ledger, cycleId);
-  if (forcing !== null) {
-    return addMonths(forcing.date, ledger.settings.monthsForcingToHarvest);
-  }
-  if (cycle.datePlanted !== null) {
-    return addMonths(cycle.datePlanted, ledger.settings.pineappleMonthsToHarvest);
-  }
-  return null;
 }
 
 export type WeekTasks = {

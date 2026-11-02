@@ -92,6 +92,8 @@ export type Cycle = {
   kasamaSharePct: number | null;
   targetForcingDate: ISODate | null;
   targetHarvestDate: ISODate | null;
+  /** Where the cycle sits on the protocol. See SubPlot.effectivePlantedOn. */
+  effectivePlantedOn?: ISODate | null;
   plantingMaterialSource?: string | null;
   notes?: string | null;
 };

@@ -7,12 +7,31 @@ import { DEFAULT_SETTINGS, type Ledger } from "./types";
 const TODAY = "2024-06-01";
 const L = makeLedger();
 
-const withLeaf = (readings: { date: string; avgLengthCm: number }[]): Ledger => ({
+const withLeaf = (
+  readings: { date: string; avgLengthCm: number; weights?: number[] }[],
+): Ledger => ({
   ...L,
   leafMeasurements: readings.map((r) => ({
-    id: `lm-c1-${r.date}`, cycleId: "c1", date: r.date, avgLengthCm: r.avgLengthCm, sampleSize: 10,
+    id: `lm-c1-${r.date}`, cycleId: "c1", date: r.date, avgLengthCm: r.avgLengthCm,
+    sampleSize: 10,
+    avgWeightGrams:
+      r.weights === undefined || r.weights.length === 0
+        ? null
+        : Math.round(r.weights.reduce((a, w) => a + w, 0) / r.weights.length),
+    biomassBasis: r.weights === undefined ? null : ("whole_plant" as const),
   })),
+  leafPlants: readings.flatMap((r) =>
+    (r.weights ?? []).map((w, i) => ({
+      measurementId: `lm-c1-${r.date}`,
+      plantNo: i + 1,
+      lengthCm: r.avgLengthCm,
+      weightGrams: w,
+    })),
+  ),
 });
+
+/** Ten plants all at the same weight — the simplest survey that can pass. */
+const even = (n: number, grams: number) => Array.from({ length: n }, () => grams);
 
 describe("what Claude is told about a plot", () => {
   it("names the plot, the crop and where the cycle is up to", () => {
@@ -33,22 +52,30 @@ describe("what Claude is told about a plot", () => {
     const bare: Ledger = { ...L, plantCounts: [] };
     const b = cycleBriefing(bare, "c1", TODAY)!;
     expect(b.text).toContain("Plant count: none recorded");
-    expect(b.text).toContain("No D-leaf readings have been recorded");
+    expect(b.text).toContain("No plant measurements have been recorded");
   });
 
-  it("explains the forcing rule in the same terms the farm uses", () => {
+  it("tells the model forcing goes on weight, and gives the four criteria", () => {
     const b = cycleBriefing(L, "c1", TODAY)!;
-    expect(b.text).toContain(`${DEFAULT_SETTINGS.dleafForcingCm} cm`);
-    expect(b.text).toContain(`${DEFAULT_SETTINGS.dleafSampleSize} randomly chosen plants`);
+    expect(b.text).toContain("Forcing goes on plant weight, never on height or age");
+    expect(b.text).toContain("2.7 kg");
+    expect(b.text).toContain("85%");
+    expect(b.text).toContain("2.2 kg");
+    expect(b.text).toContain("3.3 kg");
   });
 
-  it("refuses to imply a growth rate from a single reading", () => {
-    const b = cycleBriefing(withLeaf([{ date: "2024-05-01", avgLengthCm: 70 }]), "c1", TODAY)!;
-    expect(b.text).toContain("Growth rate: unknown");
-    expect(b.text).not.toContain("Projected forcing");
+  it("never states the abandoned D-leaf forcing length as the rule", () => {
+    const b = cycleBriefing(
+      withLeaf([{ date: "2024-05-01", avgLengthCm: 70 }]),
+      "c1",
+      TODAY,
+    )!;
+    expect(b.text).toContain("D-leaf length is recorded as reference only");
+    expect(b.text).not.toContain(`forced with liquid to induce fruiting once the D-leaf`);
+    expect(b.text).not.toContain(`${DEFAULT_SETTINGS.dleafForcingCm} cm`);
   });
 
-  it("gives the rate and the projected forcing date once there are two", () => {
+  it("offers no projected date, and says why there is none", () => {
     const b = cycleBriefing(
       withLeaf([
         { date: "2024-04-01", avgLengthCm: 60 },
@@ -57,9 +84,38 @@ describe("what Claude is told about a plot", () => {
       "c1",
       TODAY,
     )!;
-    expect(b.text).toContain("Growth rate: 0.5 cm a day");
-    expect(b.text).toContain("Projected forcing");
-    expect(b.text).toContain("25 cm short of the forcing length");
+    expect(b.text).toContain("There is no projected forcing or harvest date");
+    expect(b.text).not.toContain("Projected forcing");
+    expect(b.text).not.toContain("Growth rate");
+  });
+
+  it("refuses a verdict from length alone, and says not to infer one", () => {
+    const b = cycleBriefing(
+      withLeaf([{ date: "2024-05-01", avgLengthCm: 120 }]),
+      "c1",
+      TODAY,
+    )!;
+    expect(b.text).toContain("No plants have been weighed");
+    expect(b.text).toContain("Do not infer one from length");
+    expect(b.text).not.toContain("ready to force");
+  });
+
+  it("gives the verdict once the plants have been weighed", () => {
+    const ready = cycleBriefing(
+      withLeaf([{ date: "2024-05-01", avgLengthCm: 120, weights: even(10, 2800) }]),
+      "c1",
+      TODAY,
+    )!;
+    expect(ready.text).toContain("10 plants weighed");
+    expect(ready.text).toContain("Verdict: ready to force");
+
+    const notReady = cycleBriefing(
+      withLeaf([{ date: "2024-05-01", avgLengthCm: 120, weights: even(10, 2400) }]),
+      "c1",
+      TODAY,
+    )!;
+    expect(notReady.text).toContain("Verdict: not ready to force");
+    expect(notReady.text).toContain("Average plant weight is 2.4 kg");
   });
 
   it("carries the money in whole pesos, never centavos", () => {

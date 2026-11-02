@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeLedger } from "./fixture";
 import { cycleIsLiveOn, plotIsOccupiedOn } from "./allocation";
 import {
-  landUse, ownerDashboard, plotCostRanking, projectForcing, projectHarvest,
+  landUse, ownerDashboard, plotCostRanking,
   tasksForWeek, windows,
 } from "./dashboards";
 import { DEFAULT_SETTINGS, type Ledger } from "./types";
@@ -134,78 +134,29 @@ describe("plot cost ranking", () => {
   });
 });
 
-describe("projecting when to force", () => {
-  // Anthony measures ten plants at random every few weeks. Two readings give a
-  // growth rate; the rate says when the plants reach forcing size.
-  const measured = (readings: [string, number][]): Ledger => ({
-    ...L,
-    leafMeasurements: readings.map(([date, avgLengthCm]) => ({
-      id: `lm-c1-${date}`, cycleId: "c1", date, avgLengthCm, sampleSize: 20,
-    })),
+/*
+ * The forcing and harvest projections are gone, not moved.
+ *
+ * Both extrapolated a date from D-leaf growth against a farm setting, and
+ * the protocol treats D-leaf length as reference only — the readings behind
+ * them were taken by a method the farm has abandoned. A projection is a
+ * confident-looking date, which is the worst thing to build on a discredited
+ * measurement, so there is nothing here to replace them with. Forcing is
+ * judged on weight, in src/lib/domain/protocol.ts.
+ */
+describe("the D-leaf projections", () => {
+  it("no longer puts a forcing or harvest date on the plot ranking", () => {
+    const row = plotCostRanking(L, TODAY)[0]!;
+    expect(row).not.toHaveProperty("projectedForcing");
+    expect(row).not.toHaveProperty("projectedHarvest");
+    expect(row).not.toHaveProperty("dleafGrowthPerDay");
+    expect(row).not.toHaveProperty("forcingSlipDays");
   });
 
-  it("uses the growth rate between readings", () => {
-    // 60cm to 80cm over 40 days is 0.5cm a day; 20cm short of 100 is 40 days more.
-    const l = measured([["2024-04-01", 60], ["2024-05-11", 80]]);
-    const f = projectForcing(l, "c1")!;
-    expect(f.date).toBe("2024-06-20");
-    expect(f.cmPerDay).toBe(0.5);
-    expect(f.fromReadings).toBe(2);
-  });
-
-  it("says ready now when the plants are already big enough", () => {
-    const l = measured([["2024-04-01", 95], ["2024-05-01", 105]]);
-    expect(projectForcing(l, "c1")!.date).toBe("2024-05-01");
-  });
-
-  it("refuses to project from a single reading", () => {
-    // One measurement says how big the plants are, not how fast they grow.
-    // A confident date off one reading is a guess wearing a number.
-    expect(projectForcing(measured([["2024-04-01", 60]]), "c1")).toBeNull();
-    expect(projectForcing(L, "c1")).toBeNull();
-  });
-
-  it("refuses when the plants have not grown between readings", () => {
-    expect(projectForcing(measured([["2024-04-01", 80], ["2024-05-01", 80]]), "c1")).toBeNull();
-  });
-
-  it("reports slippage against the forcing date the farm planned", () => {
-    const l = measured([["2024-04-01", 60], ["2024-05-11", 80]]);
-    const planned: Ledger = {
-      ...l,
-      cycles: l.cycles.map((c) =>
-        c.id === "c1" ? { ...c, targetForcingDate: "2024-06-01" } : c,
-      ),
-    };
-    // Projected 20 June against a target of 1 June: nineteen days late.
-    expect(plotCostRanking(planned, TODAY)[0]!.forcingSlipDays).toBe(19);
-  });
-});
-
-describe("projecting the harvest", () => {
-  it("follows the forcing date by the farm's forcing-to-harvest interval", () => {
-    const l: Ledger = {
-      ...L,
-      leafMeasurements: [
-        { id: "lm-c1-2024-04-01", cycleId: "c1", date: "2024-04-01", avgLengthCm: 60, sampleSize: 10 },
-        { id: "lm-c1-2024-05-11", cycleId: "c1", date: "2024-05-11", avgLengthCm: 80, sampleSize: 10 },
-      ],
-    };
-    // Forcing 20 June, plus five months.
-    expect(projectHarvest(l, "c1", TODAY)).toBe("2024-11-20");
-  });
-
-  it("falls back to planting plus the usual cycle length with no readings", () => {
-    // c1 was planted 2024-02-01; eighteen months later is 2025-08-01.
-    expect(projectHarvest(L, "c1", TODAY)).toBe("2025-08-01");
-  });
-
-  it("returns nothing when there is neither a reading nor a planting date", () => {
-    const bare: Ledger = {
-      ...L,
-      cycles: L.cycles.map((c) => (c.id === "c1" ? { ...c, datePlanted: null } : c)),
-    };
-    expect(projectHarvest(bare, "c1", TODAY)).toBeNull();
+  it("still carries the dates the farm set for itself", () => {
+    const row = plotCostRanking(L, TODAY)[0]!;
+    expect(row).toHaveProperty("targetForcing");
+    expect(row).toHaveProperty("targetHarvest");
   });
 });
 

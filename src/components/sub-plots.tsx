@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AmountInput, Button, Empty, Field, Input, Money, Note, Panel } from "./ui";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import { formatPeso, formatPesoPrecise } from "@/lib/domain/money";
+import { mapForPlantedOn } from "@/lib/domain/protocol";
 import type { SubPlotLedger } from "@/lib/domain/subplots";
 
 /**
@@ -42,11 +43,13 @@ export function SubPlots({
   const [plantedOn, setPlantedOn] = useState(today);
   const [landPct, setLandPct] = useState("");
   const [plantCount, setPlantCount] = useState("");
+  const [mapMonth, setMapMonth] = useState("");
 
   const remaining = Math.round((100 - blockedPct) * 10) / 10;
 
   function reset() {
     setName(""); setPlantedOn(today); setLandPct(""); setPlantCount("");
+    setMapMonth("");
     setAdding(false); setEditing(null); setError(null);
   }
 
@@ -132,6 +135,23 @@ export function SubPlots({
           placeholder=""
         />
       </Field>
+      <Field
+        label="What month is this block at?"
+        htmlFor="block-map"
+        hint={
+          "The stage the plants have reached, not how long since planting. " +
+          "The protocol counts in months after planting, and a block planted " +
+          "last December can be at month 8. Leave blank if you are not sure."
+        }
+      >
+        <AmountInput
+          id="block-map"
+          inputMode="decimal"
+          value={mapMonth}
+          onChange={(e) => setMapMonth(e.target.value)}
+          placeholder="5"
+        />
+      </Field>
       <div className="flex gap-2">
         <Button
           disabled={busy || name.trim() === "" || !(Number(landPct) > 0)}
@@ -151,6 +171,12 @@ export function SubPlots({
     planted_on: plantedOn,
     land_pct: Number(landPct),
     plant_count: plantCount.trim() === "" ? null : Number(plantCount),
+    /*
+     * Sent as a stage; stored as the date that stage implies. Undefined
+     * rather than null when the field is untouched, so editing a block's
+     * plant count does not quietly clear a stage somebody set last month.
+     */
+    ...(mapMonth.trim() === "" ? {} : { map_month: Number(mapMonth) }),
   });
 
   return (
@@ -226,6 +252,17 @@ export function SubPlots({
                         setLandPct(String(b.subPlot.landPct));
                         setPlantCount(
                           b.subPlot.plantCount === null ? "" : String(b.subPlot.plantCount),
+                        );
+                        /*
+                         * Shown as the stage it is at today, not the stage
+                         * somebody typed in whenever they set it. The stored
+                         * date has been advancing since.
+                         */
+                        const effective = b.subPlot.effectivePlantedOn ?? null;
+                        setMapMonth(
+                          effective === null
+                            ? ""
+                            : String(mapForPlantedOn(effective, today)),
                         );
                       }}
                     >
