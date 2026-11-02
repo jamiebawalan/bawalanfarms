@@ -66,23 +66,43 @@ job, but nobody should have to decode it.
 Worth either a deploy step that runs the push, or a line on the owner page
 that says plainly when the database is behind the code.
 
-## Protocol phases still to come
-
-| Phase | What |
-|---|---|
-| 5 | Inventory draw-down when a planned activity is marked done |
-
----
-
 ## Open questions
 
-None outstanding.
+**Sacks or kilos for fertiliser.** See Phase 5 under Done: a 450 g potash
+round proposes 0.009 of a sack, which is right and unreadable.
 
 ## Done
 
 Dated by the day the work merged, newest first. Here so that nobody
 re-derives a decision already taken, or re-adds something that was removed on
 purpose.
+
+### 2 November 2026 — Phase 5, stock is proposed and never deducted
+
+Marking a planned round done works out what it consumed and proposes taking
+it out of stock, oldest lot first, split across lots at each lot's own price.
+Every figure is editable and the whole thing can be waved off; the work is
+recorded either way.
+
+Proposed rather than applied because the stock figures are only as good as
+the last count. Deducting silently would turn a counting error into a costing
+error on a plot's P&L, and the farm manager is the one who knows what
+actually came out of the shed.
+
+A shortfall is said out loud rather than quietly drawing less: either the
+shed is emptier than the app thinks or a purchase was never entered, and both
+are worth knowing before the next trip to town.
+
+`0031` joined the two catalogues that had grown up apart — twenty protocol
+materials had no purchasable stock behind them. One deliberate non-match:
+Agroxone is paraquat, not glyphosate, and mapping one onto the other to save
+creating a row would be the kind of tidy mistake that ends up on a field.
+
+**Open question for the owners:** the farm buys fertiliser in 50 kg sacks and
+the protocol doses in grams, so a 450 g potash round proposes `0.009 sack`.
+Correct, but not a number anyone can check by eye. Tracking fertiliser in kg
+instead would read better; it is a change to how the shed is counted, so it
+is not one to make quietly.
 
 ### 2 November 2026 — Phase 4, the Plan tab becomes a calendar
 

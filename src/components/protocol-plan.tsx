@@ -43,6 +43,16 @@ export type TankPlanView = {
   }[];
 };
 
+export type DrawLineView = {
+  materialName: string;
+  /** What the protocol asked for, as the field reads it: "6.68 kg". */
+  wanted: string;
+  unit: string | null;
+  draws: { purchaseId: string; quantity: number; lotDate: string }[];
+  shortfall: number;
+  untracked: boolean;
+};
+
 export type PlanAnswered = {
   code: string;
   title: string;
@@ -51,6 +61,8 @@ export type PlanAnswered = {
   skipReason: string | null;
   dueOn: string | null;
   doneOn: string | null;
+  /** What finishing this would take out of stock. Proposed, never applied. */
+  proposal: DrawLineView[];
 };
 
 const SKIP_REASONS = [
@@ -105,6 +117,9 @@ export function ProtocolPlan({
   const [error, setError] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [settingStage, setSettingStage] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [drawAmounts, setDrawAmounts] = useState<Record<string, string>>({});
+  const [takeStock, setTakeStock] = useState(true);
   const [stage, setStage] = useState(mapMonth === null ? "" : String(mapMonth));
 
   if (!loaded) {
@@ -200,7 +215,11 @@ export function ProtocolPlan({
   const answer = async (
     code: string,
     state: "scheduled" | "done" | "skipped",
-    extra: { skipReason?: string; dueOn?: string } = {},
+    extra: {
+      skipReason?: string;
+      dueOn?: string;
+      draws?: { purchase_id: string; quantity: number }[];
+    } = {},
   ) => {
     setBusy(code);
     setError(null);
@@ -214,6 +233,7 @@ export function ProtocolPlan({
         state,
         ...(extra.skipReason === undefined ? {} : { skip_reason: extra.skipReason }),
         ...(extra.dueOn === undefined ? {} : { due_on: extra.dueOn }),
+        ...(extra.draws === undefined ? {} : { draws: extra.draws }),
       },
       describe:
         state === "scheduled"
@@ -223,6 +243,7 @@ export function ProtocolPlan({
     setBusy(null);
     setAsking(null);
     setPlanning(null);
+    setConfirming(null);
     if (result.ok || ("queued" in result && result.queued)) {
       router.refresh();
       return;
@@ -479,12 +500,35 @@ export function ProtocolPlan({
                         : `by ${formatDateShort(a.dueOn)}${late ? " · overdue" : ""}`}
                     </span>
                   </div>
-                  {closed ? null : (
+                  {closed ? null : confirming === a.code ? (
+                    <DrawConfirm
+                      lines={a.proposal}
+                      amounts={drawAmounts}
+                      setAmounts={setDrawAmounts}
+                      takeStock={takeStock}
+                      setTakeStock={setTakeStock}
+                      busy={busy !== null}
+                      onCancel={() => setConfirming(null)}
+                      onConfirm={() =>
+                        void answer(a.code, "done", {
+                          draws: takeStock ? collectDraws(a.proposal, drawAmounts) : [],
+                        })
+                      }
+                    />
+                  ) : (
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button
                         size="md"
                         disabled={busy !== null}
-                        onClick={() => void answer(a.code, "done")}
+                        onClick={() => {
+                          if (a.proposal.length === 0) {
+                            void answer(a.code, "done");
+                            return;
+                          }
+                          setDrawAmounts(seedAmounts(a.proposal));
+                          setTakeStock(true);
+                          setConfirming(a.code);
+                        }}
                       >
                         {busy === a.code ? "Saving…" : "Did it"}
                       </Button>
@@ -672,5 +716,132 @@ function TankPlanDetails({ tank }: { tank: TankPlanView }) {
         )}
       </div>
     </details>
+  );
+}
+
+/** The proposed quantities, as strings he can correct. */
+function seedAmounts(lines: DrawLineView[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of lines) {
+    for (const d of line.draws) out[d.purchaseId] = String(d.quantity);
+  }
+  return out;
+}
+
+/** What he confirmed, dropping anything he zeroed out. */
+function collectDraws(
+  lines: DrawLineView[],
+  amounts: Record<string, string>,
+): { purchase_id: string; quantity: number }[] {
+  return lines.flatMap((line) =>
+    line.draws.flatMap((d) => {
+      const n = Number(amounts[d.purchaseId] ?? d.quantity);
+      return Number.isFinite(n) && n > 0
+        ? [{ purchase_id: d.purchaseId, quantity: n }]
+        : [];
+    }),
+  );
+}
+
+/**
+ * What finishing this would take out of the shed.
+ *
+ * Proposed, never applied. The arithmetic is worth doing for him — 6.68 kg
+ * of urea out of a 50 kg sack is 0.134 of a sack, split across two lots at
+ * different prices — but the figures in the shed are only as good as the
+ * last count, and silently deducting would turn a counting error into a
+ * costing error on a plot's P&L. He is the one who knows what actually came
+ * out, so every number here is editable and the whole thing can be waved
+ * off without stopping the work being recorded.
+ */
+export function DrawConfirm({
+  lines, amounts, setAmounts, takeStock, setTakeStock, busy, onCancel, onConfirm,
+}: {
+  lines: DrawLineView[];
+  amounts: Record<string, string>;
+  setAmounts: (next: Record<string, string>) => void;
+  takeStock: boolean;
+  setTakeStock: (next: boolean) => void;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const short = lines.filter((l) => l.shortfall > 0);
+  const untracked = lines.filter((l) => l.untracked);
+
+  return (
+    <div className="mt-3 max-w-md rounded-xl border-2 border-line p-3">
+      <h4 className="text-sm font-semibold text-ink">Take this out of stock?</h4>
+      <p className="mt-1 text-sm text-ink-soft">
+        Worked out from the protocol and this block&rsquo;s plant count. Change
+        anything that is not what actually came out.
+      </p>
+
+      <ul className="mt-3 space-y-3">
+        {lines.map((line) => (
+          <li key={line.materialName}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-semibold text-ink">{line.materialName}</span>
+              <span className="text-sm text-ink-soft tabular">{line.wanted}</span>
+            </div>
+            {line.untracked ? (
+              <p className="text-sm text-ink-soft">Not tracked in stock.</p>
+            ) : (
+              line.draws.map((d) => (
+                <div key={d.purchaseId} className="mt-1 flex items-center gap-2">
+                  <Input
+                    aria-label={`${line.materialName} from the lot of ${formatDateShort(d.lotDate)}`}
+                    inputMode="decimal"
+                    className="max-w-28 tabular"
+                    value={amounts[d.purchaseId] ?? String(d.quantity)}
+                    onChange={(e) =>
+                      setAmounts({ ...amounts, [d.purchaseId]: e.target.value })
+                    }
+                    disabled={!takeStock}
+                  />
+                  <span className="text-sm text-ink-soft">
+                    {line.unit} from {formatDateShort(d.lotDate)}
+                  </span>
+                </div>
+              ))
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {short.length === 0 ? null : (
+        <Note tone="warn">
+          Not enough in stock for{" "}
+          {short.map((l) => l.materialName).join(", ")}. Either the shed is
+          emptier than the app thinks, or a purchase was never entered. The work
+          still gets recorded.
+        </Note>
+      )}
+      {untracked.length === 0 ? null : (
+        <p className="mt-2 text-sm text-ink-soft">
+          {untracked.map((l) => l.materialName).join(", ")} is not tracked in
+          stock, so nothing is taken for it.
+        </p>
+      )}
+
+      <label className="mt-3 flex items-center gap-2 text-sm text-ink">
+        <input
+          type="checkbox"
+          checked={takeStock}
+          onChange={(e) => setTakeStock(e.target.checked)}
+          className="h-5 w-5"
+        />
+        Take it out of stock
+      </label>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="md" disabled={busy} onClick={onConfirm}>
+          {busy ? "Saving…" : takeStock ? "Done, take the stock" : "Done, leave stock alone"}
+        </Button>
+        <Button variant="secondary" size="md" disabled={busy} onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }

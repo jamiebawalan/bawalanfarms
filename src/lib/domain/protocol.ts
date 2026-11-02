@@ -284,6 +284,8 @@ export type Material = {
   /** What a purchase of it is measured in: kg or L. */
   unit: "kg" | "L";
   note: string | null;
+  /** The stock this draws from. Null where the farm does not carry it. */
+  inputType?: string | null;
 };
 
 export type QtyUnit = "g_per_plant" | "g_per_1000sqm" | "ml_per_1000sqm";

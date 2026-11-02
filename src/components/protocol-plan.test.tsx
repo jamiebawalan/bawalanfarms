@@ -8,7 +8,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
-  ProtocolPlan, type PlanAnswered, type PlanSuggestion, type TankPlanView,
+  DrawConfirm, ProtocolPlan, type DrawLineView, type PlanAnswered, type PlanSuggestion,
+  type TankPlanView,
 } from "./protocol-plan";
 
 const suggestion = (p: Partial<PlanSuggestion> & { code: string }): PlanSuggestion => ({
@@ -91,9 +92,9 @@ describe("what the protocol says, on screen", () => {
     const html = render({
       answered: [
         { code: "foliar_5", title: "Foliar feed", mapMonth: 5, state: "scheduled",
-          skipReason: null, dueOn: "2099-01-20", doneOn: null },
+          skipReason: null, dueOn: "2099-01-20", doneOn: null, proposal: []  },
         { code: "mortality_check", title: "Mortality check", mapMonth: 0.5,
-          state: "skipped", skipReason: "already_done", dueOn: null, doneOn: null },
+          state: "skipped", skipReason: "already_done", dueOn: null, doneOn: null, proposal: []  },
       ],
     });
     expect(html).toContain("Planned");
@@ -108,7 +109,7 @@ describe("what the protocol says, on screen", () => {
     const html = render({
       answered: [
         { code: "foliar_5", title: "Foliar feed", mapMonth: 5, state: "scheduled",
-          skipReason: null, dueOn: "2020-01-20", doneOn: null },
+          skipReason: null, dueOn: "2020-01-20", doneOn: null, proposal: []  },
       ],
     });
     expect(html).toContain("overdue");
@@ -162,7 +163,7 @@ describe("what the protocol says, on screen", () => {
   it("will not offer to undo a round that was merely overtaken", () => {
     const answered: PlanAnswered[] = [
       { code: "foliar_4", title: "Foliar feed", mapMonth: 4, state: "skipped",
-        skipReason: "superseded", dueOn: null, doneOn: null },
+        skipReason: "superseded", dueOn: null, doneOn: null, proposal: []  },
     ];
     const html = render({ answered });
     expect(html).toContain("1 already answered");
@@ -244,5 +245,95 @@ describe("setting the growth stage", () => {
     expect(html).toContain("Month 5");
     // The month is a button, not a label, so it can be corrected.
     expect(html).toContain("<button");
+  });
+});
+
+describe("taking stock for completed work", () => {
+  const planned = (proposal: DrawLineView[]): PlanAnswered[] => [
+    { code: "foliar_9", title: "Foliar feed, round 6", mapMonth: 9,
+      state: "scheduled", skipReason: null, dueOn: "2026-11-14", doneOn: null,
+      proposal },
+  ];
+
+  const urea: DrawLineView = {
+    materialName: "Urea (46-0-0)", wanted: "6.68 kg", unit: "sack",
+    draws: [{ purchaseId: "p1", quantity: 0.134, lotDate: "2026-01-20" }],
+    shortfall: 0, untracked: false,
+  };
+
+  it("does not deduct anything on the way to the confirmation", () => {
+    // The planned row shows "Did it" and nothing else: no stock language
+    // until he has actually been shown what would move.
+    const html = render({ answered: planned([urea]) });
+    expect(html).toContain("Did it");
+    expect(html).not.toContain("Take this out of stock?");
+  });
+
+  it("shows no stock step at all for work that consumes nothing", () => {
+    const html = render({ answered: planned([]) });
+    expect(html).toContain("Did it");
+    expect(html).not.toContain("Take this out of stock?");
+  });
+});
+
+describe("the stock confirmation itself", () => {
+  const show = (lines: DrawLineView[], takeStock = true) =>
+    renderToStaticMarkup(
+      <DrawConfirm
+        lines={lines} amounts={{}} setAmounts={() => {}}
+        takeStock={takeStock} setTakeStock={() => {}} busy={false}
+        onCancel={() => {}} onConfirm={() => {}}
+      />,
+    );
+
+  const urea: DrawLineView = {
+    materialName: "Urea (46-0-0)", wanted: "6.68 kg", unit: "sack",
+    draws: [{ purchaseId: "p1", quantity: 0.134, lotDate: "2026-01-20" }],
+    shortfall: 0, untracked: false,
+  };
+
+  it("asks rather than tells", () => {
+    const html = show([urea]);
+    expect(html).toContain("Take this out of stock?");
+    expect(html).toContain("Change anything that is not what actually came out");
+  });
+
+  it("shows the amount as an editable figure, not a fixed one", () => {
+    const html = show([urea]);
+    expect(html).toContain('value="0.134"');
+    expect(html).toContain("sack from 20 Jan");
+  });
+
+  it("can be waved off without losing the completion", () => {
+    expect(show([urea], false)).toContain("Done, leave stock alone");
+    expect(show([urea], true)).toContain("Done, take the stock");
+  });
+
+  it("names a shortfall and says the work is still recorded", () => {
+    const html = show([{ ...urea, shortfall: 0.5 }]);
+    expect(html).toContain("Not enough in stock for Urea (46-0-0)");
+    expect(html).toContain("a purchase was never entered");
+    expect(html).toContain("The work still gets recorded");
+  });
+
+  it("says plainly when something is not tracked, rather than showing zero", () => {
+    const html = show([
+      { materialName: "KOH", wanted: "330 g", unit: null, draws: [],
+        shortfall: 0, untracked: true },
+    ]);
+    expect(html).toContain("Not tracked in stock");
+    expect(html).not.toContain("Not enough in stock");
+  });
+
+  it("splits a line across lots and dates each one", () => {
+    const html = show([{
+      ...urea, wanted: "150 kg",
+      draws: [
+        { purchaseId: "a", quantity: 2, lotDate: "2026-01-20" },
+        { purchaseId: "b", quantity: 1, lotDate: "2026-06-05" },
+      ],
+    }]);
+    expect(html).toContain("sack from 20 Jan");
+    expect(html).toContain("sack from 05 Jun");
   });
 });
