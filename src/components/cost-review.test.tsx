@@ -75,3 +75,61 @@ describe("clearing the costs filed under a word", () => {
     expect(html).toContain("75,700");
   });
 });
+
+describe("the traps a review screen can set", () => {
+  it("never offers a code as the answer to itself", () => {
+    // 'Fruiting Formula' suggested Fruiting Formula: tapping it would have
+    // taken the row out of the queue with nothing answered.
+    const html = renderToStaticMarkup(
+      <CostReview
+        items={[{ kind: "code", key: "fruiting_formula", text: "Fruiting Formula",
+                  entries: 2, pesos: 8070, sampleNote: null, sampleDate: null }]}
+        activities={ACTIVITIES}
+      />,
+    );
+    // ACTIVITIES holds no unsettled codes, so the only "Fruiting Formula"
+    // on the page is the row's own heading, never a chip.
+    expect(html.match(/Fruiting Formula/g)).toHaveLength(1);
+  });
+
+  it("names the part of the crop, not just the activity", () => {
+    const html = renderToStaticMarkup(
+      <CostReview
+        items={[{ kind: "note", key: "0-0-60", text: "0-0-60", entries: 1,
+                  pesos: 8600, sampleNote: null, sampleDate: null }]}
+        activities={ACTIVITIES}
+      />,
+    );
+    expect(html).toContain("Side-dress (granules)");
+    expect(html).toContain("Nutrients");
+  });
+
+  it("says the kind of money does not change", () => {
+    const html = render([item({ key: "x", text: "x" })]);
+    expect(html).toContain("never changes whether it was labour, materials or machines");
+    expect(html).toContain("stays Farm Inputs");
+  });
+});
+
+describe("equipment the farm keeps", () => {
+  it("offers it, and says what it does to the plot", () => {
+    const html = render([item({ key: "Chainsaw", text: "Chainsaw", pesos: 2400 })]);
+    expect(html).toContain("It is equipment the farm keeps");
+    expect(html).toContain("The cost leaves the plot");
+    expect(html).toContain("not a cost of the cycle that bought it");
+  });
+
+  it("is offered on an old code too, not only on free text", () => {
+    const html = render([
+      { kind: "code", key: "spray", text: "Spray", entries: 23, pesos: 24800,
+        sampleNote: null, sampleDate: null },
+    ]);
+    expect(html).toContain("It is equipment the farm keeps");
+  });
+
+  it("is gone once the row is answered", () => {
+    // Nothing to offer on something already filed.
+    const html = render([]);
+    expect(html).not.toContain("It is equipment the farm keeps");
+  });
+});

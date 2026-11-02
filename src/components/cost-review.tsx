@@ -39,13 +39,20 @@ export function CostReview({
   const [done, setDone] = useState<Record<string, number>>({});
   const [search, setSearch] = useState<Record<string, string>>({});
 
-  const assign = async (item: ReviewItem, code: string) => {
+  const assign = async (item: ReviewItem, code: string, asCapital = false) => {
     setBusy(item.key);
     setError(null);
     const res = await fetch("/api/costs/review", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: item.kind, key: item.key, to_activity: code }),
+      body: JSON.stringify({
+        kind: item.kind,
+        key: item.key,
+        to_activity: code,
+        // Five years is the schema's own default for an asset's life, and
+        // nobody on a farm wants to be asked for a depreciation schedule.
+        ...(asCapital ? { as_capital: { useful_life_months: 60 } } : {}),
+      }),
     });
     setBusy(null);
     if (res.ok) {
@@ -86,6 +93,17 @@ export function CostReview({
         Pick what the work actually was and the whole group moves together.
         What was originally written is kept either way.
       </p>
+      {/*
+        * Said out loud because it is the obvious worry: these chips are all
+        * activities, and an activity looks like labour. It is not. The kind
+        * of money never changes here — a sack of potash stays Farm Inputs and
+        * only the work it was for is being answered.
+        */}
+      <Note tone="info">
+        This only changes what a cost was <em>for</em>. It never changes
+        whether it was labour, materials or machines — a sack of fertiliser
+        stays Farm Inputs, filed under the work it was bought for.
+      </Note>
 
       <ul className="divide-y divide-line">
         {items.map((item) => {
@@ -123,6 +141,11 @@ export function CostReview({
               ) : (
                 <>
                   <div className="mt-2">
+                    {/*
+                      * The group, not just the label. "Side-dress (granules)"
+                      * is the Nutrients answer, and somebody looking for
+                      * Nutrients could not tell that from the name alone.
+                      */}
                     <ChipGroup>
                       {suggestions.map((h) => (
                         <Chip
@@ -130,11 +153,39 @@ export function CostReview({
                           disabled={busy !== null}
                           onClick={() => void assign(item, h.code)}
                         >
-                          {h.label}
+                          <span className="block text-left">
+                            <span className="block text-xs font-normal opacity-75">
+                              {groupOf(h.code, activities)}
+                            </span>
+                            {h.label}
+                          </span>
                         </Chip>
                       ))}
                     </ChipGroup>
                   </div>
+
+                    {/*
+                      * Equipment, not a cost of the cycle that bought it. The
+                      * warning is on the button rather than behind it: this
+                      * takes the money off the plot, which is right for a
+                      * chainsaw and surprising if you did not expect it.
+                      */}
+                    <div className="mt-2">
+                      <Button
+                        variant="quiet"
+                        size="md"
+                        className="px-0"
+                        disabled={busy !== null}
+                        onClick={() => void assign(item, "tools_equipment", true)}
+                      >
+                        It is equipment the farm keeps →
+                      </Button>
+                      <p className="text-sm text-ink-soft">
+                        Files it as Tools and equipment and records it as an
+                        asset over five years. The cost leaves the plot, because
+                        a chainsaw is not a cost of the cycle that bought it.
+                      </p>
+                    </div>
 
                   <div className="mt-2 max-w-sm">
                     <Field
@@ -165,4 +216,9 @@ export function CostReview({
       </p>
     </Card>
   );
+}
+
+/** Which part of the crop an activity belongs to, for the chip's first line. */
+function groupOf(code: string, activities: readonly ActivityOption[]): string {
+  return activities.find((a) => a.code === code)?.activityGroup ?? "";
 }

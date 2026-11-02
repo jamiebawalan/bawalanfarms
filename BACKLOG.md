@@ -18,7 +18,28 @@ alongside the free text, with the entry count, the total, and a note from one
 of their expenses as a worked example — so they are answered by looking at the
 money rather than by remembering.
 
-### 2. Migrations are applied by hand
+### 2. Cost and inventory per nutrient
+
+The protocol names twenty-five materials and `0031` gave every one of them a
+purchasable input type, so **inventory is already per-nutrient**. Costs are
+not: a fertiliser purchase files under `Side-dress` or `Foliar spray`, which
+says what work it was for and not which substance it was.
+
+The old list did carry the substance — `Fertilizer 0-0-60`, `Fertilizer
+21-0-0` — by putting it in the activity, which conflated what a thing *is*
+with what it was *for*. Collapsing those into `side_dress` was right for the
+activity axis and lost the substance, which is the gap.
+
+**The fix is a third dimension, not a longer activity list.** A nullable
+`input_type` on `expenses`, asked for when the category is Materials. Then
+"what did we spend on urea" reads off the substance, "what did side-dressing
+cost" reads off the activity, and both come from one row.
+
+Nothing was lost in the meantime: `legacy_activity` still holds
+`fert_0_0_60`, `fert_21_0_0` and `fert_16_20_0` on every row that had them,
+so the backfill is one statement whenever this is built.
+
+### 3. Migrations are applied by hand
 
 There is no step anywhere that pushes `supabase/migrations/` to the live
 database. Vercel deploys the code; the schema is a separate manual
@@ -42,6 +63,25 @@ round proposes 0.009 of a sack, which is right and unreadable.
 Dated by the day the work merged, newest first. Here so that nobody
 re-derives a decision already taken, or re-adds something that was removed on
 purpose.
+
+### 2 November 2026 — tools, equipment and the self-suggestion bug
+
+`Tidy up the costs` can now file something as **equipment the farm keeps**:
+it records a capital asset over five years, points the expense at it, and
+removes the plot allocations — which is the substance rather than a
+formality, because it is what takes a chainsaw out of one cycle's cost per
+plant. The screen says so on the button rather than behind it.
+
+`0034` adds **Tools and equipment** as an activity, which is the right home
+whether a particular purchase is capitalised or expensed. A ₱750 garden hoe
+depreciated over sixty months is ₱12.50 a month of administration for no
+insight; a ₱2,400 chainsaw is worth carrying. The difference is the
+attribution, not the activity.
+
+Also fixed: an unsettled code could be offered as the answer to itself —
+"Fruiting Formula" suggested Fruiting Formula, and tapping it would have been
+accepted, taking the row out of the queue with nothing answered. A screen
+that can mark its own work complete is worse than no screen.
 
 ### 2 November 2026 — tidying up the costs
 

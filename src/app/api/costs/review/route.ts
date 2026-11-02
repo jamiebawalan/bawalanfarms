@@ -20,6 +20,19 @@ const Assign = z.object({
   /** The exact note, or the activity code. */
   key: z.string().min(1).max(400),
   to_activity: z.string().min(1).max(60),
+
+  /*
+   * Treat the purchase as equipment the farm keeps, rather than a cost of
+   * whichever cycle happened to buy it.
+   *
+   * A bigger change than a recategorisation, and the screen says so: a
+   * capital expense must carry no plot allocations, so the money leaves that
+   * plot's P&L. Correct for a chainsaw used across three cycles, and it does
+   * move cost per plant.
+   */
+  as_capital: z
+    .object({ useful_life_months: z.number().int().min(1).max(600) })
+    .optional(),
 });
 
 export async function POST(request: Request) {
@@ -27,7 +40,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Nothing to assign." }, { status: 400 });
   }
-  const { kind, key, to_activity } = parsed.data;
+  const { kind, key, to_activity, as_capital } = parsed.data;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -41,7 +54,17 @@ export async function POST(request: Request) {
     .eq("code", to_activity)
     .eq("active", true)
     .maybeSingle();
-  if (target === null || to_activity === "other") {
+  /*
+   * Never onto "other", and never onto a code that is itself waiting on a
+   * decision — including itself. Both would take the row out of the queue
+   * without answering anything, which is worse than leaving it: it marks
+   * work as done that was not done.
+   */
+  if (
+    target === null ||
+    to_activity === "other" ||
+    (UNSETTLED_CODES as readonly string[]).includes(to_activity)
+  ) {
     return NextResponse.json(
       { error: "That is not an activity you can file things under." },
       { status: 400 },
@@ -62,7 +85,7 @@ export async function POST(request: Request) {
    */
   const rows = supabase
     .from("expenses")
-    .select("id, activity, activity_other_note, note")
+    .select("id, activity, activity_other_note, note, date, amount_centavos")
     .is("voided_at", null)
     .is("legacy_activity", null)
     .eq("activity", kind === "code" ? key : "other");
@@ -85,6 +108,71 @@ export async function POST(request: Request) {
 
   if (ids.length === 0) {
     return NextResponse.json({ ok: true, moved: 0 });
+  }
+
+  /*
+   * Equipment the farm keeps.
+   *
+   * Three things happen together or the database refuses it: an asset exists,
+   * the expense points at it, and the plot allocations go. That last one is
+   * the substance rather than a formality — it is what takes a chainsaw out of
+   * one cycle's cost per plant and leaves it as something the farm owns.
+   *
+   * One asset per purchase, not per phrase: two hoes bought on different days
+   * are two things, each with its own date and price.
+   */
+  if (as_capital !== undefined) {
+    const buying = (candidates ?? []).filter((row) =>
+      ids.includes(String((row as Record<string, unknown>).id)),
+    );
+
+    for (const row of buying) {
+      const r = row as Record<string, unknown>;
+      const { data: asset, error: assetFailed } = await supabase
+        .from("capital_assets")
+        .insert({
+          name: kind === "note" ? key : to_activity,
+          purchase_date: r.date,
+          cost_centavos: r.amount_centavos,
+          useful_life_months: as_capital.useful_life_months,
+          note: "Reclassified from an expense while tidying up the costs.",
+        })
+        .select("id")
+        .single();
+      if (assetFailed !== null || asset === null) {
+        return NextResponse.json(
+          { error: `Could not record the asset: ${assetFailed?.message ?? "unknown"}` },
+          { status: 400 },
+        );
+      }
+
+      // Allocations go before the attribution changes, or the rule that a
+      // capital cost carries no plot refuses the update.
+      const { error: allocFailed } = await supabase
+        .from("expense_allocations")
+        .delete()
+        .eq("expense_id", r.id);
+      if (allocFailed !== null) {
+        return NextResponse.json({ error: allocFailed.message }, { status: 400 });
+      }
+
+      const { error: moveFailed } = await supabase
+        .from("expenses")
+        .update({
+          activity: to_activity,
+          attribution: "capital",
+          capital_asset_id: asset.id,
+          legacy_activity: kind === "code" ? key : "other",
+          legacy_note: kind === "note" ? key : null,
+          activity_other_note: null,
+        })
+        .eq("id", r.id);
+      if (moveFailed !== null) {
+        return NextResponse.json({ error: moveFailed.message }, { status: 400 });
+      }
+    }
+
+    return NextResponse.json({ ok: true, moved: buying.length, asCapital: true });
   }
 
   /*

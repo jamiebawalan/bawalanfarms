@@ -1,6 +1,6 @@
 import { Page } from "@/components/ui";
 import { CostReview } from "@/components/cost-review";
-import { loadCostReview } from "@/lib/db/cost-review";
+import { UNSETTLED_CODES, loadCostReview } from "@/lib/db/cost-review";
 import { loadLedger } from "@/lib/db/ledger";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +16,22 @@ export const dynamic = "force-dynamic";
 export default async function CostReviewPage() {
   const [items, ledger] = await Promise.all([loadCostReview(), loadLedger()]);
 
-  // Active only, and never "other": this screen exists to empty it.
+  /*
+   * Active, and never a destination this screen exists to empty.
+   *
+   * The unsettled codes are still active so their expenses are not stranded,
+   * which meant they were in the list the matcher searches — and a row's own
+   * label matches itself perfectly, so "Fruiting Formula" suggested Fruiting
+   * Formula. Tapping it would have been accepted and the row would have left
+   * the queue with nothing changed: work marked done that was not done.
+   */
   const activities = ledger.activities
-    .filter((a) => a.active !== false && a.code !== "other")
+    .filter(
+      (a) =>
+        a.active !== false &&
+        a.code !== "other" &&
+        !(UNSETTLED_CODES as readonly string[]).includes(a.code),
+    )
     .map((a) => ({
       code: a.code,
       label: a.label,
