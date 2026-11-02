@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { oneLabelPerPlot, type MapShape } from "./farm-map";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PlotSummary, oneLabelPerPlot, type MapShape } from "./farm-map";
 
 const piece = (
   plotId: string, part: string, labelX: number, labelY: number, areaSqm: number,
@@ -7,6 +8,7 @@ const piece = (
   plotId, part, areaSqm, d: "M0,0Z", labelX, labelY,
   label: `Plot ${plotId}`, code: plotId, crop: "pineapple",
   cycleId: "c1", colourKey: "pineapple", months: 9, tasks: [],
+  surveyedSqm: areaSqm, plantedOn: "2026-02-01", plants: 2650,
 });
 
 describe("putting one number on each plot", () => {
@@ -62,5 +64,32 @@ describe("putting one number on each plot", () => {
 
   it("does not fall over on an empty map", () => {
     expect(oneLabelPerPlot([])).toEqual([]);
+  });
+});
+
+describe("what a plot says when you tap it", () => {
+  const shape = piece("11", "main", 0, 0, 6364.3);
+
+  it("answers the three questions without leaving the map", () => {
+    const html = renderToStaticMarkup(<PlotSummary shape={shape} />);
+    expect(html).toContain("0.64 ha");
+    expect(html).toContain("2,650");
+    expect(html).toContain("01 Feb 2026");
+  });
+
+  it("keeps the year on the planting date", () => {
+    // "01 Feb" alone is ambiguous by exactly the amount that matters.
+    const html = renderToStaticMarkup(<PlotSummary shape={shape} />);
+    expect(html).toMatch(/Feb 2026/);
+  });
+
+  it("says what is missing rather than showing a zero", () => {
+    const html = renderToStaticMarkup(
+      <PlotSummary shape={{ ...shape, surveyedSqm: null, plants: null, plantedOn: null }} />,
+    );
+    expect(html).toContain("not surveyed");
+    expect(html).toContain("not counted");
+    expect(html).toContain("not recorded");
+    expect(html).not.toContain("0.00 ha");
   });
 });

@@ -10,49 +10,18 @@ so the entry says what and why, not whether.
 
 ## Asked for, not yet built
 
-### 1. "What the farm knows" becomes Protocol 101
+### 1. Cost categories and activities need cleaning up
 
-`src/app/knowledge/page.tsx`
+The categories and sub-categories an expense can be filed under grew out of
+the spreadsheet rather than out of what the farm actually does, so some are
+unused, some overlap, and some do not match the protocol's own activities.
 
-Today the page is a flat list of numbered decisions, which reads like a
-reference and is used like one — rarely. It should be organised the way the
-protocol is: **by month after planting**, each month a row that expands into
-the step-by-step detail for that month.
+Two halves, and the second is the one with teeth: settle the list for new
+entries, then migrate eighteen months of history onto it without losing the
+original wording. A recategorisation that cannot be read back against what
+was actually written down is one nobody can audit.
 
-So month −4 collapses to "soil testing and land prep" and expands into the
-lime matrix, the ripping depth, the moisture test, the 21-day wait. The
-decisions record stays underneath as the provenance, not the front door.
-
-This is the same spine as the plot page's suggestion list, read the other way
-round: there, "what is due on this block"; here, "what the whole crop looks
-like". The data for it already exists — `protocol_activities` is ordered by
-`map_month` and carries the instruction text.
-
-### 2. Plot modals on the farm map
-
-`src/components/farm-map.tsx`
-
-Tapping a plot opens a panel *below* the map, so acting on it means scrolling
-past the whole map first. It should be a modal over the map, carrying:
-
-- area in hectares
-- plant count
-- when it was planted
-- a link through to the plot page
-
-The link already exists in the panel; the area and plant count do not.
-
-### 3. Photo gallery moves below the viewer
-
-`src/components/plot-photos.tsx`
-
-The thumbnail grid currently sits above the viewer, zoom, editor and caption.
-It should sit below them: the grid is a way back to the set, not the thing you
-came for, and putting it first pushes the photo you opened off the screen.
-
----
-
-### 4. Migrations are applied by hand
+### 2. Migrations are applied by hand
 
 There is no step anywhere that pushes `supabase/migrations/` to the live
 database. Vercel deploys the code; the schema is a separate manual
@@ -76,6 +45,27 @@ round proposes 0.009 of a sack, which is right and unreadable.
 Dated by the day the work merged, newest first. Here so that nobody
 re-derives a decision already taken, or re-adds something that was removed on
 purpose.
+
+### 2 November 2026 — the three UI asks
+
+**Protocol 101.** "What the farm knows" now opens with the crop month by
+month: tap month -4 and get the land prep steps and the lime matrix, tap
+month 5 and get that month's feeding and ant bait, with the protocol's own
+per-plant and per-area rates. Folded shut by default, because eighteen months
+of agronomy opened flat is a page nobody reaches the end of. The decisions
+record sits below it as provenance rather than the front door. The page is
+dynamic now: the protocol lives in the database so the owners can correct it
+without a deploy.
+
+**Plot details on the map.** Tapping a plot opens a card over the map rather
+than a panel below it, carrying size, plant count, planting date and the link
+through. Having to scroll the map out of the way to see what you just tapped
+was what made the map ornamental. The planting date carries its year — "14
+Feb" is ambiguous by exactly the amount that matters.
+
+**Photo gallery below the viewer.** The thumbnail strip used to push the photo
+he had just opened off a phone screen. The grid is the way back to the set,
+which is a thing wanted second.
 
 ### 2 November 2026 — Phase 5, stock is proposed and never deducted
 

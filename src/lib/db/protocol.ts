@@ -43,14 +43,27 @@ const EMPTY: ProtocolData = {
   activities: [], materials: new Map(), activityMaterials: [], plan: [], loaded: false,
 };
 
-export async function loadProtocol(cycleId: string): Promise<ProtocolData> {
+/**
+ * The protocol itself, with no cycle attached.
+ *
+ * For reading the crop end to end rather than answering what one block is
+ * due. Skips the plan query, which would otherwise be a round trip asking
+ * about a cycle nobody named.
+ */
+export async function loadProtocolCatalogue(): Promise<ProtocolData> {
+  return loadProtocol(null);
+}
+
+export async function loadProtocol(cycleId: string | null): Promise<ProtocolData> {
   const supabase = createAdminClient();
 
   const [activities, materials, activityMaterials, plan] = await Promise.all([
     supabase.from("protocol_activities").select("*").order("sort_order"),
     supabase.from("materials").select("*").eq("active", true).order("sort_order"),
     supabase.from("protocol_activity_materials").select("*"),
-    supabase.from("protocol_plan").select("*").eq("cycle_id", cycleId),
+    cycleId === null
+      ? Promise.resolve({ data: [], error: null })
+      : supabase.from("protocol_plan").select("*").eq("cycle_id", cycleId),
   ]);
 
   // A missing table is a migration that has not run, not a failure worth a 500.
