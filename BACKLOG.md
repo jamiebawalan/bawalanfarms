@@ -10,29 +10,15 @@ so the entry says what and why, not whether.
 
 ## Asked for, not yet built
 
-### 1. The "Other" review queue
+### 1. The seven unsettled codes
 
-About a hundred phrases of free text, each needing a new activity assigned.
-Surfaced for the owners with a suggestion pre-filled and the original note
-always visible, applied only when accepted — the same shape as the stock
-draws, for the same reason: nobody should have to trust a guess they cannot
-see.
+Spray, Liquid, Stab-Drop, Pinya Trimming, Material Collection, Fruiting
+Formula and the generic Land Prep. They now appear in **Tidy up the costs**
+alongside the free text, with the entry count, the total, and a note from one
+of their expenses as a worked example — so they are answered by looking at the
+money rather than by remembering.
 
-The suggestions themselves already exist in `activity-hints.ts`, which the
-entry screen uses live.
-
-### 2. Cost categories and activities — history (done; entry screen done)
-
-The categories and sub-categories an expense can be filed under grew out of
-the spreadsheet rather than out of what the farm actually does, so some are
-unused, some overlap, and some do not match the protocol's own activities.
-
-Two halves, and the second is the one with teeth: settle the list for new
-entries, then migrate eighteen months of history onto it without losing the
-original wording. A recategorisation that cannot be read back against what
-was actually written down is one nobody can audit.
-
-### 3. Migrations are applied by hand
+### 2. Migrations are applied by hand
 
 There is no step anywhere that pushes `supabase/migrations/` to the live
 database. Vercel deploys the code; the schema is a separate manual
@@ -56,6 +42,27 @@ round proposes 0.009 of a sack, which is right and unreadable.
 Dated by the day the work merged, newest first. Here so that nobody
 re-derives a decision already taken, or re-adds something that was removed on
 purpose.
+
+### 2 November 2026 — tidying up the costs
+
+**Tidy up the costs**, linked from the owner page. Every phrase still filed
+under "Other" and every unsettled old code, grouped by the exact words, with
+the entry count and the total, biggest first. Pick what the work was and the
+whole group moves; the original wording stays on every row.
+
+A phrase used eight times is answered once. Nothing is applied without
+somebody choosing it, and a phrase that meant two different things on
+different days has to be split by hand — which the kept wording makes
+possible afterwards.
+
+Also: the ledger now carries `active` on an activity. Without it the expense
+form would have offered all 104 codes including the 43 retired ones, which is
+the opposite of what rebuilding the list was for. The cost list still prints
+retired labels, because it has to render history.
+
+And the Plan calendar has a **Month view** button on a phone. The grid is a
+laptop shape by default, but that is a default rather than a rule: it scrolls
+sideways rather than squeezing seven columns into 390px.
 
 ### 2 November 2026 — the three UI asks
 

@@ -27,6 +27,13 @@ export function Agenda({
   today: string;
 }) {
   const [month, setMonth] = useState(() => monthOf(today));
+  /*
+   * The month grid is a laptop shape and the list is a phone shape, but that
+   * is a default rather than a rule — on a phone the grid is still the only
+   * way to see where the work bunches, and somebody who wants it should not
+   * have to find a laptop.
+   */
+  const [monthOnPhone, setMonthOnPhone] = useState(false);
   const buckets = bucketAgenda(items, today);
   const grid = monthGrid(month, items, today);
 
@@ -35,8 +42,17 @@ export function Agenda({
   return (
     <>
       {/* The phone: what is late, what is today, what is next. */}
-      <div className="lg:hidden">
-        <Card title="What is planned">
+      <div className={monthOnPhone ? "hidden" : "lg:hidden"}>
+        <Card
+          title="What is planned"
+          action={
+            nothing ? null : (
+              <Button variant="quiet" size="md" onClick={() => setMonthOnPhone(true)}>
+                Month view
+              </Button>
+            )
+          }
+        >
           {nothing ? (
             <Empty>
               Nothing planned. Work lands here when it is accepted from a
@@ -59,7 +75,7 @@ export function Agenda({
       </div>
 
       {/* The laptop: the shape of the month. */}
-      <div className="hidden lg:block">
+      <div className={monthOnPhone ? "block" : "hidden lg:block"}>
         <Card
           title={grid.label}
           action={
@@ -91,10 +107,26 @@ export function Agenda({
               >
                 ›
               </Button>
+              {!monthOnPhone ? null : (
+                <Button
+                  variant="quiet"
+                  size="md"
+                  className="lg:hidden"
+                  onClick={() => setMonthOnPhone(false)}
+                >
+                  List
+                </Button>
+              )}
             </div>
           }
         >
-          <div className="grid grid-cols-7 gap-px rounded-xl bg-line">
+        {/*
+          * Scrollable sideways on a phone. Seven columns that fit a 390px
+          * screen would be 50px each, which is neither readable nor tappable,
+          * so the grid keeps a usable column width and the week slides.
+          */}
+        <div className="-mx-1 overflow-x-auto px-1 lg:mx-0 lg:overflow-visible lg:px-0">
+          <div className="grid min-w-[44rem] grid-cols-7 gap-px rounded-xl bg-line lg:min-w-0">
             {WEEKDAYS.map((d) => (
               <div
                 key={d}
@@ -156,6 +188,7 @@ export function Agenda({
                 </ul>
               </div>
             ))}
+            </div>
           </div>
 
           {nothing ? (

@@ -253,6 +253,15 @@ export type Activity = {
    * worth putting to him every week.
    */
   impliesFarmWideReason?: FarmWideReason | null;
+  /**
+   * False for a code that has been retired.
+   *
+   * Retired codes are kept, not deleted: eighteen months of expenses point at
+   * them, and the cost list still has to be able to print their labels. So
+   * anything offering a choice filters on this, and anything rendering
+   * history does not.
+   */
+  active?: boolean;
 };
 
 /** Everything the reports read. Loaded once, reused across every cut. */

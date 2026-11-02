@@ -13,5 +13,8 @@ next-env.d.ts
 coverage/
 /scripts/.pgdata
 
-# One-off paste files generated for the Supabase SQL editor.
-protocol-migrations.sql
+# Paste files generated for the Supabase SQL editor, concatenated out of
+# supabase/migrations/ for a one-off run. Committing them would duplicate
+# content that already lives there and go stale the moment a migration
+# changes, so they are built on demand instead.
+*-migrations.sql

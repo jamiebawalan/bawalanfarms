@@ -92,7 +92,13 @@ export default async function CorrectExpensePage({
     <Page title="Correct a cost">
       <ExpenseForm
         plots={plots}
-        activities={ledger.activities}
+        /*
+         * Active only. The retired codes are kept so the cost list can still
+         * print their labels, but offering them here would mean a choice
+         * between a hundred-odd names when the whole point of rebuilding the
+         * list was that fifty-two was already too many to find anything in.
+         */
+        activities={ledger.activities.filter((a) => a.active !== false)}
         // Correcting means every activity is already on screen as the chosen
         // one; the shortlist is for speed when entering, not when fixing.
         recentActivities={ledger.activities.map((a) => a.code)}
