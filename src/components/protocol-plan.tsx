@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Chip, ChipGroup, Empty, Note } from "./ui";
+import { Button, Card, Chip, ChipGroup, Empty, Field, Input, Note } from "./ui";
 import { newId, send } from "@/lib/queue";
+import { addDays, formatDateShort, todayISO } from "@/lib/domain/dates";
 
 export type PlanSuggestion = {
   code: string;
@@ -27,8 +28,9 @@ export type PlanAnswered = {
   code: string;
   title: string;
   mapMonth: number;
-  state: "done" | "skipped";
+  state: "scheduled" | "done" | "skipped";
   skipReason: string | null;
+  dueOn: string | null;
   doneOn: string | null;
 };
 
@@ -77,6 +79,8 @@ export function ProtocolPlan({
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [asking, setAsking] = useState<string | null>(null);
+  const [planning, setPlanning] = useState<string | null>(null);
+  const [when, setWhen] = useState("");
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +110,8 @@ export function ProtocolPlan({
 
   const answer = async (
     code: string,
-    state: "done" | "skipped",
-    skipReason?: string,
+    state: "scheduled" | "done" | "skipped",
+    extra: { skipReason?: string; dueOn?: string } = {},
   ) => {
     setBusy(code);
     setError(null);
@@ -119,12 +123,17 @@ export function ProtocolPlan({
         sub_plot_id: subPlotId,
         activity_code: code,
         state,
-        ...(skipReason === undefined ? {} : { skip_reason: skipReason }),
+        ...(extra.skipReason === undefined ? {} : { skip_reason: extra.skipReason }),
+        ...(extra.dueOn === undefined ? {} : { due_on: extra.dueOn }),
       },
-      describe: `${state === "done" ? "Did" : "Skipped"} ${code}`,
+      describe:
+        state === "scheduled"
+          ? `Planned ${code}`
+          : `${state === "done" ? "Did" : "Skipped"} ${code}`,
     });
     setBusy(null);
     setAsking(null);
+    setPlanning(null);
     if (result.ok || ("queued" in result && result.queued)) {
       router.refresh();
       return;
@@ -146,6 +155,17 @@ export function ProtocolPlan({
     const detail = await res.json().catch(() => ({ error: "Could not undo" }));
     setError(detail.error ?? "Could not undo");
   };
+
+  /*
+   * Planned work is not "answered" — it is the farm's commitment, and it is
+   * the only list with a date on it. It sits open above the settled items,
+   * which are history and stay folded away.
+   */
+  const planned = answered
+    .filter((a) => a.state === "scheduled")
+    .sort((a, b) => (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"));
+  const settled = answered.filter((a) => a.state !== "scheduled");
+  const today = todayISO();
 
   const visible = expanded ? suggestions : suggestions.slice(0, SHOWN);
   const hidden = suggestions.length - visible.length;
@@ -241,7 +261,9 @@ export function ProtocolPlan({
                         <Chip
                           key={r.value}
                           disabled={busy !== null}
-                          onClick={() => void answer(pick, "skipped", r.value)}
+                          onClick={() =>
+                            void answer(pick, "skipped", { skipReason: r.value })
+                          }
                         >
                           {r.label}
                         </Chip>
@@ -256,20 +278,62 @@ export function ProtocolPlan({
                       Cancel
                     </Button>
                   </div>
+                ) : planning === s.code ? (
+                  <div className="mt-3">
+                    <Field label="When will you do it?" htmlFor={`when-${s.code}`}>
+                      <Input
+                        id={`when-${s.code}`}
+                        type="date"
+                        value={when}
+                        onChange={(e) => setWhen(e.target.value)}
+                      />
+                    </Field>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        size="md"
+                        disabled={busy !== null || when === ""}
+                        onClick={() => void answer(pick, "scheduled", { dueOn: when })}
+                      >
+                        {busy === pick ? "Saving…" : "Add to the plan"}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="md"
+                        disabled={busy !== null}
+                        onClick={() => setPlanning(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="md"
                       disabled={busy !== null}
-                      onClick={() => void answer(pick, "done")}
+                      onClick={() => {
+                        /*
+                         * A week out by default, not today. Nothing here can
+                         * be done the moment it is agreed — the material has
+                         * to be bought and the crew booked — and defaulting
+                         * to today would fill the calendar with dates nobody
+                         * meant.
+                         */
+                        setWhen(addDays(todayISO(), 7));
+                        setAsking(null);
+                        setPlanning(s.code);
+                      }}
                     >
-                      {busy === pick ? "Saving…" : "Did it"}
+                      Plan to do it
                     </Button>
                     <Button
                       variant="secondary"
                       size="md"
                       disabled={busy !== null}
-                      onClick={() => setAsking(s.code)}
+                      onClick={() => {
+                        setPlanning(null);
+                        setAsking(s.code);
+                      }}
                     >
                       Not this one
                     </Button>
@@ -291,14 +355,64 @@ export function ProtocolPlan({
         </Button>
       ) : null}
 
-      {answered.length === 0 ? null : (
+      {planned.length === 0 ? null : (
+        <div className="mt-4 border-t border-line pt-3">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-soft">
+            Planned
+          </h3>
+          <ul className="divide-y divide-line">
+            {planned.map((a) => {
+              const late = a.dueOn !== null && a.dueOn < today;
+              return (
+                <li key={a.code} className="py-3">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-semibold text-ink">{a.title}</span>
+                    <span
+                      className={
+                        late
+                          ? "text-sm font-semibold text-danger"
+                          : "text-sm text-ink-soft"
+                      }
+                    >
+                      {a.dueOn === null
+                        ? "no date"
+                        : `by ${formatDateShort(a.dueOn)}${late ? " · overdue" : ""}`}
+                    </span>
+                  </div>
+                  {closed ? null : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        size="md"
+                        disabled={busy !== null}
+                        onClick={() => void answer(a.code, "done")}
+                      >
+                        {busy === a.code ? "Saving…" : "Did it"}
+                      </Button>
+                      <Button
+                        variant="quiet"
+                        size="md"
+                        disabled={busy !== null}
+                        onClick={() => void undo(a.code)}
+                      >
+                        Take off the plan
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {settled.length === 0 ? null : (
         <div className="mt-4 border-t border-line pt-3">
           <Button variant="quiet" onClick={() => setShowDone((v) => !v)}>
-            {showDone ? "Hide" : "Show"} {answered.length} already answered
+            {showDone ? "Hide" : "Show"} {settled.length} already answered
           </Button>
           {!showDone ? null : (
             <ul className="mt-3 divide-y divide-line">
-              {answered.map((a) => (
+              {settled.map((a) => (
                 <li key={a.code} className="flex flex-wrap items-baseline gap-x-2 py-2">
                   <span className="text-sm text-ink">{a.title}</span>
                   <span className="text-xs text-ink-soft tabular">
@@ -361,7 +475,12 @@ function Timing({
 }
 
 function describeAnswer(a: PlanAnswered): string {
-  if (a.state === "done") return "did it";
+  if (a.state === "scheduled") return "planned";
+  if (a.state === "done") {
+    return a.dueOn !== null && a.doneOn !== null && a.doneOn > a.dueOn
+      ? `did it, ${formatDateShort(a.doneOn)} — planned for ${formatDateShort(a.dueOn)}`
+      : "did it";
+  }
   switch (a.skipReason) {
     case "already_done":
       return "already done";

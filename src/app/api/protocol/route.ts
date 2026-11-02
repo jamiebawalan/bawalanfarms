@@ -7,19 +7,25 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 /**
  * Answering a suggestion.
  *
- * Three answers, because the farm has three real situations and collapsing
- * them loses the one that matters most. "Did it" is work done now. "Already
- * did it" is work done before the app knew about the protocol, which is how
- * three months of unrecorded history gets reconciled without a data-entry
- * chore. "Not this one" is a decision not to do it, which is information —
- * a plot that skipped three phosphonate rounds explains itself later.
+ * The first answer is a plan, not a completion. Nothing on this farm happens
+ * the moment it is agreed: the material has to be bought, the crew booked,
+ * the weather watched. So the suggestion asks when he will do it, and the
+ * answer is a date — which is also the only thing a calendar can be built
+ * out of.
+ *
+ * Then: "did it" closes a plan. "Already did it" is work done before the app
+ * knew about the protocol, which is how months of unrecorded history get
+ * reconciled without a data-entry chore. "Not this one" is a decision not to
+ * do it, which is information — a plot that skipped three phosphonate rounds
+ * explains itself later.
  */
 const Answer = z.object({
   cycle_id: z.string().uuid(),
   sub_plot_id: z.string().uuid().nullable().optional(),
   activity_code: z.string().min(1).max(60),
-  /** done = carried out. skipped = deliberately not. */
-  state: z.enum(["done", "skipped"]),
+  /** scheduled = he will do it, by due_on. done = carried out. skipped = not. */
+  state: z.enum(["scheduled", "done", "skipped"]),
+  due_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   done_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   skip_reason: z
     .enum(["already_done", "not_needed", "no_material", "too_late"])
@@ -46,11 +52,39 @@ export async function POST(request: Request) {
    * did not do it *through the app* and nothing was drawn from inventory for
    * it. Reporting it as done would conjure materials the farm never issued.
    */
+  /*
+   * Keep the date he promised when he now reports it done. The upsert
+   * replaces the whole row, so without this the plan date is lost the
+   * moment the work lands — and "three weeks later than he said" is
+   * exactly the figure worth having at the end of a cycle.
+   */
+  let dueOn = answer.due_on ?? null;
+  if (dueOn === null && answer.state !== "scheduled") {
+    const base = supabase
+      .from("protocol_plan")
+      .select("due_on")
+      .eq("cycle_id", answer.cycle_id)
+      .eq("activity_code", answer.activity_code);
+    // `is` is for null only; a real id needs `eq`.
+    const existing = await (answer.sub_plot_id == null
+      ? base.is("sub_plot_id", null)
+      : base.eq("sub_plot_id", answer.sub_plot_id)
+    ).maybeSingle();
+    dueOn = (existing.data?.due_on as string | null) ?? null;
+  }
+
   const row = {
     cycle_id: answer.cycle_id,
     sub_plot_id: answer.sub_plot_id ?? null,
     activity_code: answer.activity_code,
     state: answer.state,
+    /*
+     * The date he committed to is kept when the work is done, not cleared.
+     * How late the farm runs against its own plan is the thing worth knowing
+     * at the end of a cycle, and overwriting the promise with the delivery
+     * would throw it away.
+     */
+    due_on: dueOn,
     done_on: answer.state === "done" ? (answer.done_on ?? todayISO()) : null,
     skip_reason: answer.state === "skipped" ? (answer.skip_reason ?? "not_needed") : null,
     note: answer.note ?? null,

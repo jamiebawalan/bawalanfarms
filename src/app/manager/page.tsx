@@ -188,50 +188,19 @@ export default async function ManagerPage() {
                           <span className="tabular font-semibold">{r.latestDleafCm} cm</span>{" "}
                           <span className="text-ink-soft">
                             on {formatDateShort(r.latestDleafDate)}
-                            {r.dleafGrowthPerDay !== null
-                              ? `, growing ${r.dleafGrowthPerDay} cm/day`
-                              : ""}
                           </span>
                         </div>
                       )}
 
-                      {/* Forcing is what the readings are for: liquid goes on when
-                          the plants are big enough, and the harvest follows. */}
-                      {r.projectedForcing !== null ? (
-                        <div className="mt-0.5 text-ink">
-                          Force around{" "}
-                          <strong>{formatDate(r.projectedForcing)}</strong>
-                          {r.targetForcing !== null && r.forcingSlipDays !== null ? (
-                            <>
-                              {" — "}
-                              <span
-                                className={cx(
-                                  "font-semibold",
-                                  r.forcingSlipDays > 0 ? "text-money-down" : "text-money-up",
-                                )}
-                              >
-                                {r.forcingSlipDays > 0
-                                  ? `${r.forcingSlipDays} days later than planned`
-                                  : r.forcingSlipDays < 0
-                                    ? `${-r.forcingSlipDays} days earlier than planned`
-                                    : "on target"}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-ink-soft"> · no target set</span>
-                          )}
-                        </div>
-                      ) : r.dleafReadings === 1 ? (
-                        <div className="mt-0.5 text-ink-soft">
-                          One reading — a second gives the rate.
-                        </div>
-                      ) : null}
-
-                      {r.projectedHarvest !== null ? (
-                        <div className="text-ink-soft">
-                          Harvest ~{formatDateShort(r.projectedHarvest)}
-                        </div>
-                      ) : null}
+                      {/*
+                        * No projected forcing date here any more.
+                        *
+                        * It was extrapolated from D-leaf length, which the
+                        * protocol treats as reference only. Forcing goes on
+                        * weight now, and that verdict lives on the plot page
+                        * beside the weights it was read from — a date on this
+                        * list would be a guess wearing a number.
+                        */}
                     </div>
                   </Link>
                 </li>

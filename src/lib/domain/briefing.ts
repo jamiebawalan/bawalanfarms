@@ -16,7 +16,9 @@
  *    false precision back.
  */
 
-import { latestLeaf, projectForcing, projectHarvest } from "./dashboards";
+import { latestLeaf } from "./dashboards";
+import { readingsFor } from "./leaf";
+import { FORCING, forcingReadiness } from "./protocol";
 import { cyclePnL } from "./pnl";
 import { formatDate, todayISO } from "./dates";
 import { formatPeso } from "./money";
@@ -63,50 +65,76 @@ export function cycleBriefing(
     .filter((l) => l.cycleId === cycleId)
     .sort((a, b) => a.date.localeCompare(b.date));
   const latest = latestLeaf(ledger, cycleId);
-  const forcing = projectForcing(ledger, cycleId);
+
+  /*
+   * Weight, not length.
+   *
+   * This section used to tell the model that plants are forced once the
+   * D-leaf averages a set number of centimetres, and then hand it a date
+   * extrapolated from two readings. Both are wrong under the protocol: the
+   * D-leaf was being measured by a method the farm has abandoned, and
+   * height is reference only. A briefing that states the old rule as fact
+   * would have the model advise from it however carefully the knowledge
+   * base elsewhere says otherwise.
+   */
+  const weightSurveys = readingsFor(ledger, cycleId).filter((r) => r.weights.length > 0);
+  const lastSurvey = weightSurveys[weightSurveys.length - 1] ?? null;
+  const readiness = lastSurvey === null ? null : forcingReadiness(lastSurvey.weights);
 
   lines.push("");
-  lines.push("## D-leaf measurements");
+  lines.push("## Plant measurements and forcing");
   lines.push(
-    `Anthony measures the D-leaf of ${settings.dleafSampleSize} randomly chosen plants every few weeks. ` +
-      `The plants are forced with liquid to induce fruiting once the D-leaf averages ${settings.dleafForcingCm} cm; ` +
-      `harvest follows forcing by about ${settings.monthsForcingToHarvest} months.`,
+    `Forcing goes on plant weight, never on height or age. The protocol forces when the ` +
+      `average whole-plant weight is at least ${kg(FORCING.averageMin)}, at least ` +
+      `${Math.round(FORCING.shareMin * 100)}% of plants are at or above that, the lightest is ` +
+      `at least ${kg(FORCING.lightestMin)}, and the average is not over ${kg(FORCING.averageMax)} ` +
+      `(over-robust plants are hard to force). D-leaf length is recorded as reference only.`,
   );
   if (readings.length === 0) {
-    lines.push("No D-leaf readings have been recorded on this cycle.");
+    lines.push("No plant measurements have been recorded on this cycle.");
   } else {
     for (const r of readings) {
-      lines.push(`- ${formatDate(r.date)}: ${r.avgLengthCm} cm average (${r.sampleSize ?? settings.dleafSampleSize} plants)`);
-    }
-    if (latest !== null) {
-      const short = settings.dleafForcingCm - latest.avgLengthCm;
       lines.push(
-        short <= 0
-          ? "The latest reading is at or past the forcing length."
-          : `${round1(short)} cm short of the forcing length.`,
+        `- ${formatDate(r.date)}: ${r.avgLengthCm} cm average length ` +
+          `(${r.sampleSize ?? settings.dleafSampleSize} plants)` +
+          (r.avgWeightGrams == null
+            ? ", not weighed"
+            : `, ${kg(r.avgWeightGrams)} average weight`),
       );
     }
   }
-  if (forcing === null) {
+  if (readiness === null) {
     lines.push(
-      readings.length < 2
-        ? "Growth rate: unknown — a rate needs at least two readings, so there is no forcing date yet."
-        : "Growth rate: could not be computed from the readings on file.",
+      "No plants have been weighed on this cycle, so there is no forcing verdict. " +
+        "Do not infer one from length: the readings taken by the old D-leaf method " +
+        "were set aside as unreliable.",
     );
   } else {
-    lines.push(`Growth rate: ${forcing.cmPerDay} cm a day across ${forcing.fromReadings} readings.`);
-    lines.push(`Projected forcing: ${formatDate(forcing.date)}.`);
+    lines.push(
+      `Weight survey of ${formatDate(lastSurvey!.date)}: ${readiness.weighed} plants weighed, ` +
+        `${kg(readiness.averageGrams)} average, ${Math.round(readiness.shareAtWeight * 100)}% at ` +
+        `or above ${kg(FORCING.averageMin)}, lightest ${kg(readiness.lightestGrams)}, ` +
+        `heaviest ${kg(readiness.heaviestGrams)}.`,
+    );
+    lines.push(
+      readiness.ready
+        ? "Verdict: ready to force — every criterion is met."
+        : `Verdict: not ready to force. ${readiness.blocker}`,
+    );
   }
   lines.push(
     cycle.targetForcingDate === null
       ? "Target forcing date: not set."
       : `Target forcing date: ${formatDate(cycle.targetForcingDate)}.`,
   );
-  const harvest = projectHarvest(ledger, cycleId, today);
-  if (harvest !== null) lines.push(`Projected harvest: ${formatDate(harvest)}.`);
   if (cycle.targetHarvestDate !== null) {
     lines.push(`Target harvest date: ${formatDate(cycle.targetHarvestDate)}.`);
   }
+  lines.push(
+    "There is no projected forcing or harvest date. Projections used to be " +
+      "extrapolated from D-leaf growth and have been removed rather than left " +
+      "to put a confident date on a discredited measurement.",
+  );
 
   // --- money --------------------------------------------------------------
   lines.push("");
@@ -213,4 +241,9 @@ function shift(iso: ISODate, days: number): ISODate {
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+/** Grams as the farm says them: 2.7 kg, not 2700 g. */
+function kg(grams: number): string {
+  return `${(grams / 1000).toFixed(1)} kg`;
 }

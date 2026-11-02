@@ -68,16 +68,45 @@ describe("what the protocol says, on screen", () => {
     expect(html).not.toContain(">c<");
   });
 
-  it("offers the three answers the farm actually has", () => {
+  it("asks him to plan it, not to claim he has done it", () => {
     const html = render({ suggestions: [suggestion({ code: "x" })] });
-    expect(html).toContain("Did it");
+    expect(html).toContain("Plan to do it");
     expect(html).toContain("Not this one");
+    // Nothing is marked done straight off a suggestion: it has not happened yet.
+    expect(html).not.toContain(">Did it<");
   });
 
   it("offers nothing to tap on a closed cycle", () => {
     const html = render({ suggestions: [suggestion({ code: "x" })], closed: true });
-    expect(html).not.toContain("Did it");
+    expect(html).not.toContain("Plan to do it");
     expect(html).not.toContain("Not this one");
+  });
+
+  it("keeps planned work open, with its date, above the settled history", () => {
+    const html = render({
+      answered: [
+        { code: "foliar_5", title: "Foliar feed", mapMonth: 5, state: "scheduled",
+          skipReason: null, dueOn: "2099-01-20", doneOn: null },
+        { code: "mortality_check", title: "Mortality check", mapMonth: 0.5,
+          state: "skipped", skipReason: "already_done", dueOn: null, doneOn: null },
+      ],
+    });
+    expect(html).toContain("Planned");
+    expect(html).toContain("Foliar feed");
+    // The planned one can be closed out; the settled one is folded away.
+    expect(html).toContain("Did it");
+    expect(html).toContain("1 already answered");
+    expect(html).not.toContain("Mortality check");
+  });
+
+  it("marks a plan overdue once its date has passed", () => {
+    const html = render({
+      answered: [
+        { code: "foliar_5", title: "Foliar feed", mapMonth: 5, state: "scheduled",
+          skipReason: null, dueOn: "2020-01-20", doneOn: null },
+      ],
+    });
+    expect(html).toContain("overdue");
   });
 
   it("shows a choice as one row, not two jobs", () => {
@@ -128,7 +157,7 @@ describe("what the protocol says, on screen", () => {
   it("will not offer to undo a round that was merely overtaken", () => {
     const answered: PlanAnswered[] = [
       { code: "foliar_4", title: "Foliar feed", mapMonth: 4, state: "skipped",
-        skipReason: "superseded", doneOn: null },
+        skipReason: "superseded", dueOn: null, doneOn: null },
     ];
     const html = render({ answered });
     expect(html).toContain("1 already answered");

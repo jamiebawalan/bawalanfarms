@@ -192,8 +192,9 @@ export default async function CyclePage({
               code: p.activityCode,
               title: activity.title,
               mapMonth: activity.mapMonth,
-              state: p.state === "done" ? ("done" as const) : ("skipped" as const),
+              state: p.state,
               skipReason: p.skipReason,
+              dueOn: p.dueOn,
               doneOn: p.doneOn,
             }];
       })
