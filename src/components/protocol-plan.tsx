@@ -22,6 +22,23 @@ export type PlanSuggestion = {
   doses: { name: string; display: string; note: string | null }[];
   /** What the doses could not be worked out from. */
   missing: "plants" | "area" | null;
+  /** How to load the knapsack, for anything sprayed. Null for granules. */
+  tank: TankPlanView | null;
+};
+
+export type TankPlanView = {
+  tankLitres: number;
+  waterLitres: number;
+  mlPerPlant: number;
+  plantsPerTank: number;
+  fullTanks: number;
+  lastTankPlants: number;
+  warning: string | null;
+  lines: {
+    name: string;
+    display: string;
+    premix: { totalDisplay: string; dissolveInMl: number; perTankMl: number } | null;
+  }[];
 };
 
 export type PlanAnswered = {
@@ -252,6 +269,8 @@ export function ProtocolPlan({
                     ))}
                   </dl>
                 )}
+
+                {s.tank === null ? null : <TankPlanDetails tank={s.tank} />}
 
                 {closed ? null : asking === s.code ? (
                   <div className="mt-3">
@@ -498,4 +517,79 @@ function describeAnswer(a: PlanAnswered): string {
 /** Months read as 5 and 12.5, never 5.0 or 12.50. */
 function round1(n: number): string {
   return String(Math.round(n * 10) / 10);
+}
+
+/**
+ * How to load the knapsack, folded away until he asks.
+ *
+ * The plot total above answers "how much do I buy". This answers "what goes
+ * in the tank", which is a different question asked at a different moment —
+ * at the store versus standing over the sprayer — and showing both at once
+ * on a phone buries the one he came for.
+ */
+function TankPlanDetails({ tank }: { tank: TankPlanView }) {
+  const tanks = tank.fullTanks + (tank.lastTankPlants > 0 ? 1 : 0);
+  const premixed = tank.lines.filter((l) => l.premix !== null);
+
+  return (
+    <details className="mt-3">
+      <summary className="cursor-pointer text-sm font-semibold text-brand">
+        How to mix it — {tanks} {tanks === 1 ? "tank" : "tanks"} of{" "}
+        {tank.tankLitres} L
+      </summary>
+
+      <div className="mt-2 max-w-md">
+        {tank.warning === null ? null : <Note tone="warn">{tank.warning}</Note>}
+
+        <p className="text-sm text-ink-soft">
+          {tank.waterLitres} L of water over the whole block, which is{" "}
+          {tank.mlPerPlant} ml a plant. One {tank.tankLitres} L tank covers{" "}
+          <strong className="text-ink">{tank.plantsPerTank} plants</strong> — spray
+          exactly that many and the tank should run out as you finish them.
+        </p>
+
+        <dl className="mt-2 rounded-xl bg-paper-sunk p-3">
+          {tank.lines.map((l) => (
+            <div key={l.name} className="flex justify-between gap-3 py-0.5">
+              <dt className="text-sm text-ink-soft">{l.name}</dt>
+              <dd className="text-sm font-semibold tabular text-ink">
+                {l.premix === null ? l.display : `${l.premix.perTankMl} ml of premix`}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-1 text-sm text-ink-soft">
+          Per tank, in this order, each dissolved before the next. Urea last.
+        </p>
+
+        {premixed.length === 0 ? null : (
+          <div className="mt-3">
+            <h4 className="text-sm font-semibold text-ink">Premix first</h4>
+            <p className="text-sm text-ink-soft">
+              Too little to weigh at the sprayer. Weigh each one once for the whole
+              block, dissolve it, and pour the same measure into every tank.
+            </p>
+            <ul className="mt-1 list-disc pl-5">
+              {premixed.map((l) => (
+                <li key={l.name} className="text-sm text-ink-soft">
+                  <strong className="text-ink">{l.name}</strong>:{" "}
+                  {l.premix!.totalDisplay} in {l.premix!.dissolveInMl / 1000} L of
+                  water, then {l.premix!.perTankMl} ml per tank.
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {tank.lastTankPlants === 0 ? null : (
+          <p className="mt-2 text-sm text-ink-soft">
+            The last tank covers {tank.lastTankPlants} plants, not{" "}
+            {tank.plantsPerTank} — mix it at about{" "}
+            {Math.round((tank.lastTankPlants / tank.plantsPerTank) * 100)}% of the
+            amounts above.
+          </p>
+        )}
+      </div>
+    </details>
+  );
 }

@@ -199,8 +199,12 @@ end $$;
 do $$
 declare a numeric;
 begin
+  -- 6364.30, the traced boundary from 0018. The 7056 this used to assert was
+  -- the pre-survey figure, and the test was not updated when 0016 corrected
+  -- the areas and 0018 traced them — so it has been failing, and stopping
+  -- this whole suite on its first error, ever since.
   select plot_area_on((select plot1 from ids), current_date) into a;
-  if a <> 7056 then raise exception 'TEST FAILED: plot 1 area was %', a; end if;
+  if a <> 6364.30 then raise exception 'TEST FAILED: plot 1 area was %', a; end if;
   -- The coffee plot has no surveyed area yet, and must report that honestly
   -- rather than defaulting to zero and silently skewing every split.
   select plot_area_on((select id from plots where code='27'), current_date) into a;

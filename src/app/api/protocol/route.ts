@@ -140,8 +140,6 @@ async function closeEarlierRounds(answer: {
     instruction: String(a.instruction),
     basis: a.basis as Basis,
     series: (a.series as string | null) ?? null,
-    recoverableMonths:
-      a.recoverable_months === null ? null : Number(a.recoverable_months),
     choiceGroup: (a.choice_group as string | null) ?? null,
     isDefault: Boolean(a.is_default),
     condition: (a.condition as string | null) ?? null,

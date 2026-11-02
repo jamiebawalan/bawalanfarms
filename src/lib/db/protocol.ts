@@ -65,10 +65,6 @@ export async function loadProtocol(cycleId: string): Promise<ProtocolData> {
       instruction: String(a.instruction),
       basis: a.basis as Basis,
       series: (a.series as string | null) ?? null,
-      recoverableMonths:
-        a.recoverable_months === null || a.recoverable_months === undefined
-          ? null
-          : Number(a.recoverable_months),
       choiceGroup: (a.choice_group as string | null) ?? null,
       isDefault: Boolean(a.is_default),
       condition: (a.condition as string | null) ?? null,

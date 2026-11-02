@@ -64,8 +64,11 @@ begin
   exception when insufficient_privilege then
     null;  -- also an acceptable refusal
   end;
+  -- 6364.30, the traced boundary from 0018. Asserting the pre-survey 7056
+  -- made this read as a manager having rewritten the area when nothing had
+  -- been written at all: the update above was refused, as it should be.
   if (select area_sqm from plot_areas
-      where plot_id = (select id from plots where code = '1')) <> 7056 then
+      where plot_id = (select id from plots where code = '1')) <> 6364.30 then
     raise exception 'TEST FAILED: plot area was changed by a manager';
   end if;
   raise notice 'ok  a manager cannot rewrite plot areas';

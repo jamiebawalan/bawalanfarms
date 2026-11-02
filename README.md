@@ -200,6 +200,11 @@ Currency is PHP, formatted `₱1,234`. Dates read `04 Mar 2024`, never
 
 ---
 
+## What is next
+
+[BACKLOG.md](BACKLOG.md) holds what is agreed but not built, the remaining
+protocol phases, and the open questions that block some of it.
+
 ## Deliberately not built
 
 Payroll, invoicing, tax reporting, weather, IoT, multi-farm tenancy, GIS,
