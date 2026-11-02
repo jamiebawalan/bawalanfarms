@@ -52,6 +52,20 @@ came for, and putting it first pushes the photo you opened off the screen.
 
 ---
 
+### 4. Migrations are applied by hand
+
+There is no step anywhere that pushes `supabase/migrations/` to the live
+database. Vercel deploys the code; the schema is a separate manual
+`supabase db push`, or a paste into the SQL editor.
+
+This has already cost an afternoon once: phases 1 to 4 were deployed and
+every plot page read "The protocol is not loaded on this farm yet", which was
+the app correctly reporting that its tables did not exist. The message did its
+job, but nobody should have to decode it.
+
+Worth either a deploy step that runs the push, or a line on the owner page
+that says plainly when the database is behind the code.
+
 ## Protocol phases still to come
 
 | Phase | What |
