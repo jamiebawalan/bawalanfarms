@@ -23,14 +23,10 @@ update expenses e set
   activity        = m.to_activity
 from (values
   -- Land prep and planting
-  /*
-   * Araro is the turning plough, so it maps to the moldboard rather than the
-   * ripper. In ordinary usage araro is the implement that turns a furrow;
-   * ripping and subsoiling are newer operations the farm names in English.
-   * If any of these were actually ripper passes, legacy_activity still says
-   * 'araro' and they can be moved.
-   */
-  ('araro',            'moldboard'),
+  -- Araro is not remapped. It survives as its own activity, because on this
+  -- farm it has always been carabao work and that is a shallower operation
+  -- than either the ripper or a moldboard, not the same job with a different
+  -- engine. Its history is already filed correctly.
   ('plot_clearing',    'clear_crop'),
   ('plot_edging',      'plot_edges'),
   ('tanim',            'plant'),

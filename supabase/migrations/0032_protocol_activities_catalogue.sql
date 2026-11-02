@@ -59,6 +59,17 @@ insert into activities (code, label, activity_group, default_category, sort_orde
    * 18 inches and two passes with the second crosswise. A moldboard at
    * depth needs about 120 HP, which is an aspiration rather than a shed.
    */
+  /*
+   * Araro is carabao work on this farm and always has been, which makes it a
+   * third operation rather than a moldboard pulled by something else. The
+   * protocol's view is blunt — "a carabao/harrow alone is too shallow" — and
+   * that shallowness is the agronomic fact worth recording. Filing it as a
+   * moldboard would credit it with a depth it never reached.
+   *
+   * Labour rather than Machines: the cost is the crew and the animal, and
+   * the carabao itself is a capital asset.
+   */
+  ('araro',            'Araro (carabao plough, shallow)', 'Land prep', 'Labor',      135, true),
   ('rip',              'Deep rip / subsoil (18 in)',   'Land prep', 'Machines',      140, true),
   ('moldboard',        'Moldboard plough (turn over)', 'Land prep', 'Machines',      145, true),
   ('harrow',           'Disc harrow',                  'Land prep', 'Machines',      150, true),
@@ -186,7 +197,7 @@ where code in (
   'abono', 'deweed', 'pakyaw_deweed', 'tabas',
   'tabas_mane', 'vine_removal', 'kill_saging',
   'decrowning', 'igib',
-  'araro', 'plot_clearing', 'plot_edging', 'tanim',
+  'plot_clearing', 'plot_edging', 'tanim',
   'pinya_planting', 'banana_planting', 'corn_planting', 'coffee_planting',
   'suwe_gathering', 'hakot_material',
   'harvesting', 'kalakal', 'kamada', 'lalamove', 'trucking', 'toll_gate',
