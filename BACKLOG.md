@@ -10,7 +10,18 @@ so the entry says what and why, not whether.
 
 ## Asked for, not yet built
 
-### 1. Cost categories and activities need cleaning up
+### 1. The "Other" review queue
+
+About a hundred phrases of free text, each needing a new activity assigned.
+Surfaced for the owners with a suggestion pre-filled and the original note
+always visible, applied only when accepted — the same shape as the stock
+draws, for the same reason: nobody should have to trust a guess they cannot
+see.
+
+The suggestions themselves already exist in `activity-hints.ts`, which the
+entry screen uses live.
+
+### 2. Cost categories and activities — history (done; entry screen done)
 
 The categories and sub-categories an expense can be filed under grew out of
 the spreadsheet rather than out of what the farm actually does, so some are
@@ -21,7 +32,7 @@ entries, then migrate eighteen months of history onto it without losing the
 original wording. A recategorisation that cannot be read back against what
 was actually written down is one nobody can audit.
 
-### 2. Migrations are applied by hand
+### 3. Migrations are applied by hand
 
 There is no step anywhere that pushes `supabase/migrations/` to the live
 database. Vercel deploys the code; the schema is a separate manual
