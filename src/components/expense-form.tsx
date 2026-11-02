@@ -3,12 +3,14 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Empty,
   AmountInput, Button, Card, Chip, ChipGroup, Field, Input, Money, Note, cx,
 } from "./ui";
 import { newId, send } from "@/lib/queue";
 import { formatPeso, lineTotal, parsePeso } from "@/lib/domain/money";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import { areaPercentages, splitByPercent } from "@/lib/domain/split";
+import { hintsFor, nudgeFor } from "@/lib/domain/activity-hints";
 import {
   EXPENSE_CATEGORIES, FARM_WIDE_REASONS, LABOUR_MODES,
   type Activity, type Attribution, type ExpenseCategory, type FarmWideReason,
@@ -129,6 +131,7 @@ export function ExpenseForm({
   );
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [otherNote, setOtherNote] = useState(existing?.activityOtherNote ?? "");
+  const [activitySearch, setActivitySearch] = useState("");
   const [category, setCategory] = useState<ExpenseCategory | null>(
     existing?.category ?? null,
   );
@@ -529,18 +532,43 @@ export function ExpenseForm({
   }
 
   // --- the form ------------------------------------------------------------
-  // The shortlist is what he actually taps. An activity that settles its own
-  // attribution exists precisely to save him taps, so hiding it behind "show
-  // all 52" until he has used it once would defeat the point of adding it.
-  const quickActivities = showAllActivities
-    ? activities
-    : activities.filter(
+  /*
+   * The shortlist is what he actually taps, and until now "Other" was in it.
+   *
+   * That one line cost about ₱102,000. "Other" sat beside the half-dozen
+   * recent activities while everything else was behind a button marked "show
+   * all 52" with no way to search it — so vehicle repairs went to Other
+   * though Barang existed, and a payee went into the note though Paid to
+   * existed. The wrong field was simply the nearest one.
+   *
+   * It is now typed for, not scrolled to, and "Other" is at the bottom where
+   * a last resort belongs.
+   */
+  const searching = activitySearch.trim().length >= 2;
+  const matched = searching
+    ? new Set(hintsFor(activitySearch, activities, 12).map((h) => h.code))
+    : null;
+
+  const quickActivities = searching
+    ? activities.filter(
         (a) =>
-          recentActivities.includes(a.code) ||
-          a.code === "other" ||
-          a.impliesFarmWideReason != null,
-      );
+          a.code !== "other" &&
+          (matched!.has(a.code) ||
+            a.label.toLowerCase().includes(activitySearch.trim().toLowerCase()) ||
+            a.activityGroup.toLowerCase().includes(activitySearch.trim().toLowerCase())),
+      )
+    : showAllActivities
+      ? activities.filter((a) => a.code !== "other")
+      : activities.filter(
+          (a) =>
+            a.code !== "other" &&
+            (recentActivities.includes(a.code) || a.impliesFarmWideReason != null),
+        );
   const grouped = groupBy(quickActivities, (a) => a.activityGroup);
+
+  // What he typed under "Other", read back as activities he might have meant.
+  const otherHints = activity === "other" ? hintsFor(otherNote, activities) : [];
+  const otherNudge = activity === "other" ? nudgeFor(otherNote, activities) : null;
 
   return (
     <>
@@ -562,6 +590,27 @@ export function ExpenseForm({
 
       {/* 1. What was the work? Picking it sets the category. */}
       <Card title="What was it?">
+        {/*
+          * Typed for, not scrolled to. Sixty-one activities is more than
+          * fifty-two, and a longer list only helps if finding something in it
+          * takes one word instead of a scroll.
+          */}
+        <Field label="Find the work" htmlFor="activity-search">
+          <Input
+            id="activity-search"
+            value={activitySearch}
+            onChange={(e) => setActivitySearch(e.target.value)}
+            placeholder="repair, abono, tabas, hakot…"
+          />
+        </Field>
+
+        {searching && quickActivities.length === 0 ? (
+          <Empty>
+            Nothing matches “{activitySearch.trim()}”. Try a shorter word, or
+            use “None of these” below.
+          </Empty>
+        ) : null}
+
         {Object.entries(grouped).map(([group, items]) => (
           <div key={group} className="mb-3 last:mb-0">
             <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-soft">
@@ -586,28 +635,83 @@ export function ExpenseForm({
             </ChipGroup>
           </div>
         ))}
-        <Button
-          variant="quiet"
-          size="md"
-          className="mt-1 px-0"
-          onClick={() => setShowAllActivities((v) => !v)}
-        >
-          {showAllActivities ? "Show fewer" : `Show all ${activities.length} activities`}
-        </Button>
+        {searching ? null : (
+          <Button
+            variant="quiet"
+            size="md"
+            className="mt-1 px-0"
+            onClick={() => setShowAllActivities((v) => !v)}
+          >
+            {showAllActivities ? "Show fewer" : `Show all ${activities.length - 1} activities`}
+          </Button>
+        )}
+
+        {/*
+          * The last resort, and placed like one. It used to sit in the
+          * shortlist beside the work he does every week.
+          */}
+        <div className="mt-3 border-t border-line pt-3">
+          <Button
+            variant={activity === "other" ? "secondary" : "quiet"}
+            size="md"
+            className="px-0"
+            onClick={() => {
+              setActivity("other");
+              setCategoryTouched(false);
+            }}
+          >
+            None of these — say what it was
+          </Button>
+        </div>
 
         {activity === "other" ? (
-          <Field
-            label="Say what this was"
-            htmlFor="other-note"
-            hint="Required. The owners review these and add the common ones to the list."
-          >
-            <Input
-              id="other-note"
-              value={otherNote}
-              onChange={(e) => setOtherNote(e.target.value)}
-              placeholder="e.g. fence repair by the gate"
-            />
-          </Field>
+          <div className="mt-2">
+            <Field
+              label="Say what this was"
+              htmlFor="other-note"
+              hint="The owners review these and add the common ones to the list."
+            >
+              <Input
+                id="other-note"
+                value={otherNote}
+                onChange={(e) => setOtherNote(e.target.value)}
+                placeholder="e.g. fence repair by the gate"
+              />
+            </Field>
+
+            {/*
+              * Read back what he typed. Most of what went to "Other" had a
+              * home already — "wrangler parts" is Repairs and parts, "Mane
+              * Binhi" is peanut seed — and the moment to say so is while he
+              * is still looking at the words.
+              */}
+            {otherHints.length === 0 ? null : (
+              <div className="mt-2">
+                <p className="mb-1.5 text-sm text-ink-soft">
+                  {otherHints.length === 1 ? "Did you mean this?" : "Did you mean one of these?"}
+                </p>
+                <ChipGroup>
+                  {otherHints.map((h) => (
+                    <Chip
+                      key={h.code}
+                      onClick={() => {
+                        setActivity(h.code);
+                        setCategoryTouched(false);
+                        setOtherNote("");
+                        setActivitySearch("");
+                      }}
+                    >
+                      {h.label}
+                    </Chip>
+                  ))}
+                </ChipGroup>
+              </div>
+            )}
+
+            {otherNudge === null ? null : (
+              <Note tone="info">{otherNudge.message}</Note>
+            )}
+          </div>
         ) : null}
 
         {chosen ? (
