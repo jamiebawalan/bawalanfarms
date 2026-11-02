@@ -108,3 +108,66 @@ export async function loadProtocol(cycleId: string): Promise<ProtocolData> {
     })),
   };
 }
+
+export type ScheduledWork = {
+  id: string;
+  cycleId: string;
+  subPlotId: string | null;
+  activityCode: string;
+  title: string;
+  dueOn: ISODate;
+  blockName: string | null;
+};
+
+/**
+ * Every protocol round the farm has committed to and not yet closed.
+ *
+ * Across all cycles, because the calendar is the farm's week rather than one
+ * plot's. Rows without a date are left out: a plan with no day on it is not
+ * something a calendar can show, and inventing one would put work in front of
+ * the crew that nobody agreed to.
+ */
+export async function loadScheduledWork(): Promise<ScheduledWork[]> {
+  const supabase = createAdminClient();
+
+  const [plan, activities, blocks] = await Promise.all([
+    supabase
+      .from("protocol_plan")
+      .select("id, cycle_id, sub_plot_id, activity_code, due_on")
+      .eq("state", "scheduled")
+      .not("due_on", "is", null),
+    supabase.from("protocol_activities").select("code, title"),
+    supabase.from("sub_plots").select("id, name"),
+  ]);
+
+  // A missing table means the migration has not run here. Nothing scheduled.
+  if (plan.error !== null || activities.error !== null) return [];
+
+  const titles = new Map(
+    (activities.data ?? []).map((a: Record<string, unknown>) => [
+      String(a.code),
+      String(a.title),
+    ]),
+  );
+  const blockNames = new Map(
+    (blocks.data ?? []).map((b: Record<string, unknown>) => [
+      String(b.id),
+      String(b.name),
+    ]),
+  );
+
+  return (plan.data ?? []).flatMap((p: Record<string, unknown>) => {
+    const title = titles.get(String(p.activity_code));
+    if (title === undefined) return [];
+    const subPlotId = (p.sub_plot_id as string | null) ?? null;
+    return [{
+      id: String(p.id),
+      cycleId: String(p.cycle_id),
+      subPlotId,
+      activityCode: String(p.activity_code),
+      title,
+      dueOn: p.due_on as ISODate,
+      blockName: subPlotId === null ? null : blockNames.get(subPlotId) ?? null,
+    }];
+  });
+}

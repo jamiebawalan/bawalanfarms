@@ -2,7 +2,10 @@ import Link from "next/link";
 import { Bar, Card, Empty, Note, Page, Stat, StatGrid, cx, Section } from "@/components/ui";
 import { ChartStyles, Legend, SERIES, StackedBar } from "@/components/charts";
 import { loadLedger } from "@/lib/db/ledger";
-import { landUse, plotCostByAge, tasksForWeek } from "@/lib/domain/dashboards";
+import { landUse, plotCostByAge } from "@/lib/domain/dashboards";
+import { Agenda } from "@/components/agenda";
+import type { AgendaItem } from "@/lib/domain/agenda";
+import { loadScheduledWork } from "@/lib/db/protocol";
 import { cashIsLow, cashPosition } from "@/lib/domain/cash";
 import { CashCard } from "@/components/cash-card";
 import { cycleAgeMonths, groupByBand } from "@/lib/domain/age";
@@ -22,7 +25,42 @@ export default async function ManagerPage() {
   const land = landUse(ledger, today);
   const rows = plotCostByAge(ledger, today);
   const cycleById = new Map(ledger.cycles.map((c) => [c.id, c]));
-  const tasks = tasksForWeek(ledger, today);
+
+  /*
+   * The calendar is the farm's week, not one plot's, so it merges the two
+   * kinds of dated work: tasks somebody typed, and protocol rounds Anthony
+   * accepted and gave a date to. In the field they are the same thing — a job,
+   * on a day, on a plot — so keeping them in two lists would mean each told
+   * half the story of any given Tuesday.
+   */
+  const scheduled = await loadScheduledWork();
+  const plotLabelFor = new Map(ledger.plots.map((p) => [p.id, p.label]));
+  const agenda: AgendaItem[] = [
+    ...ledger.tasks
+      .filter((t) => t.doneAt === null)
+      .map((t) => ({
+        id: `task-${t.id}`,
+        kind: "task" as const,
+        title: t.title,
+        dueOn: t.dueDate,
+        plotLabel: t.plotId === null ? null : plotLabelFor.get(t.plotId) ?? null,
+        blockName: null,
+        isCritical: t.isCritical,
+        href: t.cycleId === null ? "/manager" : `/cycles/${t.cycleId}`,
+      })),
+    ...scheduled.map((w) => ({
+      id: `protocol-${w.id}`,
+      kind: "protocol" as const,
+      title: w.title,
+      dueOn: w.dueOn,
+      plotLabel:
+        plotLabelFor.get(cycleById.get(w.cycleId)?.plotId ?? "") ?? null,
+      blockName: w.blockName,
+      // The protocol does not rank its own rounds; a round is a round.
+      isCritical: false,
+      href: `/cycles/${w.cycleId}`,
+    })),
+  ];
 
   // Bars are drawn in cost per plant and scaled to the worst of them, so their
   // lengths mean something across rows rather than only within one.
@@ -35,7 +73,7 @@ export default async function ManagerPage() {
   const worst = rows.find((r) => r.costPerPlantCentavos !== null) ?? null;
 
   return (
-    <Page title="Day to day" subtitle="Land, cost per plant, and this week's work">
+    <Page title="Plan" subtitle="Land, cost per plant, and what is coming up">
       <ChartStyles />
 
       {/* 1. Keep the land planted. */}
@@ -213,46 +251,8 @@ export default async function ManagerPage() {
       </Section>
 
       {/* 3. What needs doing. */}
-      <Section
-        title="This week"
-        defaultOpen
-        summary={
-          tasks.overdue.length > 0
-            ? `${tasks.overdue.length} overdue · ${tasks.thisWeek.length} due`
-            : `${tasks.thisWeek.length} due in the next seven days`
-        }
-        tone={tasks.overdue.length > 0 ? "danger" : undefined}
-      >
-        {tasks.overdue.length === 0 && tasks.thisWeek.length === 0 ? (
-          <Empty>
-            Nothing due this week. Tasks are added from each plot&apos;s page.
-          </Empty>
-        ) : (
-          <>
-            {tasks.overdue.length > 0 ? (
-              <>
-                <p className="mb-1 text-sm font-bold uppercase tracking-wide text-danger">
-                  Overdue
-                </p>
-                <TaskList tasks={tasks.overdue} today={today} />
-              </>
-            ) : null}
-            {tasks.thisWeek.length > 0 ? (
-              <>
-                <p className="mb-1 mt-3 text-sm font-bold uppercase tracking-wide text-ink-soft">
-                  Next seven days
-                </p>
-                <TaskList tasks={tasks.thisWeek} today={today} />
-              </>
-            ) : null}
-          </>
-        )}
-        {tasks.later.length > 0 ? (
-          <p className="mt-3 text-sm text-ink-soft">
-            {tasks.later.length} more after this week.
-          </p>
-        ) : null}
-      </Section>
+      {/* 3. What the farm has committed to, and when. */}
+      <Agenda items={agenda} today={today} />
 
       {/* 4. What is left in his pocket. */}
       <Section
@@ -307,40 +307,3 @@ export default async function ManagerPage() {
   );
 }
 
-function TaskList({
-  tasks, today,
-}: {
-  tasks: { id: string; title: string; dueDate: string; isCritical: boolean; plotLabel: string | null }[];
-  today: string;
-}) {
-  return (
-    <ul className="divide-y-2 divide-line">
-      {tasks.map((t) => (
-        <li key={t.id} className="flex items-start justify-between gap-3 py-2.5">
-          <div className="min-w-0">
-            <div className="font-semibold">
-              {t.isCritical ? (
-                <span className="mr-1.5 rounded bg-danger-tint px-1.5 py-0.5 text-xs font-bold uppercase text-danger">
-                  Critical
-                </span>
-              ) : null}
-              {t.title}
-            </div>
-            {t.plotLabel ? (
-              <div className="text-sm text-ink-soft">{t.plotLabel}</div>
-            ) : null}
-          </div>
-          <span
-            className={
-              t.dueDate < today
-                ? "shrink-0 text-sm font-semibold text-danger"
-                : "shrink-0 text-sm text-ink-soft"
-            }
-          >
-            {formatDateShort(t.dueDate)}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}

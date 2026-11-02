@@ -56,8 +56,6 @@ came for, and putting it first pushes the photo you opened off the screen.
 
 | Phase | What |
 |---|---|
-| 3 | Fertiliser mix calculator — per-knapsack doses, mixing order, and a premix path for the sub-5 g products nobody can weigh in a field |
-| 4 | Plan becomes a month agenda. Planned work now carries `due_on`, which is what a calendar reads |
 | 5 | Inventory draw-down when a planned activity is marked done |
 
 ---
@@ -71,6 +69,28 @@ None outstanding.
 Dated by the day the work merged, newest first. Here so that nobody
 re-derives a decision already taken, or re-adds something that was removed on
 purpose.
+
+### 2 November 2026 — Phase 4, the Plan tab becomes a calendar
+
+Tasks somebody typed and protocol rounds Anthony dated are the same thing in
+the field — a job, on a day, on a plot — so they share one calendar rather
+than two lists that each tell half the story of a Tuesday.
+
+A month grid on a laptop, where the point is seeing where work bunches. A
+list of overdue, today, next seven days on a phone, where a 7x5 grid of touch
+targets is unreadable. The grid keeps the work on its padding days, because
+the 1st falling on a Thursday does not mean Monday to Wednesday are empty.
+
+### 2 November 2026 — Phase 3, the knapsack calculator
+
+How much water the block takes, how many plants one 16 L tank covers, how
+many tanks, and what the part-tank at the end should hold. The grams are per
+plant, so a tank mixed for 190 plants and stretched over 260 underfeeds every
+one of them — that is the mistake this exists to stop.
+
+Anything under 5 g a tank is premixed: weigh the block's whole amount once on
+a bench, dissolve it, pour a measured share into each tank. Zinc sulfate is
+2.5 g a knapsack, and nobody weighs that on a hillside.
 
 ### 2 November 2026 — the protocol becomes the app
 
