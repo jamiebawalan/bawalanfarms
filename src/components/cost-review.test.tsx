@@ -110,3 +110,26 @@ describe("the traps a review screen can set", () => {
     expect(html).toContain("stays Farm Inputs");
   });
 });
+
+describe("equipment the farm keeps", () => {
+  it("offers it, and says what it does to the plot", () => {
+    const html = render([item({ key: "Chainsaw", text: "Chainsaw", pesos: 2400 })]);
+    expect(html).toContain("It is equipment the farm keeps");
+    expect(html).toContain("The cost leaves the plot");
+    expect(html).toContain("not a cost of the cycle that bought it");
+  });
+
+  it("is offered on an old code too, not only on free text", () => {
+    const html = render([
+      { kind: "code", key: "spray", text: "Spray", entries: 23, pesos: 24800,
+        sampleNote: null, sampleDate: null },
+    ]);
+    expect(html).toContain("It is equipment the farm keeps");
+  });
+
+  it("is gone once the row is answered", () => {
+    // Nothing to offer on something already filed.
+    const html = render([]);
+    expect(html).not.toContain("It is equipment the farm keeps");
+  });
+});
