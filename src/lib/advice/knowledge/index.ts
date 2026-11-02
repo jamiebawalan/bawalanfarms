@@ -17,7 +17,11 @@ import decisionsJson from "./decisions.json";
 import openItemsJson from "./open-items.json";
 import entitiesJson from "./entities.json";
 import timelineJson from "./timeline.json";
-import { AGRONOMY, EXPORTED_ON, FARM, HOW_THEY_WORK, INTERPRETATION } from "./narrative";
+import { HISTORICAL_PRACTICE, EXPORTED_ON, FARM, HOW_THEY_WORK, INTERPRETATION } from "./narrative";
+import {
+  PROTOCOL_CALENDAR, PROTOCOL_DATED, PROTOCOL_FORCING, PROTOCOL_MONITORING,
+  PROTOCOL_NUTRITION, PROTOCOL_OPEN, PROTOCOL_RULE, PROTOCOL_VERSION,
+} from "./protocol";
 
 export type DecisionStatus = "active" | "trial" | "considering" | "planning";
 
@@ -101,9 +105,29 @@ export function farmBrief(recentEvents = 12): string {
   parts.push("# How the owners want to be advised");
   parts.push(HOW_THEY_WORK);
 
+  // The protocol comes first and is named as governing, because everything
+  // after it is either subordinate to it or superseded by it.
   parts.push("");
-  parts.push("# What the farm has learned");
-  parts.push(AGRONOMY);
+  parts.push(`# The farm protocol (${PROTOCOL_VERSION}, ${PROTOCOL_DATED}) — this governs`);
+  parts.push(
+    "Built on Del Monte's FY2024 C74 plantation practice and seven consultations, adapted for this farm's density. Advice comes from here first. Where it is silent, say so rather than filling the gap from the farm's older record.",
+  );
+  parts.push(PROTOCOL_RULE);
+  parts.push("");
+  parts.push("## The month-by-month calendar");
+  parts.push(PROTOCOL_CALENDAR);
+  parts.push("");
+  parts.push("## Nutrition");
+  parts.push(PROTOCOL_NUTRITION);
+  parts.push("");
+  parts.push("## Forcing");
+  parts.push(PROTOCOL_FORCING);
+  parts.push("");
+  parts.push("## Monitoring");
+  parts.push(PROTOCOL_MONITORING);
+  parts.push("");
+  parts.push("## What the protocol itself leaves open");
+  parts.push(PROTOCOL_OPEN);
 
   parts.push("");
   parts.push("# Decisions on the record");
@@ -138,6 +162,10 @@ export function farmBrief(recentEvents = 12): string {
   parts.push("");
   parts.push("# How to read all of this");
   parts.push(INTERPRETATION);
+
+  parts.push("");
+  parts.push("# What the farm used to do, before the protocol");
+  parts.push(HISTORICAL_PRACTICE);
 
   return parts.join("\n");
 }

@@ -9,7 +9,7 @@
   {
     "id": "D002",
     "topic": "plant_density",
-    "decision": "Use approximately 25,000 pineapple plants per hectare as the working density.",
+    "decision": "Target 40,000 to 50,000 plants per hectare under the protocol. Actual density today is about 26,500/ha; the earlier 25,000/ha working figure is superseded.",
     "status": "active",
     "confidence": "high"
   },
@@ -79,15 +79,15 @@
     "topic": "fruit_size_strategy",
     "decision": "Aim for larger fruit in general, because the economics work better as the harvest tends toward primera.",
     "status": "active",
-    "rationale": "A higher primera share lifts revenue per fruit more than the extra time in the ground costs.",
+    "rationale": "A higher primera share lifts revenue per fruit more than the extra time in the ground costs. Still active, and the protocol serves it: the 2.7 kg forcing weight exists to produce the larger fruit this decision asks for.",
     "confidence": "high"
   },
   {
     "id": "D011",
     "topic": "forcing_threshold",
-    "decision": "Treat the D-leaf forcing threshold as a per-plot judgment by the owners, not a farm-wide constant. The cautious 75-85 cm and the larger-fruit 95-100 cm are both legitimate; which to use on a given plot depends on what the fruit will be worth when it lands.",
-    "status": "active",
-    "rationale": "Seasonal pricing can outweigh size. Christmas prices rise enough that forcing earlier for smaller fruit can pay better than waiting for primera.",
+    "decision": "Superseded by the protocol (1 Nov 2026). The forcing threshold is no longer a D-leaf length judged per plot: the protocol forces on plant weight — average at least 2.7 kg, 85% of plants at or above it, lightest at least 2.2 kg, none above 3.3 kg. D-leaf height is reference only.",
+    "status": "superseded",
+    "rationale": "The D-leaf readings this decision rested on were taken by a method the farm's consultants have since corrected, and have been set aside.",
     "confidence": "high"
   }
 ]

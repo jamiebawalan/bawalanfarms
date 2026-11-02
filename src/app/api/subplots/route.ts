@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { plantedOnForMap } from "@/lib/domain/protocol";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -19,7 +20,27 @@ const Block = z.object({
   target_forcing_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   forced_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   note: z.string().max(200).optional(),
+
+  /*
+   * Where the block sits on the protocol, as the stage he can see rather
+   * than the months since planting. The two are not the same thing: Plot 24
+   * went in last December and is at month 8. He enters the stage once and
+   * the app stores the date it implies, which then advances by itself.
+   */
+  map_month: z.number().min(-6).max(24).nullable().optional(),
 });
+
+/** The stage he entered, as the date the rest of the app reasons with. */
+function withEffectiveDate<T extends { map_month?: number | null }>(
+  fields: T,
+): Omit<T, "map_month"> & { effective_planted_on?: string | null } {
+  const { map_month, ...rest } = fields;
+  if (map_month === undefined) return rest;
+  return {
+    ...rest,
+    effective_planted_on: map_month === null ? null : plantedOnForMap(map_month),
+  };
+}
 
 /** Postgres speaks to developers. This speaks to a farm manager. */
 function humanise(message: string): string {
@@ -50,7 +71,7 @@ export async function POST(request: Request) {
 
   const { error } = await supabase
     .from("sub_plots")
-    .insert({ ...parsed.data, created_by: user.email });
+    .insert({ ...withEffectiveDate(parsed.data), created_by: user.email });
   if (error) return NextResponse.json({ error: humanise(error.message) }, { status: 400 });
 
   return NextResponse.json({ ok: true });
@@ -72,7 +93,7 @@ export async function PATCH(request: Request) {
 
   const { id, ...fields } = parsed.data;
   const { data, error } = await supabase
-    .from("sub_plots").update(fields).eq("id", id).select("id");
+    .from("sub_plots").update(withEffectiveDate(fields)).eq("id", id).select("id");
   if (error) return NextResponse.json({ error: humanise(error.message) }, { status: 400 });
   if (!data || data.length === 0) {
     return NextResponse.json({ error: "That block is not there any more." }, { status: 404 });

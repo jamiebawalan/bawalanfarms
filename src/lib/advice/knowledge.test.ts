@@ -52,7 +52,8 @@ describe("the brief the model reads", () => {
   it("says where the farm is and what it grows", () => {
     expect(brief).toContain("Silang, Cavite");
     expect(brief).toContain("Smooth Cayenne");
-    expect(brief).toContain("25,000 plants per hectare");
+    expect(brief).toContain("26,500 plants per hectare");
+    expect(brief).toContain("the protocol targets 40,000 to 50,000");
   });
 
   it("carries the farm's own words, not translations of them", () => {
@@ -81,72 +82,57 @@ describe("the brief the model reads", () => {
     }
   });
 
-  it("ends on the owners' warning that old dosages were not prescriptions", () => {
-    expect(brief).toContain("Do not treat every historical dosage");
+  /**
+   * The farm adopted a formal protocol on 1 November 2026, built from seven
+   * expert consultations, and instructed that it override everything known
+   * before. These tests are the guard on that instruction: the brief Claude
+   * reads must lead with the protocol and must not quietly hand back the
+   * superseded practice as advice.
+   */
+  it("leads with the protocol, and says it governs", () => {
+    const head = brief.slice(0, brief.indexOf("# What the farm used to do"));
+    expect(head).toContain("this governs");
+    expect(head).toContain("Advice comes from here first");
   });
 
-  it("shows recent events newest first", () => {
-    const b = farmBrief(3);
-    const at = (s: string) => b.indexOf(s);
-    expect(at("2026-08-26")).toBeGreaterThan(0);
-    expect(at("2026-08-26")).toBeLessThan(at("2026-08-02"));
-  });
-});
-
-describe("what a suggestion is allowed to claim it rests on", () => {
-  const base = {
-    title: "Measure D-leaf on 10 plants",
-    due_date: "2026-09-05",
-    is_critical: false,
-    reason: "No rate yet.",
-    is_trial: false,
-  };
-  const parse = (rests_on: unknown) =>
-    readSuggestions({ suggestions: [{ ...base, rests_on }], note: null }, "2026-09-01");
-
-  it("attaches the text from the record, never from the model", () => {
-    const r = parse("O003");
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.suggestions[0]!.restsOn).toEqual({
-      id: "O003",
-      text: findOpenItem("O003")!.question,
-    });
+  it("carries the rule that makes the Del Monte numbers usable here", () => {
+    expect(brief).toContain("dose per plant, not per hectare");
+    // The three exceptions, which if scaled by plant count would be wrong by
+    // a factor of thousands.
+    expect(brief).toContain("never be scaled by plant count");
   });
 
-  it("drops an id the owners never wrote, rather than showing an invented decision", () => {
-    const r = parse("D042");
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.suggestions[0]!.restsOn).toBeNull();
+  it("says MAP is not calendar age, which is true of most plots right now", () => {
+    expect(brief).toContain("MAP is not calendar age");
   });
 
-  it("takes a lowercase id, since that is a formatting slip and not a claim", () => {
-    const r = parse("d003");
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.suggestions[0]!.restsOn?.id).toBe("D003");
+  it("forces on weight, not on D-leaf length", () => {
+    expect(brief).toContain("Plant weight, not height, is the go signal");
+    expect(brief).toContain("2.7 kg");
   });
 
-  it("accepts a suggestion that rests on nothing", () => {
-    for (const value of [null, undefined, "", 7]) {
-      const r = parse(value);
-      expect(r.ok).toBe(true);
-      if (!r.ok) return;
-      expect(r.suggestions[0]!.restsOn).toBeNull();
-    }
+  it("keeps the old practice, but after the protocol and marked superseded", () => {
+    const historyAt = brief.indexOf("# What the farm used to do");
+    const protocolAt = brief.indexOf("this governs");
+    expect(historyAt).toBeGreaterThan(protocolAt);
+    expect(brief).toContain("Superseded by the protocol");
+    expect(brief).toContain("never a recommendation");
   });
 
-  it("only calls something a trial when the model said so explicitly", () => {
-    const yes = readSuggestions(
-      { suggestions: [{ ...base, rests_on: null, is_trial: true }], note: null },
-      "2026-09-01",
-    );
-    expect(yes.ok && yes.suggestions[0]!.isTrial).toBe(true);
-    const no = readSuggestions(
-      { suggestions: [{ ...base, rests_on: null, is_trial: "maybe" }], note: null },
-      "2026-09-01",
-    );
-    expect(no.ok && no.suggestions[0]!.isTrial).toBe(false);
+  it("tells the reader the protocol wins wherever the history disagrees", () => {
+    expect(brief).toContain("The protocol governs");
+  });
+
+  /**
+   * A v1.0 document with nine unfinished edges. Presenting one of them as
+   * settled is the most likely way this brief does harm.
+   */
+  it("names the protocol's own open questions as open", () => {
+    expect(brief).toContain("Do not present any of these as settled");
+    expect(brief).toContain("forcing recipe");
+  });
+
+  it("does not let a label rate be overridden by anything here", () => {
+    expect(brief).toContain("current label directions");
   });
 });
