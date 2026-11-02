@@ -64,20 +64,7 @@ came for, and putting it first pushes the photo you opened off the screen.
 
 ## Open questions
 
-**How late is still worth doing** (`recoverable_months` in
-`0029_protocol_seed.sql`). Not plant age — that is per block, and it is
-`effective_planted_on`, set from the growth stage Anthony enters.
-
-This is per *activity* and has nothing to do with any particular plot: if
-this job is late, how many months late is it still worth doing at all? The
-month-5 potash is still worth giving in month 6, because the plant can use
-it. Drainage canals are not worth digging under a standing crop at any point
-after planting, so that window shuts at zero.
-
-It decides what Anthony is shown. Too generous and his list fills with work
-nobody can act on; too mean and real work disappears before anyone sees it.
-The values are first drafts written to be corrected. **Wants an agronomist's
-pass — ten minutes with the list, not a research project.**
+None outstanding.
 
 ## Done
 
@@ -120,6 +107,20 @@ and the `0018` boundary trace. The survey says 6364.30. Both had been
 failing, and the RLS one read alarmingly as a manager having rewritten a plot
 area when in fact the update had been correctly refused and only the expected
 value was stale. The SQL suite is green again: 58 checks.
+
+**There is no backlog, and no `recoverable_months`.** The column asked how
+many months late each activity was still worth doing, so that missed rounds
+could be re-offered for as long as the agronomy allowed. It is gone. The farm
+is correcting its protocols now, with a technical consultant walking the plots
+one by one and soil tests coming back this month, so the catching-up is a
+conversation between people; anything genuinely owed is entered by hand. The
+column would also have gone stale almost at once, since its whole job was to
+rank work from before the protocol was adopted.
+
+An activity is now current for the month it belongs to and no longer — one
+constant in code, nothing authored per row and nothing for an agronomist to
+review. Supersession is bounded to the same window, so answering a late round
+does not write off months nobody was ever shown.
 
 **Pink disease is not being chased.** The protocol lists a spray at open
 flower and flags it as an open question for fresh-market fruit in Cavite. The

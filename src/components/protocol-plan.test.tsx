@@ -7,7 +7,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 
-import { ProtocolPlan, type PlanAnswered, type PlanSuggestion } from "./protocol-plan";
+import {
+  ProtocolPlan, type PlanAnswered, type PlanSuggestion, type TankPlanView,
+} from "./protocol-plan";
 
 const suggestion = (p: Partial<PlanSuggestion> & { code: string }): PlanSuggestion => ({
   title: p.code,
@@ -20,6 +22,7 @@ const suggestion = (p: Partial<PlanSuggestion> & { code: string }): PlanSuggesti
   options: [],
   doses: [],
   missing: null,
+  tank: null,
   ...p,
 });
 
@@ -162,5 +165,59 @@ describe("what the protocol says, on screen", () => {
     const html = render({ answered });
     expect(html).toContain("1 already answered");
     expect(html).not.toContain("Undo");
+  });
+});
+
+describe("the mixing instructions", () => {
+  const tank = (over: Partial<TankPlanView> = {}): TankPlanView => ({
+    tankLitres: 16, waterLitres: 200, mlPerPlant: 75, plantsPerTank: 212,
+    fullTanks: 12, lastTankPlants: 106, warning: null,
+    lines: [
+      { name: "Zinc sulfate", display: "2.5 g",
+        premix: { totalDisplay: "31.8 g", dissolveInMl: 1300, perTankMl: 100 } },
+      { name: "Urea (46-0-0)", display: "534 g", premix: null },
+    ],
+    ...over,
+  });
+
+  it("leads with how many tanks, which is what he needs to carry", () => {
+    const html = render({ suggestions: [suggestion({ code: "f", tank: tank() })] });
+    expect(html).toContain("How to mix it — 13 tanks of 16 L");
+  });
+
+  it("says how many plants one tank covers, because that is the trap", () => {
+    const html = render({ suggestions: [suggestion({ code: "f", tank: tank() })] });
+    expect(html).toContain("212 plants");
+    expect(html).toContain("run out as you finish them");
+  });
+
+  it("shows a premixed product as a volume, not a weight nobody can measure", () => {
+    const html = render({ suggestions: [suggestion({ code: "f", tank: tank() })] });
+    expect(html).toContain("100 ml of premix");
+    expect(html).toContain("31.8 g in 1.3 L of water");
+    // The weighable one keeps its weight.
+    expect(html).toContain("534 g");
+  });
+
+  it("warns about the part tank rather than letting him overdose it", () => {
+    const html = render({ suggestions: [suggestion({ code: "f", tank: tank() })] });
+    expect(html).toContain("last tank covers 106 plants");
+    expect(html).toContain("50%");
+  });
+
+  it("says nothing about a part tank when the plot divides evenly", () => {
+    const html = render({
+      suggestions: [suggestion({ code: "f", tank: tank({ lastTankPlants: 0 }) })],
+    });
+    expect(html).not.toContain("last tank covers");
+  });
+
+  it("surfaces a mix that falls outside the protocol", () => {
+    const html = render({
+      suggestions: [
+        suggestion({ code: "f", tank: tank({ warning: "Only 22 ml of mix per plant" }) }),
+      ],
+    });
+    expect(html).toContain("Only 22 ml of mix per plant");
   });
 });

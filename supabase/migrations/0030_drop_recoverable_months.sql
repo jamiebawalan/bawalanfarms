@@ -1,0 +1,28 @@
+-- 0030_drop_recoverable_months.sql — the app looks forward.
+--
+-- 0028 gave every activity a `recoverable_months`: how many months late it
+-- was still worth doing. The idea was that a missed round should be offered
+-- again for as long as the agronomy allowed, and no longer.
+--
+-- It is removed because the farm does not want a backlog on the screen. The
+-- protocols are being corrected now, with a technical consultant walking the
+-- plots one by one and soil tests coming back this month, so the catching-up
+-- is a conversation happening between people. Anything genuinely owed gets
+-- entered by hand. What the app owes the farm manager is the next thing to
+-- do, not an argument about the last one.
+--
+-- It would also have gone stale almost immediately: the column's whole job
+-- was to rank work from before the protocol was adopted, and in two months
+-- there will be no such work. A column that asks an agronomist for a
+-- judgement it will not need by February is a column that should not exist.
+--
+-- An activity is now current for the month it belongs to and no longer.
+-- That window is one constant in code (DUE_WINDOW_MONTHS), not a value
+-- authored per row.
+--
+-- 0028 and 0029 are left as they were. Replaying from empty creates the
+-- column, fills it, and drops it here; an existing database just drops it.
+-- Both end in the same place, which is the point of never editing a
+-- migration that has already run somewhere.
+
+alter table protocol_activities drop column if exists recoverable_months;

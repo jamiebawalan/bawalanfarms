@@ -10,10 +10,12 @@
  *    in the ground. So the stage is entered once, as the date the block would
  *    have been planted to be where it is, and the date advances by itself.
  *
- * 2. A missed round is usually not worth going back for, but not always. The
- *    month-5 potash is still worth giving in month 6; the drainage canals are
- *    not worth digging under a standing crop. That is an agronomy judgement,
- *    so it is authored per activity (`recoverableMonths`) and never inferred.
+ * 2. The app looks forward. An activity is the current thing to do for the
+ *    month it belongs to and no longer; there is no backlog and no
+ *    per-activity recoverability. The farm is correcting its protocols now,
+ *    with a consultant walking the plots and soil tests coming in, so the
+ *    catching-up is a conversation happening off the screen. Work that
+ *    genuinely needs doing late gets entered by hand.
  *
  * 3. Doing a later round of a programme closes the earlier ones — but only of
  *    the same programme. Spraying the month-5 foliar means the month-4 foliar
@@ -37,8 +39,6 @@ export type Activity = {
   basis: Basis;
   /** Rounds of one programme. Null means it stands alone. */
   series: string | null;
-  /** Months late it is still worth doing. Null means the window shuts with its month. */
-  recoverableMonths: number | null;
   /** Mutually exclusive options for one decision. */
   choiceGroup: string | null;
   isDefault: boolean;
@@ -96,11 +96,26 @@ export type Suggestion = {
   timing: Timing;
 };
 
+/**
+ * How long an activity stays the current thing to do.
+ *
+ * A block at month 5.3 is in the middle of month 5, so the month-5 work is
+ * this month's work, not late work. One month of grace is what makes that
+ * true; past it, the month is over.
+ *
+ * There is deliberately no per-activity recoverability, and no backlog. The
+ * farm is correcting its protocols now with a consultant walking the plots,
+ * so the catching-up is a conversation happening off the screen. What the
+ * app owes Anthony is the next thing, not an argument about the last one.
+ * Work that genuinely needs doing late gets entered by hand.
+ */
+export const DUE_WINDOW_MONTHS = 1;
+
 export type SuggestionOptions = {
   /** How far ahead to look. One month, so the next round is visible. */
   aheadMonths?: number;
-  /** A hard cap on looking back, whatever an activity claims it can recover. */
-  backMonths?: number;
+  /** How long an activity stays current after its month arrives. */
+  dueWindowMonths?: number;
 };
 
 /**
@@ -119,7 +134,7 @@ export function suggestionsFor(
   options: SuggestionOptions = {},
 ): Suggestion[] {
   const ahead = options.aheadMonths ?? 1;
-  const back = options.backMonths ?? 2;
+  const window = options.dueWindowMonths ?? DUE_WINDOW_MONTHS;
 
   const answered = new Set(plan.map((p) => p.activityCode));
 
@@ -161,9 +176,7 @@ export function suggestionsFor(
       if (latest !== undefined && latest > a.mapMonth) return false;
     }
 
-    if (monthsLate === 0) return true;
-    const recoverable = Math.min(a.recoverableMonths ?? 0, back);
-    return monthsLate <= recoverable;
+    return monthsLate <= window;
   });
 
   // One decision with options shows as one row, with its default on top.
@@ -228,13 +241,22 @@ export function supersededBy(
   accepted: Activity,
   activities: readonly Activity[],
   answered: ReadonlySet<string> = new Set(),
+  windowMonths: number = DUE_WINDOW_MONTHS,
 ): Activity[] {
   if (accepted.series === null) return [];
+  /*
+   * Only rounds that could still have been on the screen. Answering the
+   * month-9 foliar on a plot that has been running all year should not
+   * write eight superseded rows for months nobody was ever shown — that is
+   * manufacturing a backlog at the moment of closing one.
+   */
+  const floor = accepted.mapMonth - windowMonths;
   return activities.filter(
     (a) =>
       a.series === accepted.series &&
       a.code !== accepted.code &&
       a.mapMonth < accepted.mapMonth &&
+      a.mapMonth >= floor &&
       !answered.has(a.code),
   );
 }
@@ -483,4 +505,156 @@ export function forcingReadiness(weightsGrams: readonly number[]): ForcingCheck 
         ? null
         : `${first.label} is ${first.got}; the protocol wants ${first.want}.`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Turning a plot dose into knapsack loads
+// ---------------------------------------------------------------------------
+
+/**
+ * Del Monte's spray volume: 2,000 L of water per hectare of plot area.
+ *
+ * Water goes on by area, product goes on by plant. That sounds like a
+ * contradiction and is not: the area sets how much liquid it takes to wet
+ * the plot, the plant count sets how much product is dissolved in it.
+ */
+export const LITRES_PER_HECTARE = 2000;
+
+/** What the farm actually carries. */
+export const KNAPSACK_LITRES = 16;
+
+/**
+ * Below this, a field weighing is a guess.
+ *
+ * Zinc sulfate comes out at about 2.3 g in a 16 L knapsack. Nobody is
+ * weighing 2.3 g on a hillside, and eyeballing it is how a plot gets four
+ * times the zinc it needed. These are weighed once for the whole plot and
+ * handed out as liquid.
+ */
+export const PREMIX_BELOW_GRAMS = 5;
+
+export type TankLine = {
+  material: Material;
+  /** Grams or millilitres for one full tank. */
+  amount: number;
+  display: string;
+  mixOrder: number | null;
+  /**
+   * Too small to weigh per tank. Weigh the plot's whole amount once,
+   * dissolve it, and pour a measured share into each tank.
+   */
+  premix: { totalDisplay: string; dissolveInMl: number; perTankMl: number } | null;
+};
+
+export type TankPlan = {
+  tankLitres: number;
+  /** Water the whole plot needs, in litres. */
+  waterLitres: number;
+  /** Finished mix each plant receives. The protocol expects 60 to 90 ml. */
+  mlPerPlant: number;
+  plantsPerTank: number;
+  /** Full tanks, plus a part tank where the plot does not divide evenly. */
+  fullTanks: number;
+  /** Plants the last, partial tank covers. Zero when it divides evenly. */
+  lastTankPlants: number;
+  lines: TankLine[];
+  /** Said plainly when the mix falls outside what the protocol expects. */
+  warning: string | null;
+};
+
+/**
+ * How to load the knapsack.
+ *
+ * The grams in the protocol are per plant, so a tank is only correct for
+ * exactly the plants it was mixed for. That is the part that goes wrong in a
+ * field: a tank mixed for 190 plants and stretched over 260 underfeeds every
+ * one of them, and the plot finishes with product left over or runs dry
+ * early. So this says how many plants one tank covers and how many tanks the
+ * plot takes, and expects the sprayer to finish as the tank empties.
+ */
+export function tankPlan(
+  activity: Activity,
+  materials: readonly ActivityMaterial[],
+  catalogue: ReadonlyMap<string, Material>,
+  size: BlockSize,
+  tankLitres: number = KNAPSACK_LITRES,
+): TankPlan | null {
+  // Only sprays are mixed in a tank. Granules go on the soil by hand.
+  if (activity.basis !== "per_plant") return null;
+  const { doses } = dosesFor(activity, materials, catalogue, size);
+  if (doses.length === 0) return null;
+
+  const plants = size.plants;
+  const areaSqm = size.areaSqm;
+  if (plants === null || plants <= 0 || areaSqm === null || areaSqm <= 0) return null;
+
+  const waterLitres = (areaSqm / 10_000) * LITRES_PER_HECTARE;
+  const mlPerPlant = (waterLitres * 1000) / plants;
+  const plantsPerTank = Math.floor((tankLitres * 1000) / mlPerPlant);
+  if (plantsPerTank <= 0) return null;
+
+  const fullTanks = Math.floor(plants / plantsPerTank);
+  const lastTankPlants = plants - fullTanks * plantsPerTank;
+
+  const lines: TankLine[] = doses.map((d) => {
+    const perPlant = d.amount / plants;
+    const perTank = perPlant * plantsPerTank;
+    const isSolid = !d.display.endsWith("L") && !d.display.endsWith("ml");
+
+    /*
+     * The premix. Dissolve the plot's whole amount in 100 ml per tank, then
+     * pour 100 ml into each — one weighing on a bench instead of fourteen
+     * guesses on a slope, and the arithmetic is a round number either way.
+     */
+    const tanksTotal = fullTanks + (lastTankPlants > 0 ? 1 : 0);
+    const needsPremix = isSolid && perTank < PREMIX_BELOW_GRAMS && tanksTotal > 1;
+
+    return {
+      material: d.material,
+      amount: perTank,
+      display: formatAmount(perTank, isSolid ? "g" : "ml"),
+      mixOrder: d.mixOrder,
+      premix: needsPremix
+        ? {
+            totalDisplay: d.display,
+            dissolveInMl: tanksTotal * 100,
+            perTankMl: 100,
+          }
+        : null,
+    };
+  });
+
+  return {
+    tankLitres,
+    waterLitres: Math.round(waterLitres),
+    mlPerPlant: Math.round(mlPerPlant),
+    plantsPerTank,
+    fullTanks,
+    lastTankPlants,
+    lines,
+    warning: mixWarning(mlPerPlant),
+  };
+}
+
+/**
+ * The protocol expects 60 to 90 ml of finished mix per plant.
+ *
+ * Outside that, something upstream is wrong — usually a plant count that
+ * does not match the block, or a land share that does not. Saying so beats
+ * printing a confident tank recipe built on a bad number.
+ */
+function mixWarning(mlPerPlant: number): string | null {
+  if (mlPerPlant < 60) {
+    return (
+      `Only ${Math.round(mlPerPlant)} ml of mix per plant — the protocol expects 60 to 90. ` +
+      "Check the plant count and the block's share of the plot before mixing."
+    );
+  }
+  if (mlPerPlant > 90) {
+    return (
+      `${Math.round(mlPerPlant)} ml of mix per plant — the protocol expects 60 to 90. ` +
+      "Check the plant count and the block's share of the plot before mixing."
+    );
+  }
+  return null;
 }

@@ -18,8 +18,9 @@ import { loadLedger } from "@/lib/db/ledger";
 import { loadProtocol } from "@/lib/db/protocol";
 import {
   describeTiming, dosesFor, forcingReadiness, mapForPlantedOn, sizeOf,
-  suggestionsFor,
+  suggestionsFor, tankPlan, type TankPlan,
 } from "@/lib/domain/protocol";
+import type { TankPlanView } from "@/components/protocol-plan";
 import { cyclePnL } from "@/lib/domain/pnl";
 import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
 import { describeSpan, formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
@@ -179,6 +180,9 @@ export default async function CyclePage({
                 note: d.note,
               })),
               missing,
+              tank: toTankView(
+                tankPlan(s.activity, protocol.activityMaterials, protocol.materials, unit.size),
+              ),
             };
           });
 
@@ -618,4 +622,25 @@ async function readPhotos(cycleId: string) {
   } catch {
     return { photos: [], driveConnected: false };
   }
+}
+
+/** The tank plan, flattened to what the card renders. */
+function toTankView(plan: TankPlan | null): TankPlanView | null {
+  if (plan === null) return null;
+  return {
+    tankLitres: plan.tankLitres,
+    waterLitres: plan.waterLitres,
+    mlPerPlant: plan.mlPerPlant,
+    plantsPerTank: plan.plantsPerTank,
+    fullTanks: plan.fullTanks,
+    lastTankPlants: plan.lastTankPlants,
+    warning: plan.warning,
+    lines: plan.lines.map((l) => ({
+      name: l.material.analysis === null
+        ? l.material.name
+        : `${l.material.name} (${l.material.analysis})`,
+      display: l.display,
+      premix: l.premix,
+    })),
+  };
 }
