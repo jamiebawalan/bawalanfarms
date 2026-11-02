@@ -43,13 +43,27 @@ insert into activities (code, label, activity_group, default_category, sort_orde
   -- so a crew doing the same job by hand is the same activity with the
   -- category switched. Two labels for one job is how deweeding ended up
   -- split across four codes.
-  ('clear_crop',       'Clear the old crop',           'Land prep', 'Machines',      110, true),
+  ('clear_crop',       'Chop the old crop (flail mower)', 'Land prep', 'Machines',   110, true),
   ('knockdown',        'Knockdown spray',              'Land prep', 'Labor',         120, true),
   ('amend_soil',       'Lime, dolomite or rock phosphate', 'Land prep', 'Labor',     130, true),
-  ('plough',           'Plough or deep rip',           'Land prep', 'Machines',      140, true),
-  ('harrow',           'Harrow',                       'Land prep', 'Machines',      150, true),
+  /*
+   * Ripping and ploughing are two operations, not one word.
+   *
+   * The protocol is explicit: "Ripping loosens deep soil for drainage; it
+   * does not turn soil over to sanitize it like a moldboard." A plot that
+   * was ripped and a plot that was ploughed have had different things done
+   * to them, and recording both as "plough" throws away the only evidence
+   * that could later say which drained better.
+   *
+   * Ripping is what the farm's 40 to 50 HP tractor can actually pull, at
+   * 18 inches and two passes with the second crosswise. A moldboard at
+   * depth needs about 120 HP, which is an aspiration rather than a shed.
+   */
+  ('rip',              'Deep rip / subsoil (18 in)',   'Land prep', 'Machines',      140, true),
+  ('moldboard',        'Moldboard plough (turn over)', 'Land prep', 'Machines',      145, true),
+  ('harrow',           'Disc harrow',                  'Land prep', 'Machines',      150, true),
   ('drainage',         'Drainage canals',              'Land prep', 'Labor',         160, true),
-  ('form_beds',        'Form the beds',                'Land prep', 'Machines',      170, true),
+  ('form_beds',        'Form the beds (bed former)',   'Land prep', 'Machines',      170, true),
   -- Layout is not in the protocol and is unmistakably a job: eleven of the
   -- free-text entries name it, usually in the same breath as planting.
   ('layout',           'Layout (mark the rows)',       'Land prep', 'Labor',         180, true),
