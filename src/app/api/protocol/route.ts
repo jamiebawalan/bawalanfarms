@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supersededBy, type Activity, type Basis } from "@/lib/domain/protocol";
+import {
+  plantedOnForMap, supersededBy, type Activity, type Basis,
+} from "@/lib/domain/protocol";
 import { todayISO } from "@/lib/domain/dates";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
@@ -236,6 +238,62 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: humanise(error.message) }, { status: 400 });
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+/**
+ * Setting where a plot or block sits on the protocol.
+ *
+ * He enters the stage he can see — "this is at month five" — and the app
+ * stores the date that stage implies, which then advances by itself. A
+ * stored number would be wrong four weeks later and would mean re-entering
+ * a stage for every block on the farm every month, for ever.
+ *
+ * MAP is not calendar age. A plot planted last December can be at month 8,
+ * so this is never derived from the planting date.
+ */
+const Stage = z.object({
+  cycle_id: z.string().uuid(),
+  sub_plot_id: z.string().uuid().nullable().optional(),
+  /** Null clears it, which puts the plot back to asking. */
+  map_month: z.number().min(-6).max(24).nullable(),
+});
+
+export async function PATCH(request: Request) {
+  const parsed = Stage.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Give a growth stage between -6 and 24 months." },
+      { status: 400 },
+    );
+  }
+  const { cycle_id, sub_plot_id, map_month } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user === null) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
+  const effective = map_month === null ? null : plantedOnForMap(map_month);
+
+  const { data, error } =
+    sub_plot_id == null
+      ? await supabase
+          .from("crop_cycles")
+          .update({ effective_planted_on: effective })
+          .eq("id", cycle_id)
+          .select("id")
+      : await supabase
+          .from("sub_plots")
+          .update({ effective_planted_on: effective })
+          .eq("id", sub_plot_id)
+          .select("id");
+
+  if (error !== null) {
+    return NextResponse.json({ error: humanise(error.message) }, { status: 400 });
+  }
+  if (data === null || data.length === 0) {
+    return NextResponse.json({ error: "That plot is not there any more." }, { status: 404 });
+  }
   return NextResponse.json({ ok: true });
 }
 

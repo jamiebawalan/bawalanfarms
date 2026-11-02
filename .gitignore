@@ -12,3 +12,6 @@ npm-debug.log*
 next-env.d.ts
 coverage/
 /scripts/.pgdata
+
+# One-off paste files generated for the Supabase SQL editor.
+protocol-migrations.sql

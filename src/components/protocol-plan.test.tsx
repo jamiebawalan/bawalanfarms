@@ -51,7 +51,9 @@ describe("what the protocol says, on screen", () => {
   it("asks for the stage before it will guess at one", () => {
     const html = render({ mapMonth: null });
     expect(html).toContain("growth stage");
-    expect(html).toContain("not how long they have been in the ground");
+    expect(html).toContain("not how long since planting");
+    // And nothing is suggested until it has one.
+    expect(html).not.toContain("Plan to do it");
   });
 
   it("shows the protocol's month and how the block sits against it", () => {
@@ -219,5 +221,28 @@ describe("the mixing instructions", () => {
       ],
     });
     expect(html).toContain("Only 22 ml of mix per plant");
+  });
+});
+
+describe("setting the growth stage", () => {
+  it("offers the control in the very place it asks for it", () => {
+    const html = render({ mapMonth: null });
+    expect(html).toContain("What month is this plot at?");
+    expect(html).toContain("Set the stage");
+    // And explains the thing that trips people up.
+    expect(html).toContain("not how long since planting");
+    expect(html).toContain("-4 is four months before planting");
+  });
+
+  it("calls it a block when the plot is blocked out", () => {
+    const html = render({ mapMonth: null, blockName: "Block A" });
+    expect(html).toContain("What month is this block at?");
+  });
+
+  it("lets the stage be changed later from the month itself", () => {
+    const html = render({ mapMonth: 5 });
+    expect(html).toContain("Month 5");
+    // The month is a button, not a label, so it can be corrected.
+    expect(html).toContain("<button");
   });
 });
