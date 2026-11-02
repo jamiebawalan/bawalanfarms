@@ -9,6 +9,7 @@
 import type {
   Activity, ActivityMaterial, Basis, Material, PlanState, QtyUnit,
 } from "@/lib/domain/protocol";
+import type { InputType, StockLot } from "@/lib/domain/draws";
 import type { ISODate } from "@/lib/domain/types";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -80,6 +81,7 @@ export async function loadProtocol(cycleId: string): Promise<ProtocolData> {
           analysis: (m.analysis as string | null) ?? null,
           unit: m.unit as "kg" | "L",
           note: (m.note as string | null) ?? null,
+          inputType: (m.input_type as string | null) ?? null,
         } satisfies Material,
       ]),
     ),
@@ -170,4 +172,66 @@ export async function loadScheduledWork(): Promise<ScheduledWork[]> {
       blockName: subPlotId === null ? null : blockNames.get(subPlotId) ?? null,
     }];
   });
+}
+
+/**
+ * What is actually in the shed, lot by lot.
+ *
+ * A lot rather than a running total, because draws are recorded against the
+ * purchase they came out of: that is what lets a plot's costs reflect the
+ * price actually paid rather than an average across a year of buying.
+ */
+export async function loadStock(): Promise<{
+  lots: StockLot[];
+  types: Map<string, InputType>;
+}> {
+  const supabase = createAdminClient();
+
+  const [types, purchases, draws] = await Promise.all([
+    supabase.from("input_types").select("*").eq("active", true),
+    supabase.from("input_purchases").select("id, input_type, date, quantity, unit_cost_centavos"),
+    supabase.from("input_draws").select("purchase_id, quantity"),
+  ]);
+  if (types.error !== null || purchases.error !== null) {
+    return { lots: [], types: new Map() };
+  }
+
+  const drawnByPurchase = new Map<string, number>();
+  for (const d of draws.data ?? []) {
+    const row = d as Record<string, unknown>;
+    const id = String(row.purchase_id);
+    drawnByPurchase.set(id, (drawnByPurchase.get(id) ?? 0) + Number(row.quantity));
+  }
+
+  return {
+    types: new Map(
+      (types.data ?? []).map((t: Record<string, unknown>) => [
+        String(t.code),
+        {
+          code: String(t.code),
+          label: String(t.label),
+          unit: String(t.unit),
+          kgPerUnit:
+            t.kg_per_unit === null || t.kg_per_unit === undefined
+              ? null
+              : Number(t.kg_per_unit),
+        } satisfies InputType,
+      ]),
+    ),
+    lots: (purchases.data ?? []).flatMap((p: Record<string, unknown>) => {
+      const id = String(p.id);
+      const remaining =
+        Math.round((Number(p.quantity) - (drawnByPurchase.get(id) ?? 0)) * 1000) / 1000;
+      // An empty lot is not stock. Leaving it in would only make the
+      // proposal walk past rows it can never take anything from.
+      if (remaining <= 0) return [];
+      return [{
+        purchaseId: id,
+        inputType: String(p.input_type),
+        date: p.date as ISODate,
+        remaining,
+        unitCostCentavos: Number(p.unit_cost_centavos),
+      } satisfies StockLot];
+    }),
+  };
 }

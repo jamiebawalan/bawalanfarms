@@ -35,6 +35,24 @@ const Answer = z.object({
     .optional(),
   note: z.string().max(400).nullable().optional(),
   plants: z.number().int().nonnegative().nullable().optional(),
+
+  /*
+   * What came out of the shed for this round. Sent only when he has looked
+   * at the proposal and confirmed it, which is why there is no server-side
+   * fallback that draws "what the protocol says" on its own: the stock
+   * figures are only as good as the last count, and a silent deduction
+   * turns a counting error into a costing error on a plot's P&L.
+   */
+  draws: z
+    .array(
+      z.object({
+        purchase_id: z.string().uuid(),
+        quantity: z.number().positive(),
+        dose_note: z.string().max(200).optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 export async function POST(request: Request) {
@@ -94,15 +112,43 @@ export async function POST(request: Request) {
     created_by: user.email,
   };
 
-  const { error } = await supabase
+  const { data: saved, error } = await supabase
     .from("protocol_plan")
-    .upsert(row, { onConflict: "cycle_id,sub_plot_id,activity_code" });
+    .upsert(row, { onConflict: "cycle_id,sub_plot_id,activity_code" })
+    .select("id");
   if (error !== null) {
     return NextResponse.json({ error: humanise(error.message) }, { status: 400 });
   }
 
+  /*
+   * The draws, tied to the plan row so the two can be read back together and
+   * so undoing the work can find the stock it took.
+   *
+   * Recorded after the completion rather than before: if the draw fails —
+   * somebody else emptied the lot in the meantime — the work is still
+   * recorded as done, which is true, and the message says the stock was not
+   * taken. Losing the completion because of a stock-keeping problem would be
+   * the wrong way round.
+   */
+  const planId = saved?.[0]?.id as string | undefined;
+  let drawError: string | null = null;
+  if (answer.state === "done" && answer.draws !== undefined && answer.draws.length > 0) {
+    const { error: drawFailed } = await supabase.from("input_draws").insert(
+      answer.draws.map((d) => ({
+        purchase_id: d.purchase_id,
+        cycle_id: answer.cycle_id,
+        date: row.done_on,
+        quantity: d.quantity,
+        dose_note: d.dose_note ?? answer.activity_code,
+        protocol_plan_id: planId ?? null,
+        created_by: user.email,
+      })),
+    );
+    if (drawFailed !== null) drawError = drawStock(drawFailed.message);
+  }
+
   const closed = await closeEarlierRounds(answer);
-  return NextResponse.json({ ok: true, superseded: closed });
+  return NextResponse.json({ ok: true, superseded: closed, drawError });
 }
 
 /**
@@ -295,6 +341,20 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "That plot is not there any more." }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * A draw that would not go through.
+ *
+ * The work was still done, and is still recorded. Only the stock did not
+ * move, and saying which is the difference between a correctable note and a
+ * farm manager who thinks he has lost his morning's work.
+ */
+function drawStock(message: string): string {
+  if (/over$/.test(message) || /holds/.test(message) || /remaining/.test(message)) {
+    return "Recorded as done, but the stock was not taken — one of the lots did not have that much left. Check the inventory.";
+  }
+  return `Recorded as done, but the stock was not taken: ${message}`;
 }
 
 /** Postgres speaks to developers. This speaks to a farm manager. */

@@ -15,11 +15,13 @@ import { blockedFraction, subPlotLedger } from "@/lib/domain/subplots";
 import { createAdminClient } from "@/lib/supabase/server";
 import { evenness, readingsFor } from "@/lib/domain/leaf";
 import { loadLedger } from "@/lib/db/ledger";
-import { loadProtocol } from "@/lib/db/protocol";
+import { loadProtocol, loadStock } from "@/lib/db/protocol";
 import {
-  describeTiming, dosesFor, forcingReadiness, mapForPlantedOn, sizeOf,
-  suggestionsFor, tankPlan, type TankPlan,
+  describeTiming, dosesFor, forcingReadiness, formatAmount, mapForPlantedOn,
+  sizeOf, suggestionsFor, tankPlan,
+  type Activity, type BlockSize, type TankPlan,
 } from "@/lib/domain/protocol";
+import { proposeDraws } from "@/lib/domain/draws";
 import type { TankPlanView } from "@/components/protocol-plan";
 import { cyclePnL } from "@/lib/domain/pnl";
 import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
@@ -118,6 +120,7 @@ export default async function CyclePage({
   );
   const { photos, driveConnected } = await readPhotos(id);
   const protocol = await loadProtocol(id);
+  const stock = await loadStock();
 
   /*
    * The plot's ground, as of today. Areas are dated because a boundary gets
@@ -149,6 +152,39 @@ export default async function CyclePage({
         size: sizeOf(null, { areaSqm: plotAreaSqm, plants: pnl.plantCount }),
       }]
   ).map((unit) => {
+    /** The draw to propose for one activity on this block. */
+    const proposalFor = (activity: Activity, size: BlockSize) => {
+      const { doses } = dosesFor(
+        activity, protocol.activityMaterials, protocol.materials, size,
+      );
+      if (doses.length === 0) return [];
+      return proposeDraws(
+        doses.map((d) => ({
+          materialCode: d.material.code,
+          materialName: d.material.analysis === null
+            ? d.material.name
+            : `${d.material.name} (${d.material.analysis})`,
+          inputType: d.material.inputType ?? null,
+          amount: d.amount,
+          isLiquid: d.material.unit === "L",
+        })),
+        // A fresh copy each time: proposeDraws walks the lots down as it
+        // allocates, and one job's proposal must not eat another's stock.
+        stock.lots.map((l) => ({ ...l })),
+        stock.types,
+        formatAmount,
+      ).lines.map((l) => ({
+        materialName: l.materialName,
+        wanted: l.wanted,
+        unit: l.unit,
+        draws: l.draws.map((d) => ({
+          purchaseId: d.purchaseId, quantity: d.quantity, lotDate: d.lotDate,
+        })),
+        shortfall: l.shortfall,
+        untracked: l.untracked,
+      }));
+    };
+
     const mapMonth =
       unit.plantedOn === null ? null : mapForPlantedOn(unit.plantedOn, today);
     const planHere = protocol.plan.filter((p) => p.subPlotId === unit.subPlotId);
@@ -200,6 +236,17 @@ export default async function CyclePage({
               skipReason: p.skipReason,
               dueOn: p.dueOn,
               doneOn: p.doneOn,
+              /*
+               * What finishing it would take out of the shed, worked out
+               * now so the confirmation is instant in the field. Each
+               * planned round is costed against the same current stock:
+               * they are jobs done one at a time, not all at once, and
+               * pretending otherwise would show phantom shortfalls.
+               */
+              proposal:
+                p.state !== "scheduled"
+                  ? []
+                  : proposalFor(activity, unit.size),
             }];
       })
       .sort((a, b) => b.mapMonth - a.mapMonth);
