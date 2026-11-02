@@ -52,7 +52,8 @@ describe("the brief the model reads", () => {
   it("says where the farm is and what it grows", () => {
     expect(brief).toContain("Silang, Cavite");
     expect(brief).toContain("Smooth Cayenne");
-    expect(brief).toContain("25,000 plants per hectare");
+    expect(brief).toContain("26,500 plants per hectare");
+    expect(brief).toContain("the protocol targets 40,000 to 50,000");
   });
 
   it("carries the farm's own words, not translations of them", () => {
