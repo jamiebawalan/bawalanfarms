@@ -249,3 +249,238 @@ export function describeTiming(timing: Timing): string {
   if (timing.monthsLate < 1.5) return "a month late";
   return `${Math.round(timing.monthsLate)} months late`;
 }
+
+// ---------------------------------------------------------------------------
+// What to actually carry out to the field
+// ---------------------------------------------------------------------------
+
+export type Material = {
+  code: string;
+  name: string;
+  kind: string;
+  analysis: string | null;
+  /** What a purchase of it is measured in: kg or L. */
+  unit: "kg" | "L";
+  note: string | null;
+};
+
+export type QtyUnit = "g_per_plant" | "g_per_1000sqm" | "ml_per_1000sqm";
+
+export type ActivityMaterial = {
+  activityCode: string;
+  materialCode: string;
+  qty: number;
+  qtyUnit: QtyUnit;
+  /** Dissolve in this order. Urea last. Null for anything not mixed in a tank. */
+  mixOrder: number | null;
+  note: string | null;
+};
+
+export type Dose = {
+  material: Material;
+  /** Grams for a solid, millilitres for a liquid. The honest number. */
+  amount: number;
+  /** Grams and millilitres, or kilos and litres once the figure is big enough. */
+  display: string;
+  mixOrder: number | null;
+  note: string | null;
+};
+
+/** The ground a block covers, for the per-area doses. */
+export type BlockSize = {
+  plants: number | null;
+  areaSqm: number | null;
+};
+
+/**
+ * How much of each product this round needs on this block.
+ *
+ * Returns the lines it can work out and says which it cannot, rather than
+ * guessing. A per-plant dose with no plant count is not a small problem to
+ * paper over: the whole protocol is per-plant, and a made-up number here is
+ * a sack of urea either wasted or short.
+ */
+export function dosesFor(
+  activity: Activity,
+  materials: readonly ActivityMaterial[],
+  catalogue: ReadonlyMap<string, Material>,
+  size: BlockSize,
+): { doses: Dose[]; missing: "plants" | "area" | null } {
+  const lines = materials
+    .filter((m) => m.activityCode === activity.code)
+    .sort((a, b) => (a.mixOrder ?? 99) - (b.mixOrder ?? 99));
+  if (lines.length === 0) return { doses: [], missing: null };
+
+  const needsPlants = lines.some((l) => l.qtyUnit === "g_per_plant");
+  const needsArea = lines.some((l) => l.qtyUnit !== "g_per_plant");
+  if (needsPlants && (size.plants === null || size.plants <= 0)) {
+    return { doses: [], missing: "plants" };
+  }
+  if (needsArea && (size.areaSqm === null || size.areaSqm <= 0)) {
+    return { doses: [], missing: "area" };
+  }
+
+  const doses: Dose[] = [];
+  for (const line of lines) {
+    const material = catalogue.get(line.materialCode);
+    if (material === undefined) continue;
+
+    const amount =
+      line.qtyUnit === "g_per_plant"
+        ? line.qty * (size.plants ?? 0)
+        : line.qty * ((size.areaSqm ?? 0) / 1000);
+
+    doses.push({
+      material,
+      amount,
+      display: formatAmount(amount, line.qtyUnit === "ml_per_1000sqm" ? "ml" : "g"),
+      mixOrder: line.mixOrder,
+      note: line.note,
+    });
+  }
+  return { doses, missing: null };
+}
+
+/**
+ * Grams up to a kilo, then kilos. Millilitres up to a litre, then litres.
+ *
+ * Two significant figures past the point at most, and none where the number
+ * is already big: nobody weighs 6.675 kg of urea, and printing it that way
+ * only suggests a scale the farm does not own. Small numbers keep their
+ * decimals, because 2.3 g of zinc sulfate rounded to 2 is an 13% error.
+ */
+export function formatAmount(amount: number, unit: "g" | "ml"): string {
+  const big = unit === "g" ? "kg" : "L";
+  if (amount >= 1000) {
+    const v = amount / 1000;
+    return `${v >= 100 ? Math.round(v) : Number(v.toFixed(2))} ${big}`;
+  }
+  if (amount >= 100) return `${Math.round(amount)} ${unit}`;
+  if (amount >= 10) return `${Number(amount.toFixed(1))} ${unit}`;
+  return `${Number(amount.toFixed(2))} ${unit}`;
+}
+
+/**
+ * The ground and the plants a block covers.
+ *
+ * A block's area is its share of the plot, because that is the only figure
+ * anybody has: he estimates the share standing in the field and nobody is
+ * going to walk a GPS around an internal line. The plant count is counted,
+ * not apportioned — a block that is 30% of the land can hold 45% of the
+ * plants, and the protocol's per-plant doses care about the plants.
+ */
+export function sizeOf(
+  block: { landPct: number; plantCount: number | null } | null,
+  plot: { areaSqm: number | null; plants: number | null },
+): BlockSize {
+  if (block === null) return { plants: plot.plants, areaSqm: plot.areaSqm };
+  return {
+    plants: block.plantCount,
+    areaSqm: plot.areaSqm === null ? null : plot.areaSqm * (block.landPct / 100),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Whether the plot can be forced
+// ---------------------------------------------------------------------------
+
+/**
+ * The protocol's forcing criteria, in grams.
+ *
+ * Weight, not height, and not age. The old rule read D-leaf length against a
+ * farm setting; the protocol is explicit that height is reference only
+ * (about 1.2 m at 2.7 kg, at Del Monte's density, which is not ours).
+ */
+export const FORCING = {
+  /** Average plant weight. Good fields reach 3.0 kg. */
+  averageMin: 2700,
+  /** Over-robust plants are hard to force, so there is a ceiling too. */
+  averageMax: 3300,
+  /** The share of plants that must themselves be at or above the minimum. */
+  shareMin: 0.85,
+  /** No plant lighter than this. */
+  lightestMin: 2200,
+  /** Del Monte will force at this on a poor field. Below the protocol's own bar. */
+  poorFieldFloor: 2500,
+} as const;
+
+export type ForcingCheck = {
+  /** Every criterion met: force it. */
+  ready: boolean;
+  weighed: number;
+  averageGrams: number;
+  shareAtWeight: number;
+  lightestGrams: number;
+  heaviestGrams: number;
+  /** Each criterion, in the protocol's own order, for showing the working. */
+  criteria: { label: string; want: string; got: string; met: boolean }[];
+  /** Why it is not ready, in one line, or null when it is. */
+  blocker: string | null;
+};
+
+/**
+ * Read a weight survey against the protocol.
+ *
+ * Needs the individual plant weights, not an average: three of the four
+ * criteria are about the spread, and an average alone cannot tell a plot of
+ * even 2.8 kg plants from one where half are 2.2 and half are 3.4. The second
+ * is not ready to force and the average says it is.
+ */
+export function forcingReadiness(weightsGrams: readonly number[]): ForcingCheck | null {
+  const weights = weightsGrams.filter((w) => Number.isFinite(w) && w > 0);
+  if (weights.length === 0) return null;
+
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  const average = total / weights.length;
+  const atWeight = weights.filter((w) => w >= FORCING.averageMin).length;
+  const share = atWeight / weights.length;
+  const lightest = Math.min(...weights);
+  const heaviest = Math.max(...weights);
+
+  const kg = (g: number) => `${(g / 1000).toFixed(1)} kg`;
+  const pct = (f: number) => `${Math.round(f * 100)}%`;
+
+  const criteria = [
+    {
+      label: "Average plant weight",
+      want: `at least ${kg(FORCING.averageMin)}`,
+      got: kg(average),
+      met: average >= FORCING.averageMin,
+    },
+    {
+      label: `Plants at ${kg(FORCING.averageMin)} or more`,
+      want: `at least ${pct(FORCING.shareMin)}`,
+      got: `${pct(share)} (${atWeight} of ${weights.length})`,
+      met: share >= FORCING.shareMin,
+    },
+    {
+      label: "Lightest plant",
+      want: `at least ${kg(FORCING.lightestMin)}`,
+      got: kg(lightest),
+      met: lightest >= FORCING.lightestMin,
+    },
+    {
+      label: "Average not over",
+      want: kg(FORCING.averageMax),
+      got: kg(average),
+      met: average <= FORCING.averageMax,
+    },
+  ];
+
+  const failed = criteria.filter((c) => !c.met);
+  const first = failed[0];
+
+  return {
+    ready: failed.length === 0,
+    weighed: weights.length,
+    averageGrams: Math.round(average),
+    shareAtWeight: Math.round(share * 100) / 100,
+    lightestGrams: Math.round(lightest),
+    heaviestGrams: Math.round(heaviest),
+    criteria,
+    blocker:
+      first === undefined
+        ? null
+        : `${first.label} is ${first.got}; the protocol wants ${first.want}.`,
+  };
+}

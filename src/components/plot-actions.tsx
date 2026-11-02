@@ -7,6 +7,7 @@ import { Sparkline } from "./charts";
 import { newId } from "@/lib/queue";
 import { formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
 import { BIOMASS_BASES, type BiomassBasis } from "@/lib/domain/types";
+import type { ForcingCheck } from "@/lib/domain/protocol";
 
 export type Reading = {
   date: string;
@@ -42,13 +43,23 @@ export type PlotTask = {
  * will force together. The average alone cannot tell you which you have.
  */
 export function LeafTracker({
-  cycleId, readings, sampleSize, forcingCm, projected, target, closed,
+  cycleId, readings, sampleSize, forcingCm, forcing, target, closed,
 }: {
   cycleId: string;
   readings: Reading[];
   sampleSize: number;
   forcingCm: number;
-  projected: { date: string; cmPerDay: number } | null;
+  /**
+   * The protocol's forcing verdict, read off the weight survey.
+   *
+   * Replaces the old projection, which read D-leaf length against a farm
+   * setting and extrapolated a date from two readings. The protocol is
+   * explicit that height is reference only — about 1.2 m at 2.7 kg, and at
+   * Del Monte's density rather than ours. Weight is the go signal, so the
+   * screen now reports whether the plot passes rather than guessing a date
+   * from a rate.
+   */
+  forcing: ForcingCheck | null;
   target: string | null;
   closed: boolean;
 }) {
@@ -187,17 +198,46 @@ export function LeafTracker({
         </>
       )}
 
-      {projected !== null ? (
-        <Note tone={target !== null && projected.date > target ? "warn" : "good"}>
-          Growing {projected.cmPerDay} cm a day — big enough to force around{" "}
-          <strong>{formatDate(projected.date)}</strong>
-          {target !== null ? (
-            <> against a target of {formatDate(target)}.</>
-          ) : (
-            <>. No target set for this cycle yet.</>
-          )}
-        </Note>
-      ) : null}
+      {forcing === null ? null : (
+        <div className="mb-3">
+          <Note tone={forcing.ready ? "good" : "warn"}>
+            {forcing.ready ? (
+              <>
+                <strong>Ready to force.</strong> All four of the protocol&rsquo;s
+                criteria are met on {forcing.weighed}{" "}
+                {forcing.weighed === 1 ? "plant" : "plants"} weighed.
+                {target !== null ? <> Target was {formatDate(target)}.</> : null}
+              </>
+            ) : (
+              <>
+                <strong>Not ready to force.</strong> {forcing.blocker}
+              </>
+            )}
+          </Note>
+          <table className="mt-2 w-full text-sm">
+            <tbody>
+              {forcing.criteria.map((c) => (
+                <tr key={c.label} className="border-t border-line">
+                  <td className="py-1.5 pr-2 text-ink-soft">{c.label}</td>
+                  <td className="py-1.5 pr-2 text-right tabular text-ink-soft">
+                    {c.want}
+                  </td>
+                  <td className="py-1.5 pl-2 text-right font-semibold tabular text-ink">
+                    {c.got}
+                    <span className={c.met ? "ml-2 text-good" : "ml-2 text-danger"}>
+                      {c.met ? "\u2713" : "\u2717"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-sm text-ink-soft">
+            Weight, not height. The protocol treats D-leaf length as reference
+            only.
+          </p>
+        </div>
+      )}
 
       {sorted.length > 0 ? (
         <details className="mb-3">

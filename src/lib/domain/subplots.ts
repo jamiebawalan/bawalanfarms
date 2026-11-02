@@ -31,6 +31,12 @@ export type SubPlot = {
   plantCount: number | null;
   targetForcingDate: ISODate | null;
   forcedOn: ISODate | null;
+  /**
+   * Where this block sits on the protocol, as the date it would have been
+   * planted to be at the stage it is at. Not the same as plantedOn: MAP is a
+   * growth stage, and a block planted in December can be at month 8.
+   */
+  effectivePlantedOn?: ISODate | null;
   note?: string | null;
 };
 

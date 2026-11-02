@@ -8,13 +8,18 @@ import { LeafTracker, PlotTasks } from "@/components/plot-actions";
 import { ProfitProjection } from "@/components/profit-projection";
 import { Suggestions } from "@/components/suggestions";
 import { PlotPhotos } from "@/components/plot-photos";
+import { ProtocolPlan, type PlanSuggestion } from "@/components/protocol-plan";
 import { SubPlots } from "@/components/sub-plots";
 import { readMarks } from "@/lib/domain/annotations";
 import { blockedFraction, subPlotLedger } from "@/lib/domain/subplots";
 import { createAdminClient } from "@/lib/supabase/server";
-import { projectForcing } from "@/lib/domain/dashboards";
 import { evenness, readingsFor } from "@/lib/domain/leaf";
 import { loadLedger } from "@/lib/db/ledger";
+import { loadProtocol } from "@/lib/db/protocol";
+import {
+  describeTiming, dosesFor, forcingReadiness, mapForPlantedOn, sizeOf,
+  suggestionsFor,
+} from "@/lib/domain/protocol";
 import { cyclePnL } from "@/lib/domain/pnl";
 import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
 import { describeSpan, formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
@@ -77,7 +82,18 @@ export default async function CyclePage({
   const plotTasks = ledger.tasks.filter(
     (t) => t.cycleId === id || (t.plotId !== null && t.plotId === cycle.plotId),
   );
-  const forcing = projectForcing(ledger, id);
+  /*
+   * Forcing, on the protocol's criteria rather than a projected date.
+   *
+   * Read off the most recent reading that actually weighed plants. An older
+   * reading with weights beats a newer one without: a verdict from real
+   * weights, clearly dated, is worth more than silence because the latest
+   * walk only measured length.
+   */
+  const weighed = readings
+    .filter((r) => r.weights.length > 0)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  const forcing = weighed === undefined ? null : forcingReadiness(weighed.weights);
 
   // Blocks, and this cycle's costs divided across them. Shared costs are
   // divided here rather than when they were saved, so a corrected percentage
@@ -100,6 +116,91 @@ export default async function CyclePage({
       }),
   );
   const { photos, driveConnected } = await readPhotos(id);
+  const protocol = await loadProtocol(id);
+
+  /*
+   * The plot's ground, as of today. Areas are dated because a boundary gets
+   * re-traced, and a per-area dose mixed last month was mixed against last
+   * month's figure.
+   */
+  const plotAreaSqm =
+    ledger.plotAreas
+      .filter((a) => a.plotId === cycle.plotId && a.effectiveFrom <= today)
+      .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0]?.areaSqm ?? null;
+
+  /*
+   * One protocol list per block, because a block is the thing that has a
+   * growth stage. Blocks exist precisely because one plot holds plants at
+   * different stages, so a single list for the plot would be wrong for every
+   * block on it. With no blocks, the cycle is the one unit.
+   */
+  const protocolUnits = (blocks.length > 0
+    ? blocks.map((b) => ({
+        subPlotId: b.id,
+        name: b.name,
+        plantedOn: b.effectivePlantedOn ?? null,
+        size: sizeOf(b, { areaSqm: plotAreaSqm, plants: pnl.plantCount }),
+      }))
+    : [{
+        subPlotId: null,
+        name: null,
+        plantedOn: cycle.effectivePlantedOn ?? null,
+        size: sizeOf(null, { areaSqm: plotAreaSqm, plants: pnl.plantCount }),
+      }]
+  ).map((unit) => {
+    const mapMonth =
+      unit.plantedOn === null ? null : mapForPlantedOn(unit.plantedOn, today);
+    const planHere = protocol.plan.filter((p) => p.subPlotId === unit.subPlotId);
+
+    const suggestions: PlanSuggestion[] =
+      mapMonth === null
+        ? []
+        : suggestionsFor(mapMonth, protocol.activities, planHere).map((s) => {
+            const { doses, missing } = dosesFor(
+              s.activity, protocol.activityMaterials, protocol.materials, unit.size,
+            );
+            return {
+              code: s.activity.code,
+              title: s.activity.title,
+              instruction: s.activity.instruction,
+              category: s.activity.category,
+              mapMonth: s.activity.mapMonth,
+              timing: describeTiming(s.timing),
+              tone: s.timing.kind,
+              condition: s.activity.condition,
+              options: s.options.map((o) => ({
+                code: o.code, title: o.title, condition: o.condition,
+              })),
+              doses: doses.map((d) => ({
+                name: d.material.analysis === null
+                  ? d.material.name
+                  : `${d.material.name} (${d.material.analysis})`,
+                display: d.display,
+                note: d.note,
+              })),
+              missing,
+            };
+          });
+
+    const titleOf = new Map(protocol.activities.map((a) => [a.code, a]));
+    const answered = planHere
+      .flatMap((p) => {
+        const activity = titleOf.get(p.activityCode);
+        return activity === undefined
+          ? []
+          : [{
+              code: p.activityCode,
+              title: activity.title,
+              mapMonth: activity.mapMonth,
+              state: p.state === "done" ? ("done" as const) : ("skipped" as const),
+              skipReason: p.skipReason,
+              doneOn: p.doneOn,
+            }];
+      })
+      .sort((a, b) => b.mapMonth - a.mapMonth);
+
+    return { ...unit, mapMonth, suggestions, answered };
+  });
 
   // Seed the projection with what the farm has actually realised per fruit.
   const soldQty = pnl.revenueByProduct.reduce((a, r) => a + r.quantity, 0);
@@ -198,6 +299,20 @@ export default async function CyclePage({
         driveConnected={driveConnected}
       />
 
+      {protocolUnits.map((unit) => (
+        <ProtocolPlan
+          key={unit.subPlotId ?? "cycle"}
+          cycleId={id}
+          subPlotId={unit.subPlotId}
+          blockName={unit.name}
+          mapMonth={unit.mapMonth}
+          suggestions={unit.suggestions}
+          answered={unit.answered}
+          closed={pnl.isClosed}
+          loaded={protocol.loaded}
+        />
+      ))}
+
       <LeafTracker
         cycleId={id}
         readings={readings.map((r) => ({
@@ -215,7 +330,7 @@ export default async function CyclePage({
         }))}
         sampleSize={ledger.settings.dleafSampleSize}
         forcingCm={ledger.settings.dleafForcingCm}
-        projected={forcing === null ? null : { date: forcing.date, cmPerDay: forcing.cmPerDay }}
+        forcing={forcing}
         target={cycle.targetForcingDate}
         closed={pnl.isClosed}
       />

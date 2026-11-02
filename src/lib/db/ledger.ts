@@ -110,6 +110,7 @@ export async function loadLedger(): Promise<Ledger> {
       kasamaSharePct: c.kasama_share_pct === null ? null : Number(c.kasama_share_pct),
       targetForcingDate: c.target_forcing_date ?? null,
       targetHarvestDate: c.target_harvest_date ?? null,
+      effectivePlantedOn: c.effective_planted_on ?? null,
       plantingMaterialSource: c.planting_material_source, notes: c.notes,
     })),
     expenses: liveExpenses,
@@ -172,6 +173,7 @@ export async function loadLedger(): Promise<Ledger> {
       plantCount: s.plant_count === null ? null : Number(s.plant_count),
       targetForcingDate: s.target_forcing_date ?? null,
       forcedOn: s.forced_on ?? null,
+      effectivePlantedOn: s.effective_planted_on ?? null,
       note: s.note ?? null,
     })),
     leafMeasurements: optional<any>(leaves, "leaf measurements").map((l) => ({
