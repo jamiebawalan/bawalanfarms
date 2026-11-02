@@ -178,6 +178,43 @@ months of history.
 
 ---
 
+## Decided
+
+1. **Admin costs are general overhead.** Farm-wide, never split across plots.
+   `attribution = 'farm_wide'` with `farm_wide_reason = 'general'`, which the
+   schema already has.
+2. **Peanut gets its own list.** Seed, shelling, planting, cutting back,
+   harvest.
+3. **Tools are capital.** `attribution = 'capital'` with a `capital_asset_id`.
+4. **The kalabaws are capital too.**
+5. **Tabas and chemical deweeding are two jobs**, both Labour: one is cutting
+   by hand, the other is a sprayer. The chemical itself stays a separate
+   Materials row, as it always was.
+
+Nothing in 1, 3 or 4 needs new structure. `expense_attribution` already has
+`farm_wide` and `capital`; `farm_wide_reason` already has `general`,
+`vehicle`, `selling` and `animal_care`; `capital_assets` already exists. Those
+costs were not unrecordable, only misfiled.
+
+---
+
+## Still open
+
+Seven old codes stay active because nobody has said what they are. Retiring a
+code whose meaning is unsettled would strand the expenses using it.
+
+| Code | The question |
+|---|---|
+| Spray | Herbicide, pesticide, fungicide or foliar feed? |
+| Liquid | Is this the forcing application? |
+| Stab-Drop | What is this job? |
+| Pinya Trimming | Keep as its own Upkeep activity? |
+| Material Collection | Planting material, or materials generally? |
+| Fruiting Formula | Nutrients or Induction? |
+| Land Prep (generic) | Leave generic, or split by date? |
+
+---
+
 ## What still needs you
 
 Five decisions. Everything else I can map from the evidence.
