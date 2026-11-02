@@ -4,8 +4,18 @@ import {
   DECISIONS, ENTITIES, KNOWLEDGE, OPEN_ITEMS, TIMELINE,
 } from "@/lib/advice/knowledge";
 import { formatDate } from "@/lib/domain/dates";
+import { ProtocolGuide } from "@/components/protocol-guide";
+import { loadProtocolCatalogue } from "@/lib/db/protocol";
 
-export const dynamic = "force-static";
+/*
+ * Dynamic now, where it used to be static.
+ *
+ * The protocol lives in the database so the owners can correct it without a
+ * deploy — a v1.0 document with nine open items behind it should be edited as
+ * rows, not shipped as code. That means this page has to read it at request
+ * time. The decisions record below still comes from the repository.
+ */
+export const dynamic = "force-dynamic";
 
 /**
  * What the farm knows.
@@ -18,7 +28,8 @@ export const dynamic = "force-static";
  * It reads from the repository, not the database, so it works whether or not
  * anyone has logged in or run a migration.
  */
-export default function KnowledgePage() {
+export default async function KnowledgePage() {
+  const protocol = await loadProtocolCatalogue();
   const settled = DECISIONS.filter((d) => d.status === "active");
   const testing = DECISIONS.filter((d) => d.status === "trial");
   const weighing = DECISIONS.filter(
@@ -40,6 +51,16 @@ export default function KnowledgePage() {
         looks wrong, read the decision it cites. If the record is wrong, this is
         what needs changing.
       </Note>
+
+      {/*
+        * The protocol leads. It governs; the decisions below are how the farm
+        * got here, and several of them are superseded by it.
+        */}
+      <ProtocolGuide
+        activities={protocol.activities}
+        materials={protocol.activityMaterials}
+        catalogue={protocol.materials}
+      />
 
       <Card title="Settled practice">
         <DecisionList decisions={settled} />

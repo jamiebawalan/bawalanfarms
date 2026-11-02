@@ -293,59 +293,6 @@ export function PlotPhotos({
     <Card title="Photos">
       {error ? <Note tone="danger">{error}</Note> : null}
 
-      {byDate.length === 0 ? (
-        <Empty>
-          No photos of this plot yet. One every few weeks makes the difference
-          between remembering how it looked and guessing.
-        </Empty>
-      ) : (
-        <>
-          {/* Only the newest few. A season of photos is a very long page to
-              scroll past on the way to anything else on this plot. */}
-          <ul className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-            {(expanded ? byDate : byDate.slice(0, SHOWN_AT_FIRST)).map((photo, i) => (
-              <li key={photo.id}>
-                <button
-                  type="button"
-                  onClick={() => { setAt(i); setConfirming(false); setZoom(1); }}
-                  className="block w-full text-left"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <span className="relative block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/photos/${photo.id}`}
-                      alt={photoLabel(photo)}
-                      loading="lazy"
-                      className="aspect-square w-full rounded-lg border-2 border-line object-cover"
-                    />
-                    <Marks marks={photo.marks} />
-                  </span>
-                  <span className="mt-0.5 block truncate text-xs text-ink-soft">
-                    {formatDateShort(photo.takenOn)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          {byDate.length > SHOWN_AT_FIRST ? (
-            <Button
-              variant="quiet"
-              size="md"
-              className="mb-3 px-0"
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded
-                ? `Show fewer`
-                : `More — ${byDate.length - SHOWN_AT_FIRST} older ${
-                    byDate.length - SHOWN_AT_FIRST === 1 ? "photo" : "photos"
-                  }`}
-            </Button>
-          ) : null}
-        </>
-      )}
-
       {current !== null ? (
         <div className="mb-4">
           {/* The picture sits in a window it can be bigger than, so zooming in
@@ -530,6 +477,67 @@ export function PlotPhotos({
           )}
         </div>
       ) : null}
+
+      {/*
+        * The gallery sits under the photo, not over it.
+        *
+        * Above, the strip of thumbnails pushed the picture he had just
+        * opened off a phone screen — he tapped a leaf tip and had to scroll
+        * back to see it. The grid is the way back to the set, which is a
+        * thing wanted second.
+        */}
+      {byDate.length === 0 ? (
+        <Empty>
+          No photos of this plot yet. One every few weeks makes the difference
+          between remembering how it looked and guessing.
+        </Empty>
+      ) : (
+        <>
+          {/* Only the newest few. A season of photos is a very long page to
+              scroll past on the way to anything else on this plot. */}
+          <ul className="mb-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            {(expanded ? byDate : byDate.slice(0, SHOWN_AT_FIRST)).map((photo, i) => (
+              <li key={photo.id}>
+                <button
+                  type="button"
+                  onClick={() => { setAt(i); setConfirming(false); setZoom(1); }}
+                  className="block w-full text-left"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <span className="relative block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/photos/${photo.id}`}
+                      alt={photoLabel(photo)}
+                      loading="lazy"
+                      className="aspect-square w-full rounded-lg border-2 border-line object-cover"
+                    />
+                    <Marks marks={photo.marks} />
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-ink-soft">
+                    {formatDateShort(photo.takenOn)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {byDate.length > SHOWN_AT_FIRST ? (
+            <Button
+              variant="quiet"
+              size="md"
+              className="mb-3 px-0"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded
+                ? `Show fewer`
+                : `More — ${byDate.length - SHOWN_AT_FIRST} older ${
+                    byDate.length - SHOWN_AT_FIRST === 1 ? "photo" : "photos"
+                  }`}
+            </Button>
+          ) : null}
+        </>
+      )}
 
       {closed ? null : !driveConnected ? (
         <Note tone="warn">

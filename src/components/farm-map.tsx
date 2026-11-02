@@ -24,6 +24,10 @@ export type MapShape = {
   areaSqm: number;
   /** Open tasks on this plot, whether or not a cycle is running on it. */
   tasks: { id: string; title: string; dueDate: string; isCritical: boolean }[];
+  /** The whole plot's surveyed area, not this piece's. Null if never surveyed. */
+  surveyedSqm: number | null;
+  plantedOn: string | null;
+  plants: number | null;
 };
 
 /**
@@ -243,15 +247,43 @@ export function FarmMap({
           Tap a plot to see what is on it.
         </p>
       ) : (
-        <div className="mt-3 rounded-xl border-2 border-line bg-paper-sunk p-3">
+        /*
+         * Over the map, not under it.
+         *
+         * The panel used to sit below the whole drawing, so acting on a plot
+         * meant tapping it and then scrolling the map out of the way to find
+         * out what you had tapped. A map you have to scroll past is a map
+         * that costs you something to use.
+         */
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selected.label} details`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) { setSelected(null); setAdding(false); }
+          }}
+        >
+        <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-paper p-4 shadow-lg sm:rounded-2xl">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="font-semibold">{selected.label}</span>
-            <span className="text-sm text-ink-soft">
-              {selected.crop === null
-                ? "nothing planted"
-                : `${selected.crop}${selected.months === null ? "" : `, ${selected.months} months in`}`}
-            </span>
+            <span className="text-lg font-semibold">{selected.label}</span>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => { setSelected(null); setAdding(false); }}
+              className="-m-2 min-h-12 min-w-12 text-2xl leading-none text-ink-soft"
+            >
+              ×
+            </button>
           </div>
+
+          <PlotSummary shape={selected} />
+
+          <p className="mt-2 text-sm text-ink-soft">
+            {selected.crop === null
+              ? "Nothing planted."
+              : `${selected.crop}${selected.months === null ? "" : `, ${selected.months} months in`}`}
+          </p>
           {selected.tasks.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {selected.tasks.map((t) => (
@@ -323,6 +355,7 @@ export function FarmMap({
             </div>
           ) : null}
         </div>
+        </div>
       )}
     </div>
   );
@@ -361,4 +394,47 @@ export function oneLabelPerPlot(shapes: MapShape[]) {
       labelY: parts.reduce((a, p) => a + p.labelY * Math.max(0, p.areaSqm), 0) / total,
     };
   });
+}
+
+/**
+ * The three things anybody asks of a plot while looking at the map.
+ *
+ * How big, how many plants, when it went in. They were all reachable before —
+ * on the plot's own page, past the map and a scroll. Having to leave the map
+ * to find out what you just tapped is the thing that made the map ornamental.
+ */
+export function PlotSummary({ shape }: { shape: MapShape }) {
+  return (
+    <dl className="mt-2 grid grid-cols-3 gap-2 rounded-xl bg-paper-sunk p-3">
+      <div>
+        <dt className="text-xs uppercase tracking-wide text-ink-soft">Size</dt>
+        <dd className={shape.surveyedSqm === null ? "text-ink-soft" : "font-semibold tabular"}>
+          {shape.surveyedSqm === null
+            ? "not surveyed"
+            : `${(shape.surveyedSqm / 10_000).toFixed(2)} ha`}
+        </dd>
+      </div>
+      <div>
+        <dt className="text-xs uppercase tracking-wide text-ink-soft">Plants</dt>
+        <dd className={shape.plants === null ? "text-ink-soft" : "font-semibold tabular"}>
+          {shape.plants === null
+            ? "not counted"
+            : shape.plants.toLocaleString("en-PH")}
+        </dd>
+      </div>
+      <div>
+        <dt className="text-xs uppercase tracking-wide text-ink-soft">Planted</dt>
+        {/*
+          * With the year. "14 Feb" on a plot summary is ambiguous by exactly
+          * the amount that matters — a crop planted last February and one
+          * planted the February before are different crops.
+          */}
+        <dd className={shape.plantedOn === null ? "text-ink-soft" : "font-semibold"}>
+          {shape.plantedOn === null
+            ? "not recorded"
+            : `${formatDateShort(shape.plantedOn)} ${shape.plantedOn.slice(0, 4)}`}
+        </dd>
+      </div>
+    </dl>
+  );
 }

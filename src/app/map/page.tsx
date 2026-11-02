@@ -53,6 +53,18 @@ export default async function MapPage() {
           id: t.id, title: t.title, dueDate: t.dueDate, isCritical: t.isCritical,
         })),
       surveyedSqm: areaOn(ledger.plotAreas, plot.id, today),
+      /*
+       * The three things anybody asks about a plot while looking at the map,
+       * so that tapping it answers them instead of sending him to another
+       * page to find out.
+       */
+      plantedOn: cycle?.datePlanted ?? cycle?.dateStarted ?? null,
+      plants:
+        cycle === undefined
+          ? null
+          : ledger.plantCounts
+              .filter((c) => c.cycleId === cycle.id && c.date <= today)
+              .sort((a, b) => b.date.localeCompare(a.date))[0]?.count ?? null,
     }];
   });
 
@@ -109,6 +121,9 @@ export default async function MapPage() {
                 colourKey: s.colourKey,
                 months: s.months,
                 tasks: s.tasks,
+                surveyedSqm: s.surveyedSqm,
+                plantedOn: s.plantedOn,
+                plants: s.plants,
               }))}
               width={projected.width}
               height={projected.height}
