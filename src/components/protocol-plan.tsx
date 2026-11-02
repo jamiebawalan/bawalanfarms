@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Chip, ChipGroup, Empty, Field, Input, Note } from "./ui";
+import {
+  AmountInput, Button, Card, Chip, ChipGroup, Empty, Field, Input, Note,
+} from "./ui";
 import { newId, send } from "@/lib/queue";
 import { addDays, formatDateShort, todayISO } from "@/lib/domain/dates";
 
@@ -102,6 +104,8 @@ export function ProtocolPlan({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [settingStage, setSettingStage] = useState(false);
+  const [stage, setStage] = useState(mapMonth === null ? "" : String(mapMonth));
 
   if (!loaded) {
     return (
@@ -113,14 +117,82 @@ export function ProtocolPlan({
     );
   }
 
+  const saveStage = async (months: number | null) => {
+    setBusy("stage");
+    setError(null);
+    const res = await fetch("/api/protocol", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        cycle_id: cycleId,
+        sub_plot_id: subPlotId,
+        map_month: months,
+      }),
+    });
+    setBusy(null);
+    if (res.ok) {
+      setSettingStage(false);
+      router.refresh();
+      return;
+    }
+    const detail = await res.json().catch(() => ({ error: "Could not save" }));
+    setError(detail.error ?? "Could not save");
+  };
+
+  const stageField = (
+    <div className="max-w-md">
+      <Field
+        label={`What month is this ${blockName === null ? "plot" : "block"} at?`}
+        htmlFor={`stage-${subPlotId ?? "cycle"}`}
+        hint={
+          "The stage the plants have reached, not how long since planting. " +
+          "A plot put in last December can be at month 8. Land prep is a " +
+          "negative number: -4 is four months before planting."
+        }
+      >
+        <AmountInput
+          id={`stage-${subPlotId ?? "cycle"}`}
+          inputMode="decimal"
+          value={stage}
+          onChange={(e) => setStage(e.target.value)}
+          /*
+           * No placeholder. A greyed "5" next to a disabled Save reads as a
+           * filled field that will not save, and the question is already in
+           * the label above it.
+           */
+        />
+      </Field>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button
+          size="md"
+          disabled={busy !== null || stage.trim() === "" || Number.isNaN(Number(stage))}
+          onClick={() => void saveStage(Number(stage))}
+        >
+          {busy === "stage" ? "Saving…" : "Set the stage"}
+        </Button>
+        {mapMonth === null ? null : (
+          <Button
+            variant="secondary"
+            size="md"
+            disabled={busy !== null}
+            onClick={() => setSettingStage(false)}
+          >
+            Cancel
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   if (mapMonth === null) {
     return (
-      <Card title="What the protocol says">
-        <Empty>
+      <Card title={blockName ?? "What the protocol says"}>
+        {error === null ? null : <Note tone="danger">{error}</Note>}
+        <p className="mb-3 text-ink-soft">
           Set this {blockName === null ? "plot" : "block"}&rsquo;s growth stage and the
-          protocol can say what is due. The stage is what the plants have reached, not
-          how long they have been in the ground.
-        </Empty>
+          protocol can say what is due.
+        </p>
+        {stageField}
       </Card>
     );
   }
@@ -187,18 +259,27 @@ export function ProtocolPlan({
   const visible = expanded ? suggestions : suggestions.slice(0, SHOWN);
   const hidden = suggestions.length - visible.length;
 
-  const stage = `Month ${round1(mapMonth)}`;
+  const stageLabel = `Month ${round1(mapMonth)}`;
 
   return (
     <Card
       title={blockName ?? "What the protocol says"}
       action={
-        <span className="whitespace-nowrap rounded-lg bg-paper-sunk px-2 py-1 text-sm font-semibold tabular text-ink-soft">
-          {stage}
-        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setStage(String(round1(mapMonth)));
+            setSettingStage((v) => !v);
+          }}
+          className="whitespace-nowrap rounded-lg bg-paper-sunk px-2 py-1 text-sm font-semibold tabular text-ink-soft underline decoration-dotted underline-offset-4"
+        >
+          {stageLabel}
+        </button>
       }
     >
       {error === null ? null : <Note tone="danger">{error}</Note>}
+
+      {!settingStage ? null : <div className="mb-4">{stageField}</div>}
 
       {suggestions.length === 0 ? (
         <Empty>Nothing due on the protocol at month {round1(mapMonth)}.</Empty>
