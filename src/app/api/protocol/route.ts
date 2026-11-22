@@ -46,6 +46,18 @@ const Answer = z.object({
   draws: z
     .array(
       z.object({
+        /*
+         * The client makes this id, not the database.
+         *
+         * Every other write in this app survives a replay by colliding on a
+         * client-generated primary key — that is the whole reason the offline
+         * queue is safe to retry. These rows did not have one, so a request
+         * that reached the server while the reply was lost on the way back —
+         * which is what a patchy signal does — inserted the draws a second
+         * time on retry. Double stock out of the shed, double cost on the
+         * plot, silently.
+         */
+        id: z.string().uuid(),
         purchase_id: z.string().uuid(),
         quantity: z.number().positive(),
         dose_note: z.string().max(200).optional(),
@@ -135,6 +147,7 @@ export async function POST(request: Request) {
   if (answer.state === "done" && answer.draws !== undefined && answer.draws.length > 0) {
     const { error: drawFailed } = await supabase.from("input_draws").insert(
       answer.draws.map((d) => ({
+        id: d.id,
         purchase_id: d.purchase_id,
         cycle_id: answer.cycle_id,
         date: row.done_on,
@@ -144,7 +157,14 @@ export async function POST(request: Request) {
         created_by: user.email,
       })),
     );
-    if (drawFailed !== null) drawError = drawStock(drawFailed.message);
+    /*
+     * A duplicate key means the retry worked the first time. The stock is
+     * already out and nothing more should happen, which is success, not an
+     * error to show somebody standing in a field.
+     */
+    if (drawFailed !== null && !/duplicate key|already exists/i.test(drawFailed.message)) {
+      drawError = drawStock(drawFailed.message);
+    }
   }
 
   const closed = await closeEarlierRounds(answer);
@@ -229,6 +249,12 @@ async function closeEarlierRounds(answer: {
  * Only its own programme is revived. Undoing the month-5 foliar must not also
  * reopen an ant-bait round that some other answer closed — that would hand
  * back work nobody asked about and the list would grow on an undo.
+ *
+ * The stock it took comes back too. That half was missed when this was
+ * written: the plan row went, the draws stayed with their link cut, and the
+ * cost sat on the plot for ever with nothing left in the app to explain
+ * where it came from. An undo that loses the work is the one thing an undo
+ * must not do, and stock is work.
  */
 export async function DELETE(request: Request) {
   const url = new URL(request.url);
@@ -279,12 +305,48 @@ export async function DELETE(request: Request) {
   remove = subPlotId === null
     ? remove.is("sub_plot_id", null)
     : remove.eq("sub_plot_id", subPlotId);
+  /*
+   * The draws first, while the plan row is still there to find them by.
+   *
+   * Deleted rather than reversed: this is an undo of something that should
+   * not have been recorded at all, not a correction of stock that genuinely
+   * moved. Nothing consumes a draw downstream — the cost is computed from it
+   * at read time — so removing it leaves the lot and the plot exactly as they
+   * were before the round was answered.
+   */
+  const { data: plans } = await admin
+    .from("protocol_plan")
+    .select("id")
+    .eq("cycle_id", cycleId)
+    .eq("activity_code", activityCode);
+
+  const planIds = (plans ?? []).map((p: Record<string, unknown>) => String(p.id));
+  let returnedToStock = 0;
+  if (planIds.length > 0) {
+    const { data: undone, error: stockFailed } = await admin
+      .from("input_draws")
+      .delete()
+      .in("protocol_plan_id", planIds)
+      .select("id");
+    if (stockFailed !== null) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not put the stock back, so nothing was undone. " +
+            stockFailed.message,
+        },
+        { status: 400 },
+      );
+    }
+    returnedToStock = (undone ?? []).length;
+  }
+
   const { error } = await remove;
   if (error !== null) {
     return NextResponse.json({ error: humanise(error.message) }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, returnedToStock });
 }
 
 /**
