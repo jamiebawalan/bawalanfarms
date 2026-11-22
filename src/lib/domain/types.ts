@@ -135,6 +135,14 @@ export type InputPurchase = {
   unitCostCentavos: Centavos;
   totalCentavos: Centavos;
   supplier?: string | null;
+  /**
+   * True when the farm manager paid out of his cash advance.
+   *
+   * Buying is not a cost — that is what the stock ledger is for — but it is
+   * money gone from his pocket, and cash on hand has to know. An owner
+   * paying the supplier directly is still stock and never touches his float.
+   */
+  paidFromFloat?: boolean;
 };
 
 export type InputDraw = {

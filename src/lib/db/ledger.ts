@@ -128,6 +128,9 @@ export async function loadLedger(): Promise<Ledger> {
       id: p.id, date: p.date, inputType: p.input_type, quantity: Number(p.quantity),
       unit: p.unit, unitCostCentavos: Number(p.unit_cost_centavos),
       totalCentavos: Number(p.total_centavos), supplier: p.supplier,
+      // Defaults to false on a database the migration has not reached, which
+      // keeps the cash figure exactly as it was there.
+      paidFromFloat: p.paid_from_float ?? false,
     })),
     draws: rows<any>(draws, "input draws").map((d) => ({
       id: d.id, purchaseId: d.purchase_id, cycleId: d.cycle_id, date: d.date,
