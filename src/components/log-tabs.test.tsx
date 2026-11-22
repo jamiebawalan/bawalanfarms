@@ -9,9 +9,15 @@ const at = (p: string) => { path = p; return renderToStaticMarkup(<LogTabs />); 
 describe("the three things that get written down", () => {
   it("offers all three from any of them", () => {
     const html = at("/expenses/new");
-    expect(html).toContain("Cost");
+    expect(html).toContain("Cash costs");
     expect(html).toContain("Use inputs");
     expect(html).toContain("Buy inputs");
+  });
+
+  it("says cash, because not every cost is cash and not every payment is a cost", () => {
+    // Buying stock leaves the float and charges no plot; using stock charges a
+    // plot and touches no float. A tab called just "Cost" claimed both.
+    expect(at("/expenses/new")).not.toMatch(/>Cost</);
   });
 
   it("puts using stock before buying it, by how often each happens", () => {

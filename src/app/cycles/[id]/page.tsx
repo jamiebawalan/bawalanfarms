@@ -480,7 +480,7 @@ export default async function CyclePage({
               href={`/expenses/new?plots=${cycle.plotId}&from=/cycles/${cycle.id}`}
               className="text-sm font-semibold text-brand underline underline-offset-4"
             >
-              Log a cost
+              Log a cash cost
             </Link>
           ) : null
         }

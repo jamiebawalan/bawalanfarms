@@ -39,6 +39,13 @@ const SYNONYMS: Record<string, string[]> = {
   plant: ["tanim", "planting", "plant"],
   layout: ["layout", "lay out", "lay-out"],
   gather_material: ["suwe", "salo", "binhi", "slips", "suckers", "planting material"],
+  // Bought material, as the old book wrote it: a farm's name, or the word for
+  // buying. "bili" is Tagalog for buy; "suwe" alone stays with gathering.
+  buy_material: ["bili ng suwe", "bili suwe", "bought suckers", "buy suckers", "sucker purchase"],
+  prep_material: [
+    "sorting", "sort", "cutting", "cut suwe", "tadtad", "putol",
+    "packaging", "pack", "empake", "balot", "prepare material",
+  ],
   stack_haul: ["hakot", "haul", "kamada", "baba"],
   haul_to_buyer: ["kalakal", "lalamove", "delivery", "buyer"],
   tolls: ["toll", "trucking", "rfid"],
