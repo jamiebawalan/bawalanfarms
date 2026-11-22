@@ -59,10 +59,11 @@ describe("selling surplus off the shed", () => {
     expect(sell()).toContain("disabled=\"\"");
   });
 
-  it("warns that the money is not kept here", () => {
-    // Anthony will be holding the cash. If the screen is silent about it, the
-    // cash-on-hand figure looks like a shortfall he has to explain.
-    expect(sell()).toContain("does not keep what");
+  it("tells him what to do with the money instead of keeping it", () => {
+    // The app records no sale, so the proceeds must leave the float or cash on
+    // hand drifts. Saying "hand it to Jamie" is the instruction, not a warning.
+    expect(sell()).toContain("Hand the money to Jamie");
+    expect(sell()).toContain("do not spend it from the float");
   });
 
   it("offers each lot with how much is left in it", () => {

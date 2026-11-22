@@ -195,9 +195,8 @@ export function LiquidateForm({ lots }: { lots: Lot[] }) {
       </Button>
 
       <Note tone="info">
-        This records the stock leaving, not the sale. The app does not keep what
-        the buyer paid — if that cash is in the box, cash on hand will read low
-        until it is spent.
+        This records the stock leaving, not the sale. Hand the money to Jamie —
+        do not spend it from the float, or cash on hand will read low.
       </Note>
     </>
   );
