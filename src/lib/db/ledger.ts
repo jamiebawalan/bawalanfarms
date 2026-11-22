@@ -112,6 +112,12 @@ export async function loadLedger(): Promise<Ledger> {
       code: String(t.code),
       label: String(t.label),
       unit: String(t.unit),
+      kgPerUnit: t.kg_per_unit === null || t.kg_per_unit === undefined
+        ? null
+        : Number(t.kg_per_unit),
+      category: (t.category === "protection" || t.category === "forcing"
+        ? t.category
+        : "care") as "care" | "protection" | "forcing",
       active: Boolean(t.active),
     })),
     plots: rows<any>(plots, "plots").map((p) => ({

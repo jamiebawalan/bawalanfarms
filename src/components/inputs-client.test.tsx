@@ -3,7 +3,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 import { renderToStaticMarkup } from "react-dom/server";
-import { InputsClient, LiquidateForm, PurchaseForm } from "./inputs-client";
+import { DrawForm, LiquidateForm, PurchaseForm } from "./inputs-client";
 
 const LOTS = [
   {
@@ -16,30 +16,18 @@ const LOTS = [
   },
 ];
 
-const render = (lots = LOTS) =>
-  renderToStaticMarkup(
-    <InputsClient
-      inputTypes={[
-        { code: "fert_0_0_60", label: "Muriate of potash (0-0-60)", unit: "kg", kgPerUnit: null, category: "care" },
-        { code: "diuron", label: "Diuron", unit: "litre", kgPerUnit: null, category: "protection" },
-        { code: "ethrel", label: "Ethrel (ethephon)", unit: "litre", kgPerUnit: null, category: "forcing" },
-      ]}
-      lots={lots}
-      cycles={[{ id: "c1", label: "Plot 1 · pineapple", counts: [] }]}
-    />,
-  );
-
-describe("the stock screen", () => {
-  it("offers selling surplus alongside taking stock out and buying", () => {
-    const html = render();
-    expect(html).toContain("Take stock out");
-    expect(html).toContain("Record a purchase");
-    expect(html).toContain("Sell surplus");
+describe("using stock from the shed", () => {
+  it("asks which plot it went onto, because that is the cost", () => {
+    const html = renderToStaticMarkup(
+      <DrawForm lots={LOTS} cycles={[{ id: "c1", label: "Plot 1 · pineapple", counts: [] }]} />,
+    );
+    expect(html).toContain("For which cycle?");
+    expect(html).toContain("Plot 1 · pineapple");
   });
 
-  it("opens on taking stock out, because that is the daily job", () => {
-    // Selling happens a handful of times a year; drawing happens every round.
-    expect(render()).toContain("For which cycle?");
+  it("refuses to pretend when no cycle is running", () => {
+    const html = renderToStaticMarkup(<DrawForm lots={LOTS} cycles={[]} />);
+    expect(html).toContain("No cycle is running");
   });
 });
 

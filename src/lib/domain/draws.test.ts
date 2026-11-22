@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  proposeDraws, toUnits, type Consumed, type InputType, type StockLot,
+  drawUnits, proposeDraws, toUnits, type Consumed, type InputType, type StockLot,
 } from "./draws";
 import { formatAmount } from "./protocol";
 
@@ -148,5 +148,59 @@ describe("proposing the draw", () => {
     );
     expect(p.lines[0]!.draws).toEqual([]);
     expect(p.lines[0]!.shortfall).toBe(0.032);
+  });
+});
+
+
+describe("stock named directly, as the per-plot screen names it", () => {
+  // He says "I used 20 kg of urea". Which sack it came off is the app's job.
+  const lots: StockLot[] = [
+    { purchaseId: "old", inputType: "urea", date: "2026-01-10", remaining: 12, unitCostCentavos: 2_000 },
+    { purchaseId: "new", inputType: "urea", date: "2026-03-01", remaining: 50, unitCostCentavos: 2_500 },
+    { purchaseId: "other", inputType: "dap", date: "2026-01-01", remaining: 99, unitCostCentavos: 9_999 },
+  ];
+
+  it("takes the oldest lot first", () => {
+    const got = drawUnits("urea", 10, lots, "kg");
+    expect(got.draws).toHaveLength(1);
+    expect(got.draws[0]!.purchaseId).toBe("old");
+    expect(got.costCentavos).toBe(10 * 2_000);
+  });
+
+  it("splits across lots at each lot's own price, not an average", () => {
+    // 20 kg = the last 12 of the cheap lot plus 8 of the dearer one. An
+    // average price here would quietly misstate every plot's P&L.
+    const got = drawUnits("urea", 20, lots, "kg");
+    expect(got.draws.map((d) => [d.purchaseId, d.quantity])).toEqual([
+      ["old", 12],
+      ["new", 8],
+    ]);
+    expect(got.costCentavos).toBe(12 * 2_000 + 8 * 2_500);
+  });
+
+  it("never reaches into another input type's lots", () => {
+    const got = drawUnits("urea", 1000, lots, "kg");
+    expect(got.draws.every((d) => d.purchaseId !== "other")).toBe(true);
+  });
+
+  it("says how much it came up short rather than drawing less in silence", () => {
+    // Running short is information: either the shed is emptier than anybody
+    // thought, or a purchase was never entered.
+    const got = drawUnits("urea", 100, lots, "kg");
+    expect(got.shortfall).toBe(38);
+  });
+
+  it("leaves the caller's lots untouched, so a screen can re-price freely", () => {
+    const before = lots.map((l) => l.remaining);
+    drawUnits("urea", 20, lots, "kg");
+    drawUnits("urea", 20, lots, "kg");
+    expect(lots.map((l) => l.remaining)).toEqual(before);
+  });
+
+  it("finds nothing when the shed has none of it", () => {
+    const got = drawUnits("ethrel", 5, lots, "litre");
+    expect(got.draws).toEqual([]);
+    expect(got.shortfall).toBe(5);
+    expect(got.costCentavos).toBe(0);
   });
 });

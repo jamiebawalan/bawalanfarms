@@ -288,7 +288,17 @@ export type Ledger = {
   expenses: Expense[];
   allocations: Allocation[];
   purchases: InputPurchase[];
-  inputTypes: { code: string; label: string; unit: string; active: boolean }[];
+  inputTypes: {
+    code: string;
+    label: string;
+    unit: string;
+    /** Kilos in one unit, where the pack size is known. */
+    kgPerUnit: number | null;
+    /** Which shelf of the shed; see 0038. */
+    category: "care" | "protection" | "forcing";
+    /** False means retired: no longer offered for buying, still drawable. */
+    active: boolean;
+  }[];
   draws: InputDraw[];
   harvests: Harvest[];
   harvestLines: HarvestLine[];

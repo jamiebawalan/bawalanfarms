@@ -1,4 +1,5 @@
 import { Page } from "@/components/ui";
+import { LogTabs } from "@/components/log-tabs";
 import { ExpenseForm, type FormPlot } from "@/components/expense-form";
 import { loadLedger } from "@/lib/db/ledger";
 import { areaOn } from "@/lib/domain/plots";
@@ -47,6 +48,7 @@ export default async function NewExpensePage({
 
   return (
     <Page title="Log a cost">
+      <LogTabs />
       <ExpenseForm
         plots={plots}
         /*

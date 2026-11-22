@@ -201,7 +201,10 @@ export async function loadStock(): Promise<{
   const supabase = createAdminClient();
 
   const [types, purchases, draws] = await Promise.all([
-    supabase.from("input_types").select("*").eq("active", true),
+    // Every type, not only the active ones. `active` governs what can be
+    // BOUGHT; stock already in the shed under a retired type must still be
+    // usable, or the last sacks of it could never be drawn down (0038).
+    supabase.from("input_types").select("*"),
     supabase.from("input_purchases").select("id, input_type, date, quantity, unit_cost_centavos"),
     supabase.from("input_draws").select("purchase_id, quantity"),
   ]);

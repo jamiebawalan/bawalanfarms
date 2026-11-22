@@ -43,41 +43,6 @@ type CycleOption = {
   counts: { date: string; count: number }[];
 };
 
-export function InputsClient({
-  inputTypes, lots, cycles,
-}: {
-  inputTypes: InputType[];
-  lots: Lot[];
-  cycles: CycleOption[];
-}) {
-  const [tab, setTab] = useState<"draw" | "buy" | "sell">("draw");
-
-  return (
-    <Card>
-      <ChipGroup>
-        <Chip selected={tab === "draw"} onClick={() => setTab("draw")}>
-          Take stock out
-        </Chip>
-        <Chip selected={tab === "buy"} onClick={() => setTab("buy")}>
-          Record a purchase
-        </Chip>
-        <Chip selected={tab === "sell"} onClick={() => setTab("sell")}>
-          Sell surplus
-        </Chip>
-      </ChipGroup>
-      <div className="mt-4">
-        {tab === "draw" ? (
-          <DrawForm lots={lots} cycles={cycles} />
-        ) : tab === "buy" ? (
-          <PurchaseForm inputTypes={inputTypes} />
-        ) : (
-          <LiquidateForm lots={lots} />
-        )}
-      </div>
-    </Card>
-  );
-}
-
 /**
  * Selling surplus off the shed.
  *
@@ -227,7 +192,7 @@ export function LiquidateForm({ lots }: { lots: Lot[] }) {
  * and 50kg a sack — the arithmetic he was already doing by hand in the margin
  * of the old book. It is shown with its working, and it is always editable.
  */
-function DrawForm({ lots, cycles }: { lots: Lot[]; cycles: CycleOption[] }) {
+export function DrawForm({ lots, cycles }: { lots: Lot[]; cycles: CycleOption[] }) {
   const router = useRouter();
   const today = todayISO();
 

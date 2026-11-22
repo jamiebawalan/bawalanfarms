@@ -92,7 +92,7 @@ export function makeLedger(): Ledger {
       },
     ],
     inputTypes: [
-      { code: "fert_21_0_0", label: "Ammonium sulfate (21-0-0)", unit: "kg", active: true },
+      { code: "fert_21_0_0", label: "Ammonium sulfate (21-0-0)", unit: "kg", kgPerUnit: 1, category: "care", active: true },
     ],
     draws: [
       { id: "d1", purchaseId: "buy1", cycleId: "c1", reason: "applied", date: "2024-03-10", quantity: 10 },
