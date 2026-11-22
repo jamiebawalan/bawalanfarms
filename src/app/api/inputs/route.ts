@@ -30,9 +30,24 @@ const Draw = z.object({
   dose_note: z.string().optional(),
 });
 
+/**
+ * Selling surplus off the shed. It leaves the lot like a draw, but it names no
+ * cycle, because no plot received it. The money it brought in is deliberately
+ * not recorded: this app sells pineapples, and a fertiliser sale posted as
+ * revenue would land in some plot's harvest P&L.
+ */
+const Liquidation = z.object({
+  kind: z.literal("liquidation"),
+  id: z.string().uuid(),
+  purchase_id: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  quantity: z.number().positive(),
+  note: z.string().optional(),
+});
+
 export async function POST(request: Request) {
   const parsed = z
-    .discriminatedUnion("kind", [Purchase, Draw])
+    .discriminatedUnion("kind", [Purchase, Draw, Liquidation])
     .safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
@@ -58,8 +73,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ id: parsed.data.id });
   }
 
-  const { kind, ...draw } = parsed.data;
-  const { error } = await supabase.from("input_draws").insert(draw);
+  const row: {
+    id: string;
+    purchase_id: string;
+    cycle_id: string | null;
+    reason: "applied" | "sold";
+    date: string;
+    quantity: number;
+    dose_note?: string | undefined;
+  } =
+    parsed.data.kind === "liquidation"
+      ? {
+          id: parsed.data.id,
+          purchase_id: parsed.data.purchase_id,
+          cycle_id: null,
+          reason: "sold" as const,
+          date: parsed.data.date,
+          quantity: parsed.data.quantity,
+          dose_note: parsed.data.note,
+        }
+      : (({ kind, ...draw }) => ({ ...draw, reason: "applied" as const }))(parsed.data);
+
+  const { error } = await supabase.from("input_draws").insert(row);
   if (error && !isDuplicate(error.message)) {
     if (/over$/.test(error.message) || /holds/.test(error.message)) {
       return NextResponse.json(

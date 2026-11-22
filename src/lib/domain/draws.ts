@@ -111,6 +111,68 @@ export function toUnits(
 }
 
 /**
+ * Walk the lots oldest first, taking what is wanted.
+ *
+ * Oldest first because fertiliser cakes and chemicals expire, and because a
+ * lot left half-drawn for a year is a lot nobody can price honestly. Where a
+ * want spans two lots it is split across them at each lot's own cost, which
+ * is the only way the plot's P&L stays true to what was actually bought.
+ *
+ * Mutates each lot's `remaining` so repeated calls over one list — a protocol
+ * round wanting urea twice, or several lines on one screen — cannot hand out
+ * the same sack twice.
+ */
+export function takeFifo(
+  lots: StockLot[],
+  wanted: number,
+  unit: string,
+): { draws: ProposedDraw[]; shortfall: number } {
+  let left = round3(wanted);
+  const draws: ProposedDraw[] = [];
+  for (const lot of lots) {
+    if (left <= 0) break;
+    const take = round3(Math.min(lot.remaining, left));
+    if (take <= 0) continue;
+    draws.push({
+      purchaseId: lot.purchaseId,
+      quantity: take,
+      unit,
+      lotDate: lot.date,
+      costCentavos: Math.round(lot.unitCostCentavos * take),
+    });
+    lot.remaining = round3(lot.remaining - take);
+    left = round3(left - take);
+  }
+  return { draws, shortfall: Math.max(0, left) };
+}
+
+/**
+ * The same, for stock named directly rather than worked out from a dose.
+ *
+ * This is the per-plot screen: he says "I used 20 kg of muriate of potash"
+ * and the lots are his problem no longer. Lots are copied before the walk so
+ * calling it twice for the same input type does not silently draw down a
+ * screen's worth of state.
+ */
+export function drawUnits(
+  inputType: string,
+  quantity: number,
+  stock: readonly StockLot[],
+  unit: string,
+): { draws: ProposedDraw[]; shortfall: number; costCentavos: number } {
+  const lots = stock
+    .filter((l) => l.inputType === inputType && l.remaining > 0)
+    .map((l) => ({ ...l }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const { draws, shortfall } = takeFifo(lots, quantity, unit);
+  return {
+    draws,
+    shortfall,
+    costCentavos: draws.reduce((a, d) => a + d.costCentavos, 0),
+  };
+}
+
+/**
  * The draw to propose, oldest stock first.
  *
  * Oldest first because fertiliser cakes and chemicals expire, and because a
@@ -172,24 +234,13 @@ export function proposeDraws(
       continue;
     }
 
-    let left = wantedInUnits;
-    const draws: ProposedDraw[] = [];
-    for (const lot of byType.get(type.code) ?? []) {
-      if (left <= 0) break;
-      const take = round3(Math.min(lot.remaining, left));
-      if (take <= 0) continue;
-      const cost = Math.round(lot.unitCostCentavos * take);
-      draws.push({
-        purchaseId: lot.purchaseId,
-        quantity: take,
-        unit: type.unit,
-        lotDate: lot.date,
-        costCentavos: cost,
-      });
-      totalCostCentavos += cost;
-      lot.remaining = round3(lot.remaining - take);
-      left = round3(left - take);
-    }
+    const { draws, shortfall } = takeFifo(
+      byType.get(type.code) ?? [],
+      wantedInUnits,
+      type.unit,
+    );
+    totalCostCentavos += draws.reduce((a, d) => a + d.costCentavos, 0);
+    const left = shortfall;
 
     lines.push({
       materialCode: need.materialCode,

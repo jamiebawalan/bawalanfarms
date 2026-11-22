@@ -10,7 +10,25 @@ import { formatPeso, lineTotal, parsePeso } from "@/lib/domain/money";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import { suggestDrawQuantity } from "@/lib/domain/dosing";
 
-type InputType = { code: string; label: string; unit: string; kgPerUnit: number | null };
+export type InputCategory = "care" | "protection" | "forcing";
+type InputType = {
+  code: string;
+  label: string;
+  unit: string;
+  kgPerUnit: number | null;
+  category: InputCategory;
+};
+
+/**
+ * Which shelf of the shed, in the order he walks it. Feeding the crop is the
+ * common errand; forcing happens once a cycle and sits last so it is never
+ * the thing a thumb lands on by accident.
+ */
+const SHELVES: { key: InputCategory; label: string }[] = [
+  { key: "care", label: "Crop care" },
+  { key: "protection", label: "Crop protection" },
+  { key: "forcing", label: "Forcing" },
+];
 type Lot = {
   id: string;
   label: string;
@@ -25,33 +43,145 @@ type CycleOption = {
   counts: { date: string; count: number }[];
 };
 
-export function InputsClient({
-  inputTypes, lots, cycles,
-}: {
-  inputTypes: InputType[];
-  lots: Lot[];
-  cycles: CycleOption[];
-}) {
-  const [tab, setTab] = useState<"draw" | "buy">("draw");
+/**
+ * Selling surplus off the shed.
+ *
+ * We over-bought fertiliser. Before this existed the only way to shrink a lot
+ * was to draw it onto a cycle, which would have charged a plot for sacks it
+ * never received. This takes the stock out and charges nobody.
+ *
+ * The money received is deliberately not recorded. It is written on the screen
+ * so nobody has to guess whether the app is keeping it.
+ */
+export function LiquidateForm({ lots }: { lots: Lot[] }) {
+  const router = useRouter();
+  const today = todayISO();
+
+  const [lotId, setLotId] = useState<string | null>(lots[0]?.id ?? null);
+  const [quantity, setQuantity] = useState("");
+  const [date, setDate] = useState(today);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const lot = lots.find((l) => l.id === lotId) ?? null;
+  const amount = Number(quantity);
+  const valid = Number.isFinite(amount) && amount > 0;
+  const tooMuch = lot !== null && valid && amount > lot.remaining;
+  const value = lot && valid && !tooMuch ? lineTotal(lot.unitCostCentavos, amount) : null;
+
+  if (lots.length === 0) {
+    return <Note tone="info">No stock on hand, so there is nothing to sell.</Note>;
+  }
+
+  async function save() {
+    if (!lot || !valid || tooMuch) return;
+    setSaving(true);
+    setError(null);
+
+    const id = newId();
+    const result = await send({
+      id,
+      endpoint: "/api/inputs",
+      body: {
+        kind: "liquidation",
+        id,
+        purchase_id: lot.id,
+        date,
+        quantity: amount,
+        note: note.trim() || undefined,
+      },
+      describe: `sold ${amount} ${lot.unit} ${lot.label} off the shed`,
+    });
+
+    setSaving(false);
+    if (result.ok || result.queued) {
+      setSaved(true);
+      setQuantity("");
+      setNote("");
+      router.refresh();
+    } else {
+      setError(result.error);
+    }
+  }
 
   return (
-    <Card>
-      <ChipGroup>
-        <Chip selected={tab === "draw"} onClick={() => setTab("draw")}>
-          Take stock out
-        </Chip>
-        <Chip selected={tab === "buy"} onClick={() => setTab("buy")}>
-          Record a purchase
-        </Chip>
-      </ChipGroup>
-      <div className="mt-4">
-        {tab === "draw" ? (
-          <DrawForm lots={lots} cycles={cycles} />
-        ) : (
-          <PurchaseForm inputTypes={inputTypes} />
-        )}
-      </div>
-    </Card>
+    <>
+      {saved ? (
+        <Note tone="good">
+          Out of the shed. No plot was charged for it.
+        </Note>
+      ) : null}
+
+      <Field label="Which lot are you selling from?">
+        <ChipGroup>
+          {lots.map((l) => (
+            <Chip key={l.id} selected={lotId === l.id} onClick={() => setLotId(l.id)}>
+              {l.label} ({l.remaining} {l.unit})
+            </Chip>
+          ))}
+        </ChipGroup>
+      </Field>
+
+      <Field
+        label={`How much went out? (${lot?.unit ?? "units"})`}
+        htmlFor="sell-qty"
+        hint={lot ? `${lot.remaining} ${lot.unit} left in this lot` : undefined}
+        error={tooMuch ? `That lot only has ${lot?.remaining} ${lot?.unit} left.` : undefined}
+      >
+        <AmountInput
+          id="sell-qty"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          placeholder="0"
+        />
+      </Field>
+
+      {value !== null ? (
+        <div className="mb-4 rounded-xl border-2 border-line bg-paper-sunk px-4 py-3">
+          <span className="text-sm font-bold uppercase tracking-wide text-ink-soft">
+            Comes off stock on hand
+          </span>
+          <div className="tabular text-3xl font-bold">{formatPeso(value)}</div>
+          <span className="text-sm text-ink-soft">what we paid for it, not what it sold for</span>
+        </div>
+      ) : null}
+
+      <details className="mb-4">
+        <summary className="min-h-12 cursor-pointer list-none font-semibold text-brand">
+          Date and note
+        </summary>
+        <div className="mt-3">
+          <Field label="Date" htmlFor="sell-date" hint={formatDate(date)}>
+            <Input id="sell-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field label="Note" htmlFor="sell-note" hint="Who bought it, for example">
+            <Input
+              id="sell-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Optional"
+            />
+          </Field>
+        </div>
+      </details>
+
+      {error ? <Note tone="danger">{error}</Note> : null}
+
+      <Button
+        className="w-full"
+        disabled={saving || !lot || !valid || tooMuch}
+        onClick={save}
+      >
+        {saving ? "Saving…" : "Take it off the shed"}
+      </Button>
+
+      <Note tone="info">
+        This records the stock leaving, not the sale. Hand the money to Jamie —
+        do not spend it from the float, or cash on hand will read low.
+      </Note>
+    </>
   );
 }
 
@@ -62,7 +192,7 @@ export function InputsClient({
  * and 50kg a sack — the arithmetic he was already doing by hand in the margin
  * of the old book. It is shown with its working, and it is always editable.
  */
-function DrawForm({ lots, cycles }: { lots: Lot[]; cycles: CycleOption[] }) {
+export function DrawForm({ lots, cycles }: { lots: Lot[]; cycles: CycleOption[] }) {
   const router = useRouter();
   const today = todayISO();
 
@@ -231,7 +361,7 @@ function DrawForm({ lots, cycles }: { lots: Lot[]; cycles: CycleOption[] }) {
 }
 
 /** Recording a purchase. Explicitly not a cost against any plot. */
-function PurchaseForm({ inputTypes }: { inputTypes: InputType[] }) {
+export function PurchaseForm({ inputTypes }: { inputTypes: InputType[] }) {
   const router = useRouter();
   const today = todayISO();
 
@@ -290,15 +420,21 @@ function PurchaseForm({ inputTypes }: { inputTypes: InputType[] }) {
         </Note>
       ) : null}
 
-      <Field label="What was bought?">
-        <ChipGroup>
-          {inputTypes.map((t) => (
-            <Chip key={t.code} selected={type === t.code} onClick={() => setType(t.code)}>
-              {t.label}
-            </Chip>
-          ))}
-        </ChipGroup>
-      </Field>
+      {SHELVES.map((shelf) => {
+        const onThisShelf = inputTypes.filter((t) => t.category === shelf.key);
+        if (onThisShelf.length === 0) return null;
+        return (
+          <Field key={shelf.key} label={shelf.label}>
+            <ChipGroup>
+              {onThisShelf.map((t) => (
+                <Chip key={t.code} selected={type === t.code} onClick={() => setType(t.code)}>
+                  {t.label}
+                </Chip>
+              ))}
+            </ChipGroup>
+          </Field>
+        );
+      })}
 
       <div className="flex gap-3">
         <Field label={`How many ${chosen?.unit ?? "units"}?`} htmlFor="buy-qty">

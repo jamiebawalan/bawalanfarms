@@ -23,6 +23,7 @@ import { cyclePnL } from "./pnl";
 import { formatDate, todayISO } from "./dates";
 import { formatPeso } from "./money";
 import type { ISODate, Ledger } from "./types";
+import { labelFor } from "./labels";
 
 export type Briefing = {
   /** Shown to the manager as "this is what Claude was told". */
@@ -149,7 +150,7 @@ export function cycleBriefing(
       lines.push(`- ${row.category}: ${formatPeso(row.amountCentavos)}`);
     }
   }
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const topActivities = pnl.costByActivity.slice(0, 8);
   if (topActivities.length > 0) {
     lines.push("Biggest activities:");
@@ -201,7 +202,7 @@ export function cycleBriefing(
 
 function recentWork(ledger: Ledger, cycleId: string, today: ISODate) {
   const since = shift(today, -90);
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const allocated = new Set(
     ledger.allocations.filter((a) => a.cycleId === cycleId).map((a) => a.expenseId),
   );
@@ -220,7 +221,7 @@ function recentWork(ledger: Ledger, cycleId: string, today: ISODate) {
     const p = purchase.get(d.purchaseId);
     rows.push({
       date: d.date,
-      what: `drew ${d.quantity} ${p?.unit ?? ""} ${p?.inputType ?? "input"}${d.doseNote ? ` (${d.doseNote})` : ""}`.trim(),
+      what: `drew ${d.quantity} ${p?.unit ?? ""} ${p?.inputTypeLabel ?? "input"}${d.doseNote ? ` (${d.doseNote})` : ""}`.trim(),
     });
   }
   for (const h of ledger.harvests) {

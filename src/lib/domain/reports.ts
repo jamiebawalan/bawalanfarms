@@ -1,6 +1,7 @@
 import { allCyclePnL, type CyclePnL } from "./pnl";
 import { overheadShare } from "./allocation";
 import type { Centavos } from "./money";
+import { labelFor } from "./labels";
 import type {
   ExpenseCategory, ISODate, Ledger, Plot,
 } from "./types";
@@ -71,7 +72,7 @@ export type PeriodSpend = {
 
 export function periodSpend(ledger: Ledger, from: ISODate, to: ISODate): PeriodSpend {
   const inRange = (d: ISODate) => d >= from && d <= to;
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const plotLabel = new Map(ledger.plots.map((p) => [p.id, p.label]));
 
   const byCategory = new Map<ExpenseCategory, Centavos>();
@@ -96,7 +97,8 @@ export function periodSpend(ledger: Ledger, from: ISODate, to: ISODate): PeriodS
   // bought. That is the whole point of tracking inventory separately.
   const purchaseById = new Map(ledger.purchases.map((p) => [p.id, p]));
   for (const draw of ledger.draws) {
-    if (!inRange(draw.date)) continue;
+    // Surplus sold off the shed is not spend on any crop (0037).
+    if (draw.reason === "sold" || !inRange(draw.date)) continue;
     const purchase = purchaseById.get(draw.purchaseId);
     if (!purchase) continue;
     const cost = Math.round(purchase.unitCostCentavos * draw.quantity);

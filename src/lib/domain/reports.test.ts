@@ -49,6 +49,25 @@ describe("period view", () => {
     expect(inputs.amountCentavos).toBe(1_540_000);
   });
 
+  it("names drawn stock the way the sack does, not by its code", () => {
+    // Drawn stock is keyed by input_type, which is not an activity code. Until
+    // the catalogues were merged this row read "fert_21_0_0" at a man holding
+    // a sack marked 21-0-0.
+    const row = periodSpend(L, "2024-03-01", "2024-03-31")
+      .byActivity.find((a) => a.key === "fert_21_0_0")!;
+    expect(row.label).toBe("Ammonium sulfate (21-0-0)");
+  });
+
+  it("leaves surplus sold off the shed out of spend entirely", () => {
+    // d3 sells 2 sacks on 12 March, inside the window. If it were counted the
+    // month would read ₱17,600 of fertiliser instead of ₱15,400 — a plot would
+    // be charged for sacks it never received.
+    const mar = periodSpend(L, "2024-03-01", "2024-03-31");
+    expect(mar.byCategory.find((c) => c.key === "Farm Inputs")!.amountCentavos)
+      .toBe(14 * 110_000);
+    expect(mar.totalCentavos).toBe(320_000 + 1_540_000);
+  });
+
   it("cuts spend by activity with the family's own labels", () => {
     const r = periodSpend(L, "2024-03-01", "2024-03-31");
     const deweed = r.byActivity.find((a) => a.key === "deweed")!;

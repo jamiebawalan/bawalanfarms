@@ -5,6 +5,7 @@ import { loadLedger } from "@/lib/db/ledger";
 import { formatDate } from "@/lib/domain/dates";
 import { formatPeso } from "@/lib/domain/money";
 import { FARM_WIDE_REASONS } from "@/lib/domain/types";
+import { labelFor } from "@/lib/domain/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function ExpensesPage({
 }) {
   const { plot: plotFilter } = await searchParams;
   const ledger = await loadLedger();
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const plotByCode = new Map(ledger.plots.map((p) => [p.id, p.code]));
 
   const onPlot = new Map<string, Set<string>>();

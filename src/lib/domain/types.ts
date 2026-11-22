@@ -130,6 +130,8 @@ export type InputPurchase = {
   id: string;
   date: ISODate;
   inputType: string;
+  /** The catalogue's name for it, resolved at load. Never the bare code. */
+  inputTypeLabel: string;
   quantity: number;
   unit: string;
   unitCostCentavos: Centavos;
@@ -145,10 +147,16 @@ export type InputPurchase = {
   paidFromFloat?: boolean;
 };
 
+/**
+ * Stock leaving the shed. Two kinds, and the difference is the whole point:
+ * "applied" went onto a crop and is a cost on that cycle; "sold" left the farm
+ * because we over-bought, and is a cost on nothing — so it carries no cycle.
+ */
 export type InputDraw = {
   id: string;
   purchaseId: string;
-  cycleId: string;
+  cycleId: string | null;
+  reason: "applied" | "sold";
   date: ISODate;
   quantity: number;
   doseNote?: string | null;
@@ -280,6 +288,17 @@ export type Ledger = {
   expenses: Expense[];
   allocations: Allocation[];
   purchases: InputPurchase[];
+  inputTypes: {
+    code: string;
+    label: string;
+    unit: string;
+    /** Kilos in one unit, where the pack size is known. */
+    kgPerUnit: number | null;
+    /** Which shelf of the shed; see 0038. */
+    category: "care" | "protection" | "forcing";
+    /** False means retired: no longer offered for buying, still drawable. */
+    active: boolean;
+  }[];
   draws: InputDraw[];
   harvests: Harvest[];
   harvestLines: HarvestLine[];
@@ -302,7 +321,7 @@ export type Ledger = {
 
 export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
-  purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
+  purchases: [], inputTypes: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
   activities: [], crops: [], subPlots: [], leafMeasurements: [], leafPlants: [], boundaries: [], cashAdvances: [], tasks: [],
   settings: DEFAULT_SETTINGS,

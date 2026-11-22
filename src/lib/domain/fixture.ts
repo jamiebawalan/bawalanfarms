@@ -85,14 +85,20 @@ export function makeLedger(): Ledger {
     ],
     purchases: [
       {
-        id: "buy1", date: "2024-02-01", inputType: "fert_21_0_0", quantity: 250,
+        id: "buy1", date: "2024-02-01", inputType: "fert_21_0_0",
+        inputTypeLabel: "Ammonium sulfate (21-0-0)", quantity: 250,
         unit: "sack", unitCostCentavos: 110_000, totalCentavos: 27_500_000,
         supplier: "Bulk lot",
       },
     ],
+    inputTypes: [
+      { code: "fert_21_0_0", label: "Ammonium sulfate (21-0-0)", unit: "kg", kgPerUnit: 1, category: "care", active: true },
+    ],
     draws: [
-      { id: "d1", purchaseId: "buy1", cycleId: "c1", date: "2024-03-10", quantity: 10 },
-      { id: "d2", purchaseId: "buy1", cycleId: "c2", date: "2024-03-10", quantity: 4 },
+      { id: "d1", purchaseId: "buy1", cycleId: "c1", reason: "applied", date: "2024-03-10", quantity: 10 },
+      { id: "d2", purchaseId: "buy1", cycleId: "c2", reason: "applied", date: "2024-03-10", quantity: 4 },
+      // Sold off the shed: it leaves the lot but costs no plot anything.
+      { id: "d3", purchaseId: "buy1", cycleId: null, reason: "sold", date: "2024-03-12", quantity: 2 },
     ],
     harvests: [
       { id: "h1", cycleId: "c1", date: "2024-05-01" },

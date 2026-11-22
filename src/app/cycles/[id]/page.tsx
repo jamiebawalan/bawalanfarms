@@ -9,6 +9,7 @@ import { ProfitProjection } from "@/components/profit-projection";
 import { Suggestions } from "@/components/suggestions";
 import { PlotPhotos } from "@/components/plot-photos";
 import { ProtocolPlan, type PlanSuggestion } from "@/components/protocol-plan";
+import { UseInputs, type ShelfItem } from "@/components/use-inputs";
 import { SubPlots } from "@/components/sub-plots";
 import { readMarks } from "@/lib/domain/annotations";
 import { blockedFraction, subPlotLedger } from "@/lib/domain/subplots";
@@ -26,6 +27,7 @@ import type { TankPlanView } from "@/components/protocol-plan";
 import { cyclePnL } from "@/lib/domain/pnl";
 import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
 import { describeSpan, formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
+import { labelFor } from "@/lib/domain/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +52,7 @@ export default async function CyclePage({
 
   const today = todayISO();
   const { cycle } = pnl;
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const productLabel = new Map(ledger.products.map((p) => [p.code, p.label]));
   const buyerName = new Map(ledger.buyers.map((b) => [b.id, b.name]));
 
@@ -61,6 +63,12 @@ export default async function CyclePage({
     .filter((s) => s.cycleId === id)
     .sort((a, b) => b.date.localeCompare(a.date));
   const draws = ledger.draws.filter((d) => d.cycleId === id);
+
+  /**
+   * What the shed can offer this plot: one row per input type that has stock,
+   * not one per lot. Which sack it comes off is bookkeeping the app does.
+   */
+  const typeByCode = new Map(ledger.inputTypes.map((t) => [t.code, t]));
   const counts = ledger.plantCounts
     .filter((p) => p.cycleId === id)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -151,6 +159,29 @@ export default async function CyclePage({
   const { photos, driveConnected } = await readPhotos(id);
   const protocol = await loadProtocol(id);
   const stock = await loadStock();
+
+  /**
+   * One row per input type that has stock, totalled across its lots, sorted
+   * biggest pile first within each shelf — what he is most likely to have
+   * used is what his thumb reaches first.
+   */
+  const onHand = new Map<string, number>();
+  for (const lot of stock.lots) {
+    onHand.set(lot.inputType, (onHand.get(lot.inputType) ?? 0) + lot.remaining);
+  }
+  const shelfItems: ShelfItem[] = [...onHand.entries()]
+    .flatMap(([code, remaining]) => {
+      const type = typeByCode.get(code);
+      if (type === undefined) return [];
+      return [{
+        inputType: code,
+        label: type.label,
+        unit: type.unit,
+        category: type.category,
+        onHand: Math.round(remaining * 1000) / 1000,
+      }];
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   /*
    * The plot's ground, as of today. Areas are dated because a boundary gets
@@ -381,6 +412,13 @@ export default async function CyclePage({
         driveConnected={driveConnected}
       />
 
+      <UseInputs
+        cycleId={id}
+        closed={pnl.isClosed}
+        stock={stock.lots}
+        items={shelfItems}
+      />
+
       {protocolUnits.map((unit) => (
         <ProtocolPlan
           key={unit.subPlotId ?? "cycle"}
@@ -593,7 +631,7 @@ export default async function CyclePage({
               return (
                 <li key={d.id} className="flex justify-between gap-3 py-2">
                   <span>
-                    {formatDateShort(d.date)} · {purchase?.inputType ?? "—"}
+                    {formatDateShort(d.date)} · {purchase?.inputTypeLabel ?? "—"}
                   </span>
                   <span className="tabular font-semibold">
                     {d.quantity} {purchase?.unit ?? ""}

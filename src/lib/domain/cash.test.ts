@@ -158,7 +158,7 @@ describe("stock bought out of the float", () => {
    * has cost. Leaving purchases out told him he still had money he had spent.
    */
   const buy = (over: Record<string, unknown> = {}) => ({
-    id: "p1", date: "2026-03-05", inputType: "urea", quantity: 5,
+    id: "p1", date: "2026-03-05", inputType: "urea", inputTypeLabel: "Urea (46-0-0)", quantity: 5,
     unit: "sack", unitCostCentavos: 1_100_00, totalCentavos: 5_500_00,
     supplier: null, paidFromFloat: true, ...over,
   });

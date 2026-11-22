@@ -7,6 +7,7 @@ import { byAgeOldestFirst, cycleAgeMonths } from "@/lib/domain/age";
 import { remainingStock } from "@/lib/domain/dosing";
 import { formatDate, formatDateShort, presetPeriods, todayISO } from "@/lib/domain/dates";
 import { formatPeso, percent } from "@/lib/domain/money";
+import { labelFor } from "@/lib/domain/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function HomePage() {
     .filter((e) => e.date === today)
     .sort((a, b) => b.id.localeCompare(a.id));
   const todayTotal = todayExpenses.reduce((a, e) => a + e.amountCentavos, 0);
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
 
   const openStock = ledger.purchases
     .map((p) => ({
@@ -196,7 +197,7 @@ export default async function HomePage() {
             {openStock.map(({ purchase, remaining }) => (
               <li key={purchase.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <div className="truncate font-semibold">{purchase.inputType}</div>
+                  <div className="truncate font-semibold">{purchase.inputTypeLabel}</div>
                   <div className="text-sm text-ink-soft">
                     bought {formatDateShort(purchase.date)}
                   </div>
