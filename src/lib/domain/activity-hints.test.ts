@@ -16,6 +16,9 @@ const ACTIVITIES: ActivityOption[] = [
   A("admin", "Admin, subscriptions, office", "Overheads"),
   A("vehicle", "Vehicles (not farm machines)", "Overheads"),
   A("stack_haul", "Stack and haul", "Harvest"),
+  A("gather_material", "Gather planting material", "Planting"),
+  A("buy_material", "Buy planting material", "Planting"),
+  A("prep_material", "Prepare material (sort, cut, pack)", "Planting"),
   A("other", "Other (say what, in the note)", "Other"),
 ];
 
@@ -107,5 +110,25 @@ describe("noticing what is not an activity at all", () => {
 
   it("says nothing about a fragment", () => {
     expect(nudgeFor("Da", ACTIVITIES)).toBeNull();
+  });
+});
+
+
+describe("planting material, bought or our own", () => {
+  // These matter for the tidy-up: most of the ₱536,006 still filed under a
+  // word was written in the old book's mix of English and Tagalog.
+  it("tells buying suckers apart from gathering our own", () => {
+    expect(codes("Bili ng suwe sa kabilang farm")).toContain("buy_material");
+    expect(codes("Suwe gathering plot 4")).toContain("gather_material");
+  });
+
+  it("recognises the three parts of preparing material as one job", () => {
+    for (const note of ["Sorting ng suwe", "Cutting planting material", "Packaging suwe"]) {
+      expect(codes(note)).toContain("prep_material");
+    }
+  });
+
+  it("does not offer buying when the note is about our own pile", () => {
+    expect(codes("Suwe gathering plot 4")).not.toContain("buy_material");
   });
 });

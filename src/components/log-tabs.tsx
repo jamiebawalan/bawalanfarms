@@ -14,7 +14,7 @@ import type { Route } from "next";
  * day. Same place, same row, in the order of how often each happens.
  */
 const TABS: { href: Route; label: string }[] = [
-  { href: "/expenses/new" as Route, label: "Cost" },
+  { href: "/expenses/new" as Route, label: "Cash costs" },
   { href: "/inputs/use" as Route, label: "Use inputs" },
   { href: "/inputs/buy" as Route, label: "Buy inputs" },
 ];

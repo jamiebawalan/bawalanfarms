@@ -47,7 +47,7 @@ export default async function NewExpensePage({
   const back = returnTarget(params.from, ledger.cycles, ledger.plots);
 
   return (
-    <Page title="Log a cost">
+    <Page title="Log a cash cost">
       <LogTabs />
       <ExpenseForm
         plots={plots}
