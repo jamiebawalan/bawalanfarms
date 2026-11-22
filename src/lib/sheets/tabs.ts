@@ -143,7 +143,9 @@ export function buildTabs(ledger: Ledger, refreshedAt: string): Tab[] {
       rows: ledger.draws.map((d) => {
         const p = purchaseById.get(d.purchaseId);
         return [
-          d.date, p?.inputType ?? "", cycleLabel.get(d.cycleId) ?? "", d.quantity,
+          d.date, p?.inputType ?? "",
+          d.cycleId === null ? "— sold off" : cycleLabel.get(d.cycleId) ?? "",
+          d.quantity,
           p ? pesos(Math.round(p.unitCostCentavos * d.quantity)) : "",
           d.doseNote ?? "",
         ];

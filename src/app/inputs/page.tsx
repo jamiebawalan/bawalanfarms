@@ -32,9 +32,16 @@ export default async function InputsPage() {
     .map((p) => {
       const draws = ledger.draws.filter((d) => d.purchaseId === p.id);
       const remaining = remainingStock(p.quantity, draws);
+      // Sold stock leaves the lot the same way applied stock does, so it is
+      // already out of `remaining`. It is named separately on the line below
+      // so a lot that shrank without any plot being charged says why.
+      const sold = draws
+        .filter((d) => d.reason === "sold")
+        .reduce((a, d) => a + d.quantity, 0);
       return {
         ...p,
         draws: draws.length,
+        sold: Math.round(sold * 1000) / 1000,
         remaining,
         remainingValueCentavos: Math.round(p.unitCostCentavos * remaining),
       };
@@ -93,6 +100,7 @@ export default async function InputsPage() {
                   <span>
                     {formatDate(l.date)}
                     {l.supplier ? ` · ${l.supplier}` : ""}
+                    {l.sold > 0 ? ` · ${l.sold} ${l.unit} sold off` : ""}
                   </span>
                   <span className="tabular font-semibold text-ink">
                     {l.remaining} of {l.quantity} {l.unit} left
@@ -106,7 +114,8 @@ export default async function InputsPage() {
 
       <Note tone="info">
         Stock still in the shed is not a cost against any cycle. It becomes one
-        the day it is drawn, on the cycle that used it.
+        the day it is drawn, on the cycle that used it. Surplus sold off never
+        becomes a cost at all — it leaves the shed without touching a plot.
       </Note>
     </Page>
   );

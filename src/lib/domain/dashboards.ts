@@ -111,7 +111,8 @@ function ownerWindow(ledger: Ledger, window: Window): OwnerWindow {
   }
   const purchaseById = new Map(ledger.purchases.map((p) => [p.id, p]));
   for (const draw of ledger.draws) {
-    if (!inWindow(draw.date)) continue;
+    // Stock sold off was never applied to a crop, so it is not farm spend.
+    if (draw.reason === "sold" || !inWindow(draw.date)) continue;
     const purchase = purchaseById.get(draw.purchaseId);
     if (!purchase) continue;
     const drawn = Math.round(purchase.unitCostCentavos * draw.quantity);

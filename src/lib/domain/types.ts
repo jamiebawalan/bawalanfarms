@@ -145,10 +145,16 @@ export type InputPurchase = {
   paidFromFloat?: boolean;
 };
 
+/**
+ * Stock leaving the shed. Two kinds, and the difference is the whole point:
+ * "applied" went onto a crop and is a cost on that cycle; "sold" left the farm
+ * because we over-bought, and is a cost on nothing — so it carries no cycle.
+ */
 export type InputDraw = {
   id: string;
   purchaseId: string;
-  cycleId: string;
+  cycleId: string | null;
+  reason: "applied" | "sold";
   date: ISODate;
   quantity: number;
   doseNote?: string | null;

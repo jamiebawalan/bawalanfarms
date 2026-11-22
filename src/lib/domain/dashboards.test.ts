@@ -65,6 +65,17 @@ describe("owner dashboard", () => {
     expect(q.revenueCentavos).toBe(0);
   });
 
+  it("does not let stock sold off the shed move the farm's cost", () => {
+    // Selling surplus fertiliser is not spending on pineapples. The number the
+    // owners steer by must read the same whether or not the sale happened.
+    const withoutSale: Ledger = {
+      ...L,
+      draws: L.draws.filter((d) => d.reason !== "sold"),
+    };
+    expect(d.year.costCentavos).toBe(ownerDashboard(withoutSale, TODAY).year.costCentavos);
+    expect(L.draws.some((x) => x.reason === "sold")).toBe(true);
+  });
+
   it("narrows correctly to the quarter", () => {
     // Everything in the fixture happened inside the quarter too.
     expect(ownerDashboard(L, "2025-06-01").quarter.revenueCentavos).toBe(0);

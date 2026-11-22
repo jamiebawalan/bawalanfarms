@@ -96,7 +96,8 @@ export function periodSpend(ledger: Ledger, from: ISODate, to: ISODate): PeriodS
   // bought. That is the whole point of tracking inventory separately.
   const purchaseById = new Map(ledger.purchases.map((p) => [p.id, p]));
   for (const draw of ledger.draws) {
-    if (!inRange(draw.date)) continue;
+    // Surplus sold off the shed is not spend on any crop (0037).
+    if (draw.reason === "sold" || !inRange(draw.date)) continue;
     const purchase = purchaseById.get(draw.purchaseId);
     if (!purchase) continue;
     const cost = Math.round(purchase.unitCostCentavos * draw.quantity);

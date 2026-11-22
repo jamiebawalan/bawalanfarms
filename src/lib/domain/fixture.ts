@@ -91,8 +91,10 @@ export function makeLedger(): Ledger {
       },
     ],
     draws: [
-      { id: "d1", purchaseId: "buy1", cycleId: "c1", date: "2024-03-10", quantity: 10 },
-      { id: "d2", purchaseId: "buy1", cycleId: "c2", date: "2024-03-10", quantity: 4 },
+      { id: "d1", purchaseId: "buy1", cycleId: "c1", reason: "applied", date: "2024-03-10", quantity: 10 },
+      { id: "d2", purchaseId: "buy1", cycleId: "c2", reason: "applied", date: "2024-03-10", quantity: 4 },
+      // Sold off the shed: it leaves the lot but costs no plot anything.
+      { id: "d3", purchaseId: "buy1", cycleId: null, reason: "sold", date: "2024-03-12", quantity: 2 },
     ],
     harvests: [
       { id: "h1", cycleId: "c1", date: "2024-05-01" },

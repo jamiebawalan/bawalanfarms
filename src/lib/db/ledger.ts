@@ -134,6 +134,7 @@ export async function loadLedger(): Promise<Ledger> {
     })),
     draws: rows<any>(draws, "input draws").map((d) => ({
       id: d.id, purchaseId: d.purchase_id, cycleId: d.cycle_id, date: d.date,
+      reason: d.reason === "sold" ? ("sold" as const) : ("applied" as const),
       quantity: Number(d.quantity), doseNote: d.dose_note,
     })),
     harvests: rows<any>(harvests, "harvests").map((h) => ({

@@ -513,4 +513,41 @@ begin
   raise notice 'ok  pushing a start date forward releases the costs again';
 end $$;
 
+-- 14. Selling surplus stock -----------------------------------------------------
+-- The lot above has 41 sacks left. Selling some must reduce it without
+-- charging any plot, and must not be able to pose as an application.
+
+select assert_accepts($$
+  insert into input_draws (purchase_id, cycle_id, date, quantity, reason)
+  values ('22222222-2222-2222-2222-222222222222', null, date '2024-03-10', 30, 'sold') $$,
+  'selling 30 of the 41 sacks left is allowed with no cycle');
+
+select assert_rejects($$
+  insert into input_draws (purchase_id, cycle_id, date, quantity, reason)
+  values ('22222222-2222-2222-2222-222222222222', null, date '2024-03-11', 20, 'sold') $$,
+  'selling 20 more from a lot holding 11 is refused');
+
+select assert_rejects($$
+  insert into input_draws (purchase_id, cycle_id, date, quantity, reason)
+  values ('22222222-2222-2222-2222-222222222222',
+          '11111111-1111-1111-1111-111111111111', date '2024-03-12', 1, 'sold') $$,
+  'stock marked sold cannot also name a cycle');
+
+select assert_rejects($$
+  insert into input_draws (purchase_id, cycle_id, date, quantity, reason)
+  values ('22222222-2222-2222-2222-222222222222', null, date '2024-03-12', 1, 'applied') $$,
+  'stock applied to a crop must name the cycle it went onto');
+
+select assert_rejects($$
+  insert into input_draws (purchase_id, cycle_id, date, quantity, reason)
+  values ('22222222-2222-2222-2222-222222222222', null, date '2024-03-12', 1, 'eaten') $$,
+  'an unknown outflow reason is refused');
+
+-- A sale off a closed cycle's leftover stock is still a sale. Nothing about
+-- selling involves a cycle, so the closed-cycle guard must not fire.
+select assert_accepts($$
+  insert into input_draws (purchase_id, cycle_id, date, quantity, reason)
+  values ('22222222-2222-2222-2222-222222222222', null, date '2024-03-13', 11, 'sold') $$,
+  'selling the last 11 sacks empties the lot');
+
 rollback;
