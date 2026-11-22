@@ -103,9 +103,38 @@ export default async function CyclePage({
   // or a first plant count corrects the history with it.
   const blocks = ledger.subPlots.filter((s) => s.cycleId === id);
   const expenseById = new Map(ledger.expenses.map((e) => [e.id, e]));
-  const blockLedger = subPlotLedger(
-    blocks,
-    ledger.allocations
+  const purchaseById = new Map(ledger.purchases.map((p) => [p.id, p]));
+
+  /*
+   * Stock drawn for this cycle belongs in the block figures too.
+   *
+   * Until now these were built from expense allocations alone, so every
+   * block's cost per plant was missing all the fertiliser and chemicals —
+   * on a farm where that is the largest line. The block comparison, which is
+   * the whole reason blocks exist, was being computed without the biggest
+   * number in it.
+   *
+   * A draw names a cycle and not a block, and it stays that way: the farm
+   * manager should not have to pick a block to take a sack out of the shed.
+   * So it goes in as a whole-plot cost and is divided by plant count, which
+   * is already the rule for anything applied to plants — and is what actually
+   * happened when he spread it.
+   */
+  const drawCosts = ledger.draws
+    .filter((d) => d.cycleId === id)
+    .flatMap((d) => {
+      const purchase = purchaseById.get(d.purchaseId);
+      return purchase === undefined
+        ? []
+        : [{
+            subPlotId: null,
+            category: "Farm Inputs" as const,
+            amountCentavos: Math.round(purchase.unitCostCentavos * d.quantity),
+          }];
+    });
+
+  const blockLedger = subPlotLedger(blocks, [
+    ...ledger.allocations
       .filter((a) => a.cycleId === id)
       .flatMap((a) => {
         const expense = expenseById.get(a.expenseId);
@@ -117,7 +146,8 @@ export default async function CyclePage({
               amountCentavos: a.amountCentavos,
             }];
       }),
-  );
+    ...drawCosts,
+  ]);
   const { photos, driveConnected } = await readPhotos(id);
   const protocol = await loadProtocol(id);
   const stock = await loadStock();

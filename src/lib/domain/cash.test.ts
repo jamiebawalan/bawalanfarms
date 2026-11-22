@@ -150,3 +150,51 @@ describe("when to say something", () => {
     expect(cashIsLow(cashPosition(l, TODAY))).toBe(false);
   });
 });
+
+describe("stock bought out of the float", () => {
+  /*
+   * Buying is not a cost — the stock ledger exists to say so. But it is money
+   * gone, and this figure is about what is in his pocket, not what a cycle
+   * has cost. Leaving purchases out told him he still had money he had spent.
+   */
+  const buy = (over: Record<string, unknown> = {}) => ({
+    id: "p1", date: "2026-03-05", inputType: "urea", quantity: 5,
+    unit: "sack", unitCostCentavos: 1_100_00, totalCentavos: 5_500_00,
+    supplier: null, paidFromFloat: true, ...over,
+  });
+
+  const withStock = (over: Record<string, unknown> = {}, expenses: Expense[] = []) => ({
+    ...ledger([{ date: "2026-03-01", pesos: 50_000 }], expenses),
+    purchases: [buy(over)],
+  });
+
+  it("takes a float-paid purchase out of his pocket", () => {
+    const c = cashPosition(withStock(), "2026-03-10");
+    expect(c.spentCentavos).toBe(5_500_00);
+    expect(c.onHandCentavos).toBe(44_500_00);
+  });
+
+  it("leaves an owner-paid purchase alone", () => {
+    // Still stock, but it never touched his float.
+    const c = cashPosition(withStock({ paidFromFloat: false }), "2026-03-10");
+    expect(c.spentCentavos).toBe(0);
+    expect(c.onHandCentavos).toBe(50_000_00);
+  });
+
+  it("treats an unknown payer as not his, so history is not restated", () => {
+    const c = cashPosition(withStock({ paidFromFloat: undefined }), "2026-03-10");
+    expect(c.onHandCentavos).toBe(50_000_00);
+  });
+
+  it("counts purchases and expenses together", () => {
+    const c = cashPosition(
+      withStock({}, [spend("2026-03-06", 1_000)]), "2026-03-10",
+    );
+    expect(c.spentCentavos).toBe(6_500_00);
+  });
+
+  it("ignores a purchase made before the cash ledger began", () => {
+    const c = cashPosition(withStock({ date: "2026-01-01" }), "2026-03-10");
+    expect(c.spentCentavos).toBe(0);
+  });
+});

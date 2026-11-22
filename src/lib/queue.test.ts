@@ -154,3 +154,29 @@ describe("replay safety", () => {
     expect(queued()).toEqual([]);
   });
 });
+
+describe("the id a row is saved under", () => {
+  it("is a real uuid even without crypto.randomUUID", () => {
+    // Some of these become primary keys on uuid columns, and an older
+    // Android WebView — the phone this farm actually uses — has no
+    // randomUUID. A nearly-unique string is rejected by the database.
+    const real = globalThis.crypto;
+    try {
+      Object.defineProperty(globalThis, "crypto", {
+        value: { getRandomValues: real.getRandomValues.bind(real) },
+        configurable: true,
+      });
+      const id = newId();
+      expect(id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+    } finally {
+      Object.defineProperty(globalThis, "crypto", { value: real, configurable: true });
+    }
+  });
+
+  it("does not repeat itself", () => {
+    const ids = new Set(Array.from({ length: 500 }, () => newId()));
+    expect(ids.size).toBe(500);
+  });
+});

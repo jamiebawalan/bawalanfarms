@@ -218,7 +218,7 @@ export function ProtocolPlan({
     extra: {
       skipReason?: string;
       dueOn?: string;
-      draws?: { purchase_id: string; quantity: number }[];
+      draws?: { id: string; purchase_id: string; quantity: number }[];
     } = {},
   ) => {
     setBusy(code);
@@ -732,12 +732,17 @@ function seedAmounts(lines: DrawLineView[]): Record<string, string> {
 function collectDraws(
   lines: DrawLineView[],
   amounts: Record<string, string>,
-): { purchase_id: string; quantity: number }[] {
+): { id: string; purchase_id: string; quantity: number }[] {
   return lines.flatMap((line) =>
     line.draws.flatMap((d) => {
       const n = Number(amounts[d.purchaseId] ?? d.quantity);
+      /*
+       * An id per line, made here rather than by the database, so a retry
+       * from the offline queue collides and no-ops instead of taking the
+       * stock out of the shed twice.
+       */
       return Number.isFinite(n) && n > 0
-        ? [{ purchase_id: d.purchaseId, quantity: n }]
+        ? [{ id: newId(), purchase_id: d.purchaseId, quantity: n }]
         : [];
     }),
   );

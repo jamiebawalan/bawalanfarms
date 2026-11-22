@@ -172,5 +172,26 @@ function isJson(res: Response): boolean {
 
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  /*
+   * The fallback has to be a real UUID, not merely unique.
+   *
+   * Some of these ids become primary keys on uuid columns, so a string like
+   * "1764...-a3f" is rejected by the database and the save fails outright.
+   * randomUUID needs a secure context and a recent browser; the app is on
+   * HTTPS, but an older Android WebView is exactly the phone this farm uses,
+   * and that is not a day to discover the shape was wrong.
+   */
+  const bytes = new Uint8Array(16);
+  const source: Crypto | undefined =
+    typeof crypto === "undefined" ? undefined : (crypto as Crypto);
+  if (source !== undefined && typeof source.getRandomValues === "function") {
+    source.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40; // version 4
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80; // variant
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

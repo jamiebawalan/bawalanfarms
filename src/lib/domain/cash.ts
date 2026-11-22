@@ -50,16 +50,32 @@ export function cashPosition(ledger: Ledger, today: ISODate = todayISO()): CashP
     };
   }
 
+  /*
+   * Stock bought out of the float is money gone, even though it is not a cost.
+   *
+   * Buying is not a cost and drawing is — that is the whole stock ledger and
+   * it does not change here. But this figure is not about cost. It is about
+   * what is in his pocket, and a sack he paid for with the float left it the
+   * moment he paid. Leaving purchases out made the app tell him he still had
+   * money he had already spent.
+   *
+   * Only purchases he paid for: an owner settling with the supplier directly
+   * is still stock, and never touched his float.
+   */
+  const outOfPocket = (from: ISODate) =>
+    ledger.expenses
+      .filter((e) => e.date >= from && e.date <= today)
+      .reduce((sum, e) => sum + e.amountCentavos, 0) +
+    ledger.purchases
+      .filter((p) => p.paidFromFloat === true && p.date >= from && p.date <= today)
+      .reduce((sum, p) => sum + p.totalCentavos, 0);
+
   const advanced = advances.reduce((sum, a) => sum + a.amountCentavos, 0);
-  const spent = ledger.expenses
-    .filter((e) => e.date >= first.date && e.date <= today)
-    .reduce((sum, e) => sum + e.amountCentavos, 0);
+  const spent = outOfPocket(first.date);
   const onHand = advanced - spent;
 
   const last = advances[advances.length - 1]!;
-  const sinceLast = ledger.expenses
-    .filter((e) => e.date >= last.date && e.date <= today)
-    .reduce((sum, e) => sum + e.amountCentavos, 0);
+  const sinceLast = outOfPocket(last.date);
 
   // A rate needs a stretch of days to average over. One day of spending says
   // nothing about the next thirty.
