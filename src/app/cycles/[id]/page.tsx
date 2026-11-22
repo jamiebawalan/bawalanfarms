@@ -26,6 +26,7 @@ import type { TankPlanView } from "@/components/protocol-plan";
 import { cyclePnL } from "@/lib/domain/pnl";
 import { formatPeso, formatPesoPrecise, percent } from "@/lib/domain/money";
 import { describeSpan, formatDate, formatDateShort, todayISO } from "@/lib/domain/dates";
+import { labelFor } from "@/lib/domain/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export default async function CyclePage({
 
   const today = todayISO();
   const { cycle } = pnl;
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const productLabel = new Map(ledger.products.map((p) => [p.code, p.label]));
   const buyerName = new Map(ledger.buyers.map((b) => [b.id, b.name]));
 
@@ -593,7 +594,7 @@ export default async function CyclePage({
               return (
                 <li key={d.id} className="flex justify-between gap-3 py-2">
                   <span>
-                    {formatDateShort(d.date)} · {purchase?.inputType ?? "—"}
+                    {formatDateShort(d.date)} · {purchase?.inputTypeLabel ?? "—"}
                   </span>
                   <span className="tabular font-semibold">
                     {d.quantity} {purchase?.unit ?? ""}

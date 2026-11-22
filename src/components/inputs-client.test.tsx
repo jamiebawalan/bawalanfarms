@@ -3,7 +3,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
 }));
 import { renderToStaticMarkup } from "react-dom/server";
-import { InputsClient, LiquidateForm } from "./inputs-client";
+import { InputsClient, LiquidateForm, PurchaseForm } from "./inputs-client";
 
 const LOTS = [
   {
@@ -19,7 +19,11 @@ const LOTS = [
 const render = (lots = LOTS) =>
   renderToStaticMarkup(
     <InputsClient
-      inputTypes={[{ code: "fert_0_0_60", label: "Muriate of potash", unit: "kg", kgPerUnit: null }]}
+      inputTypes={[
+        { code: "fert_0_0_60", label: "Muriate of potash (0-0-60)", unit: "kg", kgPerUnit: null, category: "care" },
+        { code: "diuron", label: "Diuron", unit: "litre", kgPerUnit: null, category: "protection" },
+        { code: "ethrel", label: "Ethrel (ethephon)", unit: "litre", kgPerUnit: null, category: "forcing" },
+      ]}
       lots={lots}
       cycles={[{ id: "c1", label: "Plot 1 · pineapple", counts: [] }]}
     />,
@@ -36,6 +40,45 @@ describe("the stock screen", () => {
   it("opens on taking stock out, because that is the daily job", () => {
     // Selling happens a handful of times a year; drawing happens every round.
     expect(render()).toContain("For which cycle?");
+  });
+});
+
+describe("what can be bought", () => {
+  const TYPES = [
+    { code: "fert_0_0_60", label: "Muriate of potash (0-0-60)", unit: "kg", kgPerUnit: null, category: "care" as const },
+    { code: "diuron", label: "Diuron", unit: "litre", kgPerUnit: null, category: "protection" as const },
+    { code: "ethrel", label: "Ethrel (ethephon)", unit: "litre", kgPerUnit: null, category: "forcing" as const },
+  ];
+  const buy = (types = TYPES) => renderToStaticMarkup(<PurchaseForm inputTypes={types} />);
+
+  // Anthony is in a field with one hand free. Thirty chips in one run put
+  // weedkiller next to fertiliser; these are three short runs with headings.
+  it("sorts the shed onto shelves", () => {
+    const html = buy();
+    expect(html).toContain("Crop care");
+    expect(html).toContain("Crop protection");
+    expect(html).toContain("Forcing");
+  });
+
+  it("puts feeding the crop first and forcing last", () => {
+    const html = buy();
+    expect(html.indexOf("Crop care")).toBeLessThan(html.indexOf("Crop protection"));
+    expect(html.indexOf("Crop protection")).toBeLessThan(html.indexOf("Forcing"));
+  });
+
+  it("shows no empty shelf", () => {
+    const html = buy(TYPES.filter((t) => t.category === "care"));
+    expect(html).toContain("Crop care");
+    expect(html).not.toContain("Crop protection");
+    expect(html).not.toContain("Forcing");
+  });
+
+  it("names things the way the protocol and the sack both do", () => {
+    // "Muriate of potash" is the husband's and the protocol's word; "0-0-60"
+    // is printed on the sack Anthony is holding. Neither alone is enough.
+    const html = buy();
+    expect(html).toContain("Muriate of potash (0-0-60)");
+    expect(html).not.toContain("Fertilizer 0-0-60");
   });
 });
 

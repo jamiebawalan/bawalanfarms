@@ -10,7 +10,25 @@ import { formatPeso, lineTotal, parsePeso } from "@/lib/domain/money";
 import { formatDate, todayISO } from "@/lib/domain/dates";
 import { suggestDrawQuantity } from "@/lib/domain/dosing";
 
-type InputType = { code: string; label: string; unit: string; kgPerUnit: number | null };
+export type InputCategory = "care" | "protection" | "forcing";
+type InputType = {
+  code: string;
+  label: string;
+  unit: string;
+  kgPerUnit: number | null;
+  category: InputCategory;
+};
+
+/**
+ * Which shelf of the shed, in the order he walks it. Feeding the crop is the
+ * common errand; forcing happens once a cycle and sits last so it is never
+ * the thing a thumb lands on by accident.
+ */
+const SHELVES: { key: InputCategory; label: string }[] = [
+  { key: "care", label: "Crop care" },
+  { key: "protection", label: "Crop protection" },
+  { key: "forcing", label: "Forcing" },
+];
 type Lot = {
   id: string;
   label: string;
@@ -378,7 +396,7 @@ function DrawForm({ lots, cycles }: { lots: Lot[]; cycles: CycleOption[] }) {
 }
 
 /** Recording a purchase. Explicitly not a cost against any plot. */
-function PurchaseForm({ inputTypes }: { inputTypes: InputType[] }) {
+export function PurchaseForm({ inputTypes }: { inputTypes: InputType[] }) {
   const router = useRouter();
   const today = todayISO();
 
@@ -437,15 +455,21 @@ function PurchaseForm({ inputTypes }: { inputTypes: InputType[] }) {
         </Note>
       ) : null}
 
-      <Field label="What was bought?">
-        <ChipGroup>
-          {inputTypes.map((t) => (
-            <Chip key={t.code} selected={type === t.code} onClick={() => setType(t.code)}>
-              {t.label}
-            </Chip>
-          ))}
-        </ChipGroup>
-      </Field>
+      {SHELVES.map((shelf) => {
+        const onThisShelf = inputTypes.filter((t) => t.category === shelf.key);
+        if (onThisShelf.length === 0) return null;
+        return (
+          <Field key={shelf.key} label={shelf.label}>
+            <ChipGroup>
+              {onThisShelf.map((t) => (
+                <Chip key={t.code} selected={type === t.code} onClick={() => setType(t.code)}>
+                  {t.label}
+                </Chip>
+              ))}
+            </ChipGroup>
+          </Field>
+        );
+      })}
 
       <div className="flex gap-3">
         <Field label={`How many ${chosen?.unit ?? "units"}?`} htmlFor="buy-qty">

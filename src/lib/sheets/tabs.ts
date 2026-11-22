@@ -2,6 +2,7 @@ import { allCyclePnL } from "@/lib/domain/pnl";
 import { buyerMargins, capitalRegister } from "@/lib/domain/reports";
 import type { Ledger } from "@/lib/domain/types";
 import type { Tab } from "./google";
+import { labelFor } from "@/lib/domain/labels";
 
 /**
  * What the mirror writes.
@@ -18,7 +19,7 @@ export function buildTabs(ledger: Ledger, refreshedAt: string): Tab[] {
   const pesos = (centavos: number) => Math.round(centavos) / 100;
   const plotLabel = new Map(ledger.plots.map((p) => [p.id, p.label]));
   const buyerName = new Map(ledger.buyers.map((b) => [b.id, b.name]));
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const productLabel = new Map(ledger.products.map((p) => [p.code, p.label]));
 
   const expenseById = new Map(ledger.expenses.map((e) => [e.id, e]));
@@ -131,7 +132,7 @@ export function buildTabs(ledger: Ledger, refreshedAt: string): Tab[] {
           .filter((d) => d.purchaseId === p.id)
           .reduce((a, d) => a + d.quantity, 0);
         return [
-          p.date, p.inputType, p.quantity, p.unit,
+          p.date, p.inputTypeLabel, p.quantity, p.unit,
           pesos(p.unitCostCentavos), pesos(p.totalCentavos), p.supplier ?? "",
           Math.round((p.quantity - drawn) * 1000) / 1000,
         ];
@@ -143,7 +144,7 @@ export function buildTabs(ledger: Ledger, refreshedAt: string): Tab[] {
       rows: ledger.draws.map((d) => {
         const p = purchaseById.get(d.purchaseId);
         return [
-          d.date, p?.inputType ?? "",
+          d.date, p?.inputTypeLabel ?? "",
           d.cycleId === null ? "— sold off" : cycleLabel.get(d.cycleId) ?? "",
           d.quantity,
           p ? pesos(Math.round(p.unitCostCentavos * d.quantity)) : "",

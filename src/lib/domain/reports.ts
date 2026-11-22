@@ -1,6 +1,7 @@
 import { allCyclePnL, type CyclePnL } from "./pnl";
 import { overheadShare } from "./allocation";
 import type { Centavos } from "./money";
+import { labelFor } from "./labels";
 import type {
   ExpenseCategory, ISODate, Ledger, Plot,
 } from "./types";
@@ -71,7 +72,7 @@ export type PeriodSpend = {
 
 export function periodSpend(ledger: Ledger, from: ISODate, to: ISODate): PeriodSpend {
   const inRange = (d: ISODate) => d >= from && d <= to;
-  const activityLabel = new Map(ledger.activities.map((a) => [a.code, a.label]));
+  const activityLabel = labelFor(ledger);
   const plotLabel = new Map(ledger.plots.map((p) => [p.id, p.label]));
 
   const byCategory = new Map<ExpenseCategory, Centavos>();

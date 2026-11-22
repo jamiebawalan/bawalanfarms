@@ -173,7 +173,7 @@ export function cycleDossier(
       const p = purchase.get(d.purchaseId);
       row([
         formatDate(d.date),
-        p?.inputType ?? "unknown",
+        p?.inputTypeLabel ?? "unknown",
         `${d.quantity} ${p?.unit ?? ""}`.trim(),
         p === undefined ? "" : formatPeso(Math.round(d.quantity * p.unitCostCentavos)),
         d.doseNote ?? "",

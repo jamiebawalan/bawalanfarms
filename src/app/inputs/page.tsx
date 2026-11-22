@@ -28,6 +28,12 @@ export default async function InputsPage() {
 
   const today = todayISO();
 
+  // Lots store the input_type code. Until now every screen printed the code
+  // itself — "fert_0_0_60" where the sack says muriate of potash.
+  const nameOf = new Map<string, string>(
+    (inputTypes ?? []).map((t: any) => [t.code as string, t.label as string]),
+  );
+
   const lots = ledger.purchases
     .map((p) => {
       const draws = ledger.draws.filter((d) => d.purchaseId === p.id);
@@ -72,10 +78,11 @@ export default async function InputsPage() {
         inputTypes={(inputTypes ?? []).map((t: any) => ({
           code: t.code, label: t.label, unit: t.unit,
           kgPerUnit: t.kg_per_unit === null ? null : Number(t.kg_per_unit),
+          category: t.category as "care" | "protection" | "forcing",
         }))}
         lots={open.map((l) => ({
           id: l.id,
-          label: l.inputType,
+          label: nameOf.get(l.inputType) ?? l.inputType,
           unit: l.unit,
           remaining: l.remaining,
           unitCostCentavos: l.unitCostCentavos,
@@ -93,7 +100,7 @@ export default async function InputsPage() {
             {lots.map((l) => (
               <li key={l.id} className="py-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-semibold">{l.inputType}</span>
+                  <span className="font-semibold">{nameOf.get(l.inputType) ?? l.inputType}</span>
                   <Money centavos={l.totalCentavos} />
                 </div>
                 <div className="mt-0.5 flex items-baseline justify-between gap-3 text-sm text-ink-soft">

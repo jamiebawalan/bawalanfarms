@@ -16,7 +16,7 @@ export async function loadLedger(): Promise<Ledger> {
   const supabase = await createClient();
 
   const [
-    plots, plotAreas, cycles, expenses, allocations, purchases, draws,
+    plots, plotAreas, cycles, expenses, allocations, purchases, draws, inputTypes,
     harvests, harvestLines, sales, saleLines, plantCounts, capitalAssets,
     buyers, products, activities, crops, subPlots, leaves, leafPlants, boundaries, cash, tasks,
     settings,
@@ -30,6 +30,7 @@ export async function loadLedger(): Promise<Ledger> {
     supabase.from("expense_allocations").select("*"),
     supabase.from("input_purchases").select("*"),
     supabase.from("input_draws").select("*"),
+    supabase.from("input_types").select("*").order("label"),
     supabase.from("harvests").select("*"),
     supabase.from("harvest_lines").select("*"),
     supabase.from("sales").select("*"),
@@ -96,7 +97,23 @@ export async function loadLedger(): Promise<Ledger> {
   }));
   const live = new Set(liveExpenses.map((e) => e.id));
 
+  /**
+   * Stock is stored by code — "fert_0_0_60". Every screen that showed a lot,
+   * a draw or a cost driver was printing that code at the farm manager, who
+   * is looking at a sack that says muriate of potash. Resolving it once here
+   * means no screen has to remember to.
+   */
+  const inputTypeLabel = new Map<string, string>(
+    rows<any>(inputTypes, "input types").map((t) => [String(t.code), String(t.label)]),
+  );
+
   return {
+    inputTypes: rows<any>(inputTypes, "input types").map((t) => ({
+      code: String(t.code),
+      label: String(t.label),
+      unit: String(t.unit),
+      active: Boolean(t.active),
+    })),
     plots: rows<any>(plots, "plots").map((p) => ({
       id: p.id, code: p.code, label: p.label,
       sharesOverhead: p.shares_overhead, active: p.active, notes: p.notes,
@@ -125,7 +142,9 @@ export async function loadLedger(): Promise<Ledger> {
         amountCentavos: Number(a.amount_centavos),
       })),
     purchases: rows<any>(purchases, "input purchases").map((p) => ({
-      id: p.id, date: p.date, inputType: p.input_type, quantity: Number(p.quantity),
+      id: p.id, date: p.date, inputType: p.input_type,
+      inputTypeLabel: inputTypeLabel.get(p.input_type) ?? p.input_type,
+      quantity: Number(p.quantity),
       unit: p.unit, unitCostCentavos: Number(p.unit_cost_centavos),
       totalCentavos: Number(p.total_centavos), supplier: p.supplier,
       // Defaults to false on a database the migration has not reached, which

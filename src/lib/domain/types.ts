@@ -130,6 +130,8 @@ export type InputPurchase = {
   id: string;
   date: ISODate;
   inputType: string;
+  /** The catalogue's name for it, resolved at load. Never the bare code. */
+  inputTypeLabel: string;
   quantity: number;
   unit: string;
   unitCostCentavos: Centavos;
@@ -286,6 +288,7 @@ export type Ledger = {
   expenses: Expense[];
   allocations: Allocation[];
   purchases: InputPurchase[];
+  inputTypes: { code: string; label: string; unit: string; active: boolean }[];
   draws: InputDraw[];
   harvests: Harvest[];
   harvestLines: HarvestLine[];
@@ -308,7 +311,7 @@ export type Ledger = {
 
 export const EMPTY_LEDGER: Ledger = {
   plots: [], plotAreas: [], cycles: [], expenses: [], allocations: [],
-  purchases: [], draws: [], harvests: [], harvestLines: [], sales: [],
+  purchases: [], inputTypes: [], draws: [], harvests: [], harvestLines: [], sales: [],
   saleLines: [], plantCounts: [], capitalAssets: [], buyers: [], products: [],
   activities: [], crops: [], subPlots: [], leafMeasurements: [], leafPlants: [], boundaries: [], cashAdvances: [], tasks: [],
   settings: DEFAULT_SETTINGS,
